@@ -7,18 +7,23 @@ Oneplay…). U každého místa ukáže kvalitu obrazu a zvuku, jazyky, odkaz �
 
 ## Spuštění
 
+Image se sestavuje automaticky přes GitHub Actions do `ghcr.io/tlkounev/medialect`
+(`latest` = poslední verze v `main`, verze podle tagů `v*`, platformy amd64 a arm64).
+
 ### QNAP Container Station
-1. Nahraj složku projektu na NAS (např. `/share/Container/medialect`).
-2. Container Station → **Aplikace → Vytvořit** → vlož obsah `docker-compose.yml`
-   (případně uprav port a cestu k `./data`).
-3. Otevři `http://<NAS>:8890`, při prvním spuštění si nastav heslo.
+Create → **Create Application** → název `medialect` → vlož obsah `docker-compose.yml` → Create.
+Pak otevři `http://<NAS>:8890` a nastav heslo.
+
+Aktualizace: v Container Station u aplikace zvol znovunasazení s novým stažením image
+(nebo `docker compose pull && docker compose up -d`).
 
 ### Docker CLI
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-Data (SQLite, nastavení) jsou ve svazku `/data`. Port se mění proměnnou `PORT`.
+Data (SQLite, nastavení) jsou v pojmenovaném svazku `medialect-data` (`/data` v kontejneru).
+Port se mění proměnnou `PORT`. Vlastní build ze zdrojáků: `docker build -t medialect .`
 
 ## Nastavení (vše ve webovém rozhraní)
 

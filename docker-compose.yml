@@ -1,7 +1,6 @@
 services:
   medialect:
-    build: .
-    image: medialect:latest
+    image: ghcr.io/tlkounev/medialect:latest
     container_name: medialect
     restart: unless-stopped
     ports:
@@ -9,4 +8,7 @@ services:
     environment:
       - TZ=Europe/Prague
     volumes:
-      - ./data:/data
+      - medialect-data:/data
+
+volumes:
+  medialect-data:
