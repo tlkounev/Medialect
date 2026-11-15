@@ -6,7 +6,7 @@
 "aria.audioLang": "Hang nyelve", "aria.sub": "Feliratok", "aria.sort": "Rendezés",
 "f.allProviders": "Minden szolgáltatás", "f.allTypes": "Filmek és sorozatok", "f.movies": "Filmek", "f.shows": "Sorozatok",
 "f.anyQuality": "Bármilyen minőség", "f.anyVideo": "Bármilyen kép", "f.anyAudio": "Bármilyen hang",
-"f.anyAudioLang": "Bármilyen hangnyelv", "f.anySub": "Bármilyen felirat", "f.reset": "Szűrők törlése",
+"f.anyAudioLang": "Bármilyen hangnyelv", "f.anySub": "Bármilyen felirat", "f.reset": "Szűrők törlése", "f.clear": "Kijelölés törlése",
 "sort.added": "Újonnan hozzáadott", "sort.year": "Megjelenés éve", "sort.title": "Cím", "sort.rating": "{name} értékelés",
 "cat.count": "{n} cím", "cat.page": "{p}/{n}. oldal", "cat.none": "Nincs találat.",
 "cat.addedNote": "a hozzáadás dátumát a saját könyvtárak és a Streaming Availability ismerik, a többi cím a végén van",

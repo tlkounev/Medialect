@@ -6,7 +6,7 @@
 "aria.audioLang": "Limba sunetului", "aria.sub": "Subtitrări", "aria.sort": "Sortare",
 "f.allProviders": "Toate serviciile", "f.allTypes": "Filme și seriale", "f.movies": "Filme", "f.shows": "Seriale",
 "f.anyQuality": "Orice calitate", "f.anyVideo": "Orice imagine", "f.anyAudio": "Orice sunet",
-"f.anyAudioLang": "Orice limbă a sunetului", "f.anySub": "Orice subtitrare", "f.reset": "Șterge filtrele",
+"f.anyAudioLang": "Orice limbă a sunetului", "f.anySub": "Orice subtitrare", "f.reset": "Șterge filtrele", "f.clear": "Șterge selecția",
 "sort.added": "Adăugate recent", "sort.year": "Anul lansării", "sort.title": "Titlu", "sort.rating": "Notă {name}",
 "cat.count": "{n} titluri", "cat.page": "pagina {p}/{n}", "cat.none": "Nu s-a găsit nimic.",
 "cat.addedNote": "data adăugării este cunoscută pentru bibliotecile proprii și Streaming Availability, celelalte titluri sunt la final",

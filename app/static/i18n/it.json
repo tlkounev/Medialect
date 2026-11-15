@@ -6,7 +6,7 @@
 "aria.audioLang": "Lingua audio", "aria.sub": "Sottotitoli", "aria.sort": "Ordinamento",
 "f.allProviders": "Tutti i servizi", "f.allTypes": "Film e serie", "f.movies": "Film", "f.shows": "Serie",
 "f.anyQuality": "Qualsiasi qualità", "f.anyVideo": "Qualsiasi immagine", "f.anyAudio": "Qualsiasi audio",
-"f.anyAudioLang": "Qualsiasi lingua audio", "f.anySub": "Qualsiasi sottotitolo", "f.reset": "Azzera filtri",
+"f.anyAudioLang": "Qualsiasi lingua audio", "f.anySub": "Qualsiasi sottotitolo", "f.reset": "Azzera filtri", "f.clear": "Cancella selezione",
 "sort.added": "Aggiunti di recente", "sort.year": "Anno di uscita", "sort.title": "Titolo", "sort.rating": "Voto {name}",
 "cat.count": "{n} titoli", "cat.page": "pagina {p}/{n}", "cat.none": "Nessun risultato.",
 "cat.addedNote": "la data di aggiunta è nota per le librerie personali e Streaming Availability, gli altri titoli sono in fondo",

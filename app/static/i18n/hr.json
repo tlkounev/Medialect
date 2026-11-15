@@ -6,7 +6,7 @@
 "aria.audioLang": "Jezik zvuka", "aria.sub": "Titlovi", "aria.sort": "Poredak",
 "f.allProviders": "Sve usluge", "f.allTypes": "Filmovi i serije", "f.movies": "Filmovi", "f.shows": "Serije",
 "f.anyQuality": "Bilo koja kvaliteta", "f.anyVideo": "Bilo koja slika", "f.anyAudio": "Bilo koji zvuk",
-"f.anyAudioLang": "Bilo koji jezik zvuka", "f.anySub": "Bilo koji titlovi", "f.reset": "Poništi filtre",
+"f.anyAudioLang": "Bilo koji jezik zvuka", "f.anySub": "Bilo koji titlovi", "f.reset": "Poništi filtre", "f.clear": "Poništi odabir",
 "sort.added": "Nedavno dodano", "sort.year": "Godina izlaska", "sort.title": "Naslov", "sort.rating": "Ocjena {name}",
 "cat.count": "{n} naslova", "cat.page": "stranica {p}/{n}", "cat.none": "Ništa nije pronađeno.",
 "cat.addedNote": "datum dodavanja poznaju vlastite knjižnice i Streaming Availability, ostali naslovi su na kraju",

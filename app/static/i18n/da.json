@@ -6,7 +6,7 @@
 "aria.audioLang": "Lydsprog", "aria.sub": "Undertekster", "aria.sort": "Sortering",
 "f.allProviders": "Alle tjenester", "f.allTypes": "Film og serier", "f.movies": "Film", "f.shows": "Serier",
 "f.anyQuality": "Enhver kvalitet", "f.anyVideo": "Ethvert billede", "f.anyAudio": "Enhver lyd",
-"f.anyAudioLang": "Ethvert lydsprog", "f.anySub": "Alle undertekster", "f.reset": "Ryd filtre",
+"f.anyAudioLang": "Ethvert lydsprog", "f.anySub": "Alle undertekster", "f.reset": "Ryd filtre", "f.clear": "Ryd valg",
 "sort.added": "Senest tilføjet", "sort.year": "Udgivelsesår", "sort.title": "Titel", "sort.rating": "Bedømmelse {name}",
 "cat.count": "{n} titler", "cat.page": "side {p}/{n}", "cat.none": "Intet fundet.",
 "cat.addedNote": "tilføjelsesdato kendes for egne biblioteker og Streaming Availability, øvrige titler står sidst",

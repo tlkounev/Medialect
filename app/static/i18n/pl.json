@@ -6,7 +6,7 @@
 "aria.audioLang": "Język dźwięku", "aria.sub": "Napisy", "aria.sort": "Sortowanie",
 "f.allProviders": "Wszystkie serwisy", "f.allTypes": "Filmy i seriale", "f.movies": "Filmy", "f.shows": "Seriale",
 "f.anyQuality": "Dowolna jakość", "f.anyVideo": "Dowolny obraz", "f.anyAudio": "Dowolny dźwięk",
-"f.anyAudioLang": "Dowolny język dźwięku", "f.anySub": "Dowolne napisy", "f.reset": "Wyczyść filtry",
+"f.anyAudioLang": "Dowolny język dźwięku", "f.anySub": "Dowolne napisy", "f.reset": "Wyczyść filtry", "f.clear": "Wyczyść wybór",
 "sort.added": "Ostatnio dodane", "sort.year": "Rok wydania", "sort.title": "Tytuł", "sort.rating": "Ocena {name}",
 "cat.count": "{n} tytułów", "cat.page": "strona {p}/{n}", "cat.none": "Nic nie znaleziono.",
 "cat.addedNote": "datę dodania znają własne biblioteki i Streaming Availability, pozostałe tytuły są na końcu",

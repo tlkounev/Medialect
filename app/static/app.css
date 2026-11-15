@@ -120,3 +120,18 @@ label { display: inline-flex; gap: 6px; align-items: center; }
   .settings-box > form, .settings-box > #servers, .settings-box > fieldset { margin: 10px; }
   .title { grid-template-columns: 64px 1fr; } .title img, .title .noimg { width: 64px; height: 96px; }
 }
+
+/* multi-select filter dropdowns */
+.ms { position: relative; }
+.ms-btn { position: relative; background: var(--panel); border-color: var(--line); max-width: 230px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 26px; }
+.ms-btn::after { content: "▾"; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.ms-btn.on { border-color: var(--accent); color: #fff; background: #1b2740; }
+.ms-panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; min-width: 230px; max-width: 320px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+.ms-list { max-height: 320px; overflow-y: auto; display: grid; }
+.ms-list label { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.ms-list label:hover { background: var(--line); }
+.ms-list label span { flex: 1; }
+.ms-list small { color: var(--muted); font-size: 12px; }
+.ms-clear { width: 100%; margin-top: 4px; font-size: 13px; }
+@media (max-width: 640px) { .ms-btn { max-width: 44vw; } .ms-panel { max-width: 88vw; } }

@@ -6,7 +6,7 @@
 "aria.audioLang": "Ses dili", "aria.sub": "Altyazılar", "aria.sort": "Sıralama",
 "f.allProviders": "Tüm hizmetler", "f.allTypes": "Filmler ve diziler", "f.movies": "Filmler", "f.shows": "Diziler",
 "f.anyQuality": "Her kalite", "f.anyVideo": "Her görüntü", "f.anyAudio": "Her ses",
-"f.anyAudioLang": "Her ses dili", "f.anySub": "Her altyazı", "f.reset": "Filtreleri temizle",
+"f.anyAudioLang": "Her ses dili", "f.anySub": "Her altyazı", "f.reset": "Filtreleri temizle", "f.clear": "Seçimi temizle",
 "sort.added": "Yeni eklenenler", "sort.year": "Çıkış yılı", "sort.title": "Ad", "sort.rating": "{name} puanı",
 "cat.count": "{n} başlık", "cat.page": "sayfa {p}/{n}", "cat.none": "Hiçbir şey bulunamadı.",
 "cat.addedNote": "eklenme tarihi kendi kitaplıklarında ve Streaming Availability'de bilinir, diğer başlıklar sondadır",

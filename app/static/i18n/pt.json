@@ -6,7 +6,7 @@
 "aria.audioLang": "Idioma do áudio", "aria.sub": "Legendas", "aria.sort": "Ordenação",
 "f.allProviders": "Todos os serviços", "f.allTypes": "Filmes e séries", "f.movies": "Filmes", "f.shows": "Séries",
 "f.anyQuality": "Qualquer qualidade", "f.anyVideo": "Qualquer imagem", "f.anyAudio": "Qualquer som",
-"f.anyAudioLang": "Qualquer idioma de áudio", "f.anySub": "Quaisquer legendas", "f.reset": "Limpar filtros",
+"f.anyAudioLang": "Qualquer idioma de áudio", "f.anySub": "Quaisquer legendas", "f.reset": "Limpar filtros", "f.clear": "Limpar seleção",
 "sort.added": "Adicionados recentemente", "sort.year": "Ano de lançamento", "sort.title": "Título", "sort.rating": "Classificação {name}",
 "cat.count": "{n} títulos", "cat.page": "página {p}/{n}", "cat.none": "Nada encontrado.",
 "cat.addedNote": "a data de adição é conhecida nas bibliotecas próprias e no Streaming Availability, os restantes títulos ficam no fim",
