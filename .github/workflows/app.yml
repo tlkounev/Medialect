@@ -1,0 +1,206 @@
+name: App (Android, Windows, Linux)
+
+on:
+  push:
+    branches: [main]
+    paths: ["client/**", "app/static/**", ".github/workflows/app.yml"]
+  pull_request:
+    paths: ["client/**", "app/static/**", ".github/workflows/app.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # app-v0.1.x tag + GitHub release with the installers
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: client
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - id: version
+        name: Version (0.1.x)
+        run: |
+          LAST=$(git tag --list 'app-v0.1.*' --sort=-v:refname | head -n1)
+          if [ -z "$LAST" ]; then NEXT=0; else NEXT=$(( ${LAST##*.} + 1 )); fi
+          VERSION="0.1.${NEXT}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Verze aplikace: $VERSION"
+
+  # real JustWatch, IMDb, TVmaze from GitHub's network (the dev sandbox cannot reach them)
+  live:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npx vitest run test/live.test.ts
+        env:
+          LIVE: "1"
+
+  desktop:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: linux
+          - os: windows-latest
+            name: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: client/src-tauri
+      - name: Linux build dependencies
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - run: npm ci
+      - name: Build
+        shell: bash
+        env:
+          APP_VERSION: ${{ needs.test.outputs.version }}
+        run: npx tauri build --config "{\"version\":\"$APP_VERSION\"}"
+      - name: Collect installers
+        shell: bash
+        run: |
+          mkdir -p out
+          B=src-tauri/target/release/bundle
+          V=${{ needs.test.outputs.version }}
+          if [ "${{ matrix.name }}" = linux ]; then
+            cp $B/deb/*.deb "out/Medialect_${V}_amd64.deb"
+            cp $B/rpm/*.rpm "out/Medialect-${V}.x86_64.rpm"
+            cp $B/appimage/*.AppImage "out/Medialect_${V}_amd64.AppImage"
+          else
+            cp $B/nsis/*.exe "out/Medialect_${V}_x64-setup.exe"
+            cp $B/msi/*.msi "out/Medialect_${V}_x64.msi"
+          fi
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: medialect-${{ matrix.name }}
+          path: client/out/*
+          if-no-files-found: error
+
+  android:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Android SDK/NDK (preinstalled on the runner)
+        working-directory: .
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          if [ -n "$ANDROID_NDK_LATEST_HOME" ] && [ -d "$ANDROID_NDK_LATEST_HOME" ]; then
+            NDK="$ANDROID_NDK_LATEST_HOME"
+          else
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" >/dev/null
+            NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          fi
+          echo "NDK_HOME=$NDK" >> "$GITHUB_ENV"
+          echo "NDK: $NDK"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: client/src-tauri
+      - run: npm ci
+      - run: npx tauri android init --ci
+      - name: App icon
+        run: cp -r src-tauri/icons/android/* src-tauri/gen/android/app/src/main/res/
+      - name: Build APK
+        env:
+          APP_VERSION: ${{ needs.test.outputs.version }}
+        run: npx tauri android build --apk --target aarch64 --config "{\"version\":\"$APP_VERSION\"}"
+      - name: Sign APK
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          APK=$(find src-tauri/gen/android -name "*release-unsigned.apk" | head -n1)
+          echo "APK: $APK"
+          BT=$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > release.keystore
+            PASS="$KEYSTORE_PASSWORD"
+          else
+            echo "::warning::ANDROID_KEYSTORE_B64 is not set – signing with a temporary key; updates will need the old app uninstalled first."
+            PASS=temporary
+            keytool -genkeypair -keystore release.keystore -alias medialect -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$PASS" -keypass "$PASS" -dname "CN=Medialect"
+          fi
+          mkdir -p out
+          "$BT/zipalign" -f -p 4 "$APK" aligned.apk
+          "$BT/apksigner" sign --ks release.keystore --ks-pass "pass:$PASS" --key-pass "pass:$PASS" \
+            --out "out/Medialect_${{ needs.test.outputs.version }}_android.apk" aligned.apk
+          "$BT/apksigner" verify --print-certs out/*.apk | head -n 3
+          rm -f release.keystore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: medialect-android
+          path: client/out/*.apk
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, desktop, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: GitHub release app-v${{ needs.test.outputs.version }}
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.test.outputs.version }}
+        run: |
+          ls -la dist
+          gh release create "app-v$V" dist/* --target "$GITHUB_SHA" --title "Medialect app $V" \
+            --notes "Instalační soubory aplikace Medialect $V: Android (.apk), Windows (.exe / .msi), Linux (.AppImage / .deb / .rpm)." \
+            --prerelease

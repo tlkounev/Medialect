@@ -33,9 +33,18 @@ async function boot() {
   buildLangPicker();
   applyI18n();
   authMode = st.configured ? "login" : "setup";
+  if (st.local) {
+    // desktop/mobile app: no login, "Administrace" is just the settings
+    document.body.classList.add("local");
+    DEFAULT_SORT = "year";        // no source in the app knows when a service added a title
+    $("[data-tab=admin]").dataset.i18n = "sub.settings";
+    applyI18n();
+  }
   loadVersion(true);
   setAdmin(st.logged_in, false);
-  openTab(location.hash.slice(1) || "catalog");
+  let start = location.hash.slice(1) || "catalog";
+  if (st.local) { try { if ((await api("/api/onboarding")).pending) start = "admin"; } catch (_) { /* ignore */ } }
+  openTab(start);
   if (st.logged_in) pollBadge();
 }
 
@@ -176,7 +185,7 @@ const MULTI = [["cProvider", "provider", "f.allProviders"], ["cType", "type", "f
                ["cQuality", "quality", "f.anyQuality"], ["cVideo", "video", "f.anyVideo"], ["cAudio", "audio", "f.anyAudio"],
                ["cLang", "lang", "f.anyAudioLang"], ["cSub", "sub", "f.anySub"]];
 const FILTER_KEY = "medialect.filters";
-const DEFAULT_SORT = "added";
+let DEFAULT_SORT = "added";
 const ms = {};                                   // id -> { items: [{value,label,count}], sel: Set }
 
 function savedFilters() { try { return JSON.parse(localStorage.getItem(FILTER_KEY) || "{}"); } catch (_) { return {}; } }
@@ -266,7 +275,8 @@ async function loadFacets() {
     .sort((a, b) => a.label.localeCompare(b.label, uiLang));
   msSet("cLang", langs(f.audio_langs));
   msSet("cSub", langs(f.subtitle_langs));
-  setOptions($("#cSort"), [{ value: "added", label: t("sort.added") }, { value: "year", label: t("sort.year") },
+  const local = document.body.classList.contains("local");
+  setOptions($("#cSort"), [...(local ? [] : [{ value: "added", label: t("sort.added") }]), { value: "year", label: t("sort.year") },
     { value: "title", label: t("sort.title") },
     ...f.ratings.map((r) => ({ value: r.value, label: t("sort.rating", { name: RATING_LABEL[r.value] || r.value }) }))]);
   if (!facetsLoaded) {
