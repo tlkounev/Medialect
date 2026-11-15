@@ -1,0 +1,14 @@
+services:
+  medialect:
+    image: ghcr.io/tlkounev/medialect:latest
+    container_name: medialect
+    restart: unless-stopped
+    ports:
+      - "8890:8890"
+    environment:
+      - TZ=Europe/Prague
+    volumes:
+      - medialect-data:/data
+
+volumes:
+  medialect-data:

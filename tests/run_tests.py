@@ -1,0 +1,254 @@
+"""Offline end-to-end test: mock servers + in-process app."""
+
+import asyncio
+import os
+import sys
+import tempfile
+import threading
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+os.environ["DATA_DIR"] = tempfile.mkdtemp()
+os.environ["DISABLE_SCHEDULER"] = "1"
+
+import uvicorn  # noqa: E402
+from simplejustwatchapi import query as jwq  # noqa: E402
+
+from tests import mock_servers  # noqa: E402
+
+PORT = 9911
+BASE = f"http://127.0.0.1:{PORT}"
+
+
+def start_mock():
+    cfg = uvicorn.Config(mock_servers.app, port=PORT, log_level="warning")
+    srv = uvicorn.Server(cfg)
+    threading.Thread(target=srv.run, daemon=True).start()
+    for _ in range(50):
+        if srv.started:
+            return
+        time.sleep(0.1)
+
+
+# ---------------- fake JustWatch ----------------
+def jw_node(i, year, otype="MOVIE", title=None, imdb=None, offers=None):
+    return {
+        "id": f"tm{i}", "objectId": i, "objectType": otype,
+        "content": {"title": title or f"Film {i}", "fullPath": f"/cz/film/f{i}", "originalReleaseYear": year,
+                    "externalIds": {"imdbId": imdb, "tmdbId": None},
+                    "scoring": {"imdbScore": 8.6, "imdbVotes": 100, "tmdbScore": 8.2, "tomatoMeter": 83}},
+        "offers": offers if offers is not None else [{
+            "id": f"o{i}", "monetizationType": "FLATRATE", "presentationType": "_4K", "standardWebURL": f"https://www.netflix.com/title/{i}",
+            "package": {"id": "p8", "packageId": 8, "clearName": "Netflix", "technicalName": "netflix", "shortName": "nfx"},
+            "videoTechnology": ["DOLBY_VISION"], "audioTechnology": ["DOLBY_ATMOS"],
+            "audioLanguages": ["cs", "en"], "subtitleLanguages": ["cs"],
+        }],
+    }
+
+
+CATALOG = [jw_node(1, 1999, title="Matrix", imdb="tt0133093")]
+CATALOG[0]["offers"].append({
+    "id": "oo", "monetizationType": "FLATRATE", "presentationType": "HD", "standardWebURL": "https://www.oneplay.cz/x",
+    "package": {"id": "p9", "packageId": 9, "clearName": "Oneplay", "technicalName": "oneplay", "shortName": "opl"},
+    "videoTechnology": [], "audioTechnology": [], "audioLanguages": ["cs"], "subtitleLanguages": []})
+CATALOG[0]["offers"].append({  # not subscribed -> ignored
+    "id": "ox", "monetizationType": "FLATRATE", "presentationType": "HD", "standardWebURL": "https://x",
+    "package": {"id": "p10", "packageId": 10, "clearName": "MUBI", "technicalName": "mubi", "shortName": "mub"}})
+CATALOG += [jw_node(1000 + i, 2010 + (i % 5)) for i in range(2500)]           # forces window split
+CATALOG += [jw_node(9000, 2019, otype="SHOW", title="Černobyl", imdb="tt7366338")]
+JW_CALLS = []
+
+
+def fake_popular(country, language, count, best_only, offset, providers, lo, hi, otype):
+    JW_CALLS.append((providers, otype, lo, hi, offset, count))
+    assert count + offset < 2000
+    items = [n for n in CATALOG if n["objectType"] == otype and lo <= n["content"]["originalReleaseYear"] <= hi
+             and any(o["package"]["shortName"] == providers for o in n["offers"])]
+    if len(items) > 1999:
+        items = items[:1999]
+    return [jwq._parse_entry(n) for n in items[offset:offset + count]]
+
+
+def fake_providers(country):
+    return [jwq._parse_package({"id": "p8", "packageId": 8, "clearName": "Netflix", "technicalName": "netflix",
+                                "shortName": "nfx", "monetizationTypes": ["FLATRATE"], "icon": "/i.png"}),
+            jwq._parse_package({"id": "p9", "packageId": 9, "clearName": "Oneplay", "technicalName": "oneplay",
+                                "shortName": "opl", "monetizationTypes": ["FLATRATE"]}),
+            jwq._parse_package({"id": "p1", "packageId": 1, "clearName": "Apple TV Store", "technicalName": "itunes",
+                                "shortName": "itu", "monetizationTypes": ["RENT", "BUY"]})]
+
+
+def main():
+    start_mock()
+    import json, sqlite3
+    from app import ratings, settings as S
+    from app.db import DB_PATH
+    from app.sources import justwatch, streaming_availability
+    from app.main import app
+    from fastapi.testclient import TestClient
+
+    justwatch.jw.popular = fake_popular
+    justwatch.jw.providers = fake_providers
+    justwatch.PAGE = 200
+    streaming_availability.DIRECT_BASE = f"{BASE}/sa"
+    ratings.IMDB_RATINGS_URL = f"{BASE}/imdb/title.ratings.tsv.gz"
+    ratings.CSFD = f"{BASE}/csfd"
+    ratings.CSFD_DELAY_S = 0
+
+    def sql(q):
+        con = sqlite3.connect(DB_PATH)
+        try:
+            return con.execute(q).fetchall()
+        finally:
+            con.close()
+
+    def run_sync(client, job=None):
+        t0 = time.time()
+        client.post("/api/sync", params={"job": job} if job else None)
+        for _ in range(900):
+            jobs = [j for j in client.get("/api/sync/status").json()["jobs"] if not job or j["id"] == job]
+            if all(j["last"] and j["last"]["started_at"] >= t0 - 1 and not j["running"]
+                   and j["last"]["status"] != "running" for j in jobs):
+                return
+            time.sleep(0.2)
+        raise TimeoutError
+
+    with TestClient(app) as client:
+        # ---- auth ----
+        assert client.get("/api/search?q=x").status_code == 401
+        assert client.get("/api/auth/state").json()["configured"] is False
+        assert client.post("/api/auth/setup", json={"password": "short"}).status_code == 400
+        assert client.post("/api/auth/setup", json={"password": "heslo1234"}).status_code == 200
+        assert client.post("/api/auth/setup", json={"password": "heslo1234"}).status_code == 409
+        assert client.get("/api/auth/state").json()["logged_in"] is True
+        token = client.get("/api/auth/token").json()["token"]
+
+        # ---- settings ----
+        body = {
+            "justwatch": {"enabled": True, "providers": ["nfx", "opl"], "request_delay_s": 0},
+            "streaming_availability": {"enabled": True, "api_key": "sakey", "catalogs": ["netflix"], "daily_budget": 50},
+            "servers": [
+                {"type": "emby", "name": "Emby doma", "url": f"{BASE}/emby", "public_url": "https://emby.example.cz", "token": "embykey"},
+                {"type": "jellyfin", "name": "Jellyfin", "url": f"{BASE}/emby", "token": "embykey"},
+                {"type": "plex", "name": "Plex", "url": f"{BASE}/plex", "token": "plextoken"},
+            ],
+            "ratings": {"csfd": True, "imdb_dataset": True, "csfd_daily_budget": 20},
+        }
+        r = client.put("/api/settings", json=body).json()
+        assert r["streaming_availability"]["api_key"] == S.MASK
+        assert all(s["token"] == S.MASK for s in r["servers"])
+        # masked secrets survive a round trip
+        r = client.put("/api/settings", json=r).json()
+        stored = json.loads(sql("SELECT value FROM kv WHERE key='settings'")[0][0])
+        assert stored["streaming_availability"]["api_key"] == "sakey"
+        assert [s["token"] for s in stored["servers"]] == ["embykey", "embykey", "plextoken"]
+        emby_id, jf_id, plex_id = [s["id"] for s in stored["servers"]]
+
+        t = client.post("/api/servers/test", json={**r["servers"][0]}).json()
+        assert t["ok"] and t["info"]["name"] == "Emby doma", t
+        t = client.post("/api/servers/test", json={"type": "emby", "url": f"{BASE}/emby", "token": "bad"}).json()
+        assert not t["ok"]
+        prov = client.get("/api/justwatch/providers").json()["items"]
+        assert [p["short_name"] for p in prov] == ["nfx", "opl"], prov  # rent/buy-only store filtered out
+
+        # ---- run all syncs ----
+        run_sync(client)
+        status = {j["id"]: j["last"] for j in client.get("/api/sync/status").json()["jobs"]}
+        for jid, last in status.items():
+            print(f"  {jid:22} {last['status']:8} items={last['items']}  {(last['message'] or '')[:90]!r}")
+        assert all(l["status"] == "ok" for k, l in status.items() if k != "ratings"), status
+        assert status["ratings"]["status"] in ("ok", "partial")  # ČSFD budget deliberately small
+
+        # JustWatch window splitting: 2010-2014 window had 2500 titles -> must be split, nothing lost
+        n = sql("SELECT COUNT(DISTINCT title_id) FROM availability WHERE source='justwatch' AND provider='netflix'")[0][0]
+        assert n == 2502, n
+        assert any(c[2] == 2010 and c[3] == 2012 for c in JW_CALLS), "window was not split"
+
+        # SA cursor walk
+        assert [c.get("cursor") for c in mock_servers.SA_CALLS if c["show_type"] == "movie"] == [None, "c2"]
+
+        # ---- search ----
+        items = client.get("/api/search", params={"q": "matrix"}).json()["items"]
+        assert len(items) == 1, [i["title"] for i in items]
+        m = items[0]
+        print("  Matrix ->", [(o["provider_name"], o["quality"], o["video"], o["audio"], o["sources"]) for o in m["where"]])
+        print("  ratings ->", [(x["source"], x["display"]) for x in m["ratings"]])
+        provs = {o["provider"]: o for o in m["where"]}
+        assert set(provs) == {f"emby-{emby_id}", f"jellyfin-{jf_id}", f"plex-{plex_id}", "netflix", "oneplay"}, set(provs)
+        nf = provs["netflix"]
+        assert sorted(nf["sources"]) == ["justwatch", "sa"]
+        assert nf["url"] == "https://www.netflix.com/watch/20557937"  # SA deep link wins
+        assert nf["quality"] == "UHD" and "DV" in nf["video"] and "Atmos" in nf["audio"]
+        assert "mubi" not in provs
+        em = provs[f"emby-{emby_id}"]
+        assert em["quality"] == "UHD" and em["video"][:1] == ["DV"] and "Atmos" in em["audio"] and "TrueHD" in em["audio"]
+        assert em["audio_langs"] == ["en", "cs"] and em["subtitle_langs"] == ["cs", "en"]
+        assert em["url"] == "https://emby.example.cz/web/index.html#!/item?id=m1&serverId=srv123"
+        assert provs[f"jellyfin-{jf_id}"]["url"].endswith("/web/#/details?id=m1&serverId=srv123")
+        assert provs[f"plex-{plex_id}"]["quality"] == "FHD"
+        assert provs[f"plex-{plex_id}"]["url"].startswith("https://app.plex.tv/desktop/#!/server/plexmachine/details?key=%2Flibrary%2Fmetadata%2F102")
+        rt = {x["source"]: x["display"] for x in m["ratings"]}
+        assert rt["imdb"] == "8.7" and rt["csfd"] == "91 %" and rt["rottentomatoes"] == "83 %", rt
+        assert m["ids"]["csfd"] == "9499"
+
+        # Czech title without ids (Emby) found by search with/without diacritics, ČSFD found by search
+        for q in ("pelisky", "Pelíšky"):
+            items = client.get("/api/search", params={"q": q}).json()["items"]
+            assert items and items[0]["title"] == "Pelíšky", items
+        pel = items[0]
+        assert {x["source"]: x["display"] for x in pel["ratings"]}.get("csfd") == "89 %", pel["ratings"]
+        assert pel["ids"]["csfd"] == "6648"
+
+        # Dune from Plex: DV + Atmos from detail streams
+        dune = client.get("/api/search", params={"q": "dune"}).json()["items"][0]
+        pd = dune["where"][0]
+        print("  Dune ->", pd["quality"], pd["video"], pd["audio"], pd["audio_langs"])
+        assert pd["quality"] == "UHD" and "DV" in pd["video"] and "Atmos" in pd["audio"] and pd["audio_langs"] == ["en", "cs"]
+        assert dune["poster"].startswith(f"/api/poster/{plex_id}?path=")
+
+        # Series merged across JW / Emby / Plex (imdb + tvdb ids)
+        ch = client.get("/api/search", params={"q": "chernobyl"}).json()["items"]
+        assert len(ch) == 1, [(c["title"], c["ids"]) for c in ch]
+        ch = ch[0]
+        print("  Černobyl ->", [(o["provider_name"], o["quality"], o["video"], o["audio"]) for o in ch["where"]])
+        e = next(o for o in ch["where"] if o["provider"] == f"emby-{emby_id}")
+        assert e["quality"] == "UHD" and "HDR10" in e["video"] and "Atmos" in e["audio"]
+        assert {x["source"]: x["display"] for x in ch["ratings"]}["imdb"] == "9.3"
+
+        # ---- catalog / providers / poster / api key ----
+        cat = client.get("/api/catalog", params={"provider": "oneplay"}).json()
+        assert cat["total"] == 1 and cat["items"][0]["title"] in ("Matrix", "The Matrix")
+        cat = client.get("/api/catalog", params={"video": "DV", "audio": "Atmos", "lang": "cs", "type": "movie", "page_size": 5}).json()
+        assert cat["total"] >= 2500
+        cat = client.get("/api/catalog", params={"provider": f"emby-{emby_id}", "sort": "csfd"}).json()
+        assert [i["title"] for i in cat["items"]][:2] == ["Matrix", "Pelíšky"], [i["title"] for i in cat["items"]]
+        print("  providers ->", client.get("/api/providers").json()["items"])
+        img = client.get(dune["poster"])
+        assert img.status_code == 200 or img.status_code == 404  # plex photo transcoder not mocked
+        assert client.get(f"/api/poster/{emby_id}", params={"path": "/System/Info"}).status_code == 400
+        p = client.get(f"/api/poster/{emby_id}", params={"path": "/Items/m1/Images/Primary?maxHeight=360&tag=abc"})
+        assert p.status_code == 200 and p.content.startswith(b"\x89PNG")
+        by = client.get("/api/titles/by/imdb/tt0133093").json()
+        assert by["id"] == m["id"]
+
+        client.post("/api/auth/logout")
+        client.cookies.clear()
+        assert client.get("/api/stats").status_code == 401
+        assert client.get("/api/stats", headers={"X-Api-Key": token}).status_code == 200
+        assert client.get("/api/stats", headers={"X-Api-Key": "nope"}).status_code == 401
+        assert client.post("/api/auth/login", json={"password": "spatne"}).status_code == 401
+        assert client.post("/api/auth/login", json={"password": "heslo1234"}).status_code == 200
+
+        # ---- stale removal: drop a title from the JW catalogue, re-sync ----
+        CATALOG.pop()  # Černobyl gone from Netflix
+        run_sync(client, "justwatch")
+        ch = client.get("/api/search", params={"q": "chernobyl"}).json()["items"][0]
+        assert "netflix" not in {o["provider"] for o in ch["where"]}
+        m2 = client.get("/api/titles/by/imdb/tt0133093").json()
+        assert {x["source"]: x["display"] for x in m2["ratings"]}["imdb"] == "8.7"  # dataset not overwritten by JW
+        print("  stats ->", client.get("/api/stats").json())
+    print("ALL TESTS PASSED")
+
+
+main()
