@@ -20,10 +20,10 @@ button.ghost { background: transparent; border-color: var(--line); }
 button.danger { color: var(--err); }
 input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
-header { display: flex; align-items: center; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 5; }
-header nav { display: flex; gap: 4px; flex: 1; }
-header nav button { background: transparent; border-color: transparent; }
-header nav button.active { border-color: var(--line); background: var(--panel); }
+#app > header { display: flex; align-items: center; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 5; }
+#app > header nav { display: flex; gap: 4px; flex: 1; }
+#app > header nav button { background: transparent; border-color: transparent; }
+#app > header nav button.active { border-color: var(--line); background: var(--panel); }
 .logo { font-size: 18px; }
 .version { font-size: 12px; font-weight: 600; margin-left: 4px; text-decoration: none; }
 .v-current { color: var(--ok); } .v-update { color: var(--err); } .v-unknown { color: var(--muted); }
@@ -85,8 +85,38 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 .server-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .result.ok { color: var(--ok); } .result.err { color: var(--err); }
 
+/* language picker in the top bar */
+.lang-picker { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+.lang-picker select { padding: 6px 8px; font-size: 13px; max-width: 150px; }
+
+/* settings boxes */
+.settings-box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; margin: 0 0 22px; overflow: hidden; }
+.settings-box > .box-head { padding: 16px 18px 6px; }
+.settings-box > .box-head h2 { margin: 0 0 4px; font-size: 19px; }
+.settings-box > .box-head p { margin: 0; font-size: 13px; }
+.settings-box > form, .settings-box > #servers, .settings-box > fieldset { margin: 12px 18px; width: auto; }
+.settings-box > #addServer { margin: 0 18px 18px; }
+.settings-box fieldset { background: var(--bg); align-items: flex-start; }
+.settings-box fieldset legend { font-weight: 600; color: var(--text); }
+.section-hint { width: 100%; margin: 0 0 4px; font-size: 13px; }
+.field { display: grid; gap: 4px; flex: 1 1 260px; max-width: 420px; align-content: start; }
+.field > span { font-size: 13px; font-weight: 600; }
+.field input, .field select { width: 100%; }
+.field small, .chk small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.field.wide { flex-basis: 100%; max-width: none; }
+.chk { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; flex: 1 1 260px; max-width: 420px; }
+.chk small { grid-column: 2; }
+.savebar { position: sticky; bottom: 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  padding: 14px 18px; background: #1d2330; border-top: 2px solid var(--accent); }
+#saveSettings { font-weight: 600; padding: 10px 18px; }
+#saveSettings.attention { box-shadow: 0 0 0 3px rgba(79,140,255,.35); }
+#saveMsg.dirty { color: var(--warn); }
+.cat-info { color: var(--muted); font-size: 13px; }
+
 @media (max-width: 640px) {
-  header { flex-wrap: wrap; } header nav { order: 3; flex: 1 1 100%; overflow-x: auto; } .logo { flex: 1; }
+  #app > header { flex-wrap: wrap; } #app > header nav { order: 3; flex: 1 1 100%; overflow-x: auto; } .logo { flex: 1; }
   main { padding: 12px; }
+  .lang-picker select { max-width: 110px; }
+  .settings-box > form, .settings-box > #servers, .settings-box > fieldset { margin: 10px; }
   .title { grid-template-columns: 64px 1fr; } .title img, .title .noimg { width: 64px; height: 96px; }
 }

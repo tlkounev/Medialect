@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS availability (
     url            TEXT,            -- deep link / web link
     extra          TEXT,            -- JSON object
     expires_on     TEXT,
+    added_at       TEXT,            -- when the platform/library added it (ISO), if the source says
     seen_at        REAL NOT NULL,
     UNIQUE (title_id, source, provider, monetization)
 );
@@ -107,6 +108,10 @@ class Database:
         await self.conn.execute("PRAGMA foreign_keys=ON")
         await self.conn.execute("PRAGMA synchronous=NORMAL")
         await self.conn.executescript(SCHEMA)
+        async with self.conn.execute("PRAGMA table_info(availability)") as cur:
+            cols = {r[1] for r in await cur.fetchall()}
+        if "added_at" not in cols:                      # databases from v1.0.0–1.0.6
+            await self.conn.execute("ALTER TABLE availability ADD COLUMN added_at TEXT")
         await self.conn.commit()
 
     async def close(self) -> None:

@@ -12,6 +12,11 @@ from ..quality import (audio_tags, best_quality, langs, merge_tags, quality_from
 from .base import SourceError, SyncContext, http_client
 
 PAGE = 300
+
+
+def _iso(ts: int | None) -> str | None:
+    import datetime as dt
+    return dt.datetime.fromtimestamp(ts, dt.UTC).isoformat(timespec="seconds") if ts else None
 DETAIL_CONCURRENCY = 4
 
 
@@ -140,7 +145,7 @@ class Plex:
                 raise SourceError(f"{name}: neplatný X-Plex-Token (HTTP {r.status_code}).")
             sections = r.raise_for_status().json()["MediaContainer"].get("Directory") or []
 
-            async def emit(meta: dict, ttype: str, summary: dict) -> None:
+            async def emit(meta: dict, ttype: str, summary: dict, added: int | None = None) -> None:
                 tid = await store.upsert_title(store.TitleInfo(
                     type=ttype, title=meta.get("title") or "?", original_title=meta.get("originalTitle"),
                     year=meta.get("year"), poster=self.poster(meta),
@@ -150,6 +155,7 @@ class Plex:
                     source=self.source, provider=provider, provider_name=name, kind="library",
                     monetization="library", url=self.link(machine_id, meta["ratingKey"]),
                     extra={"rating_key": meta["ratingKey"], "machine_id": machine_id, "server_type": "plex"},
+                    added_at=_iso(max(filter(None, (meta.get("addedAt"), added)), default=None)),
                     **summary,
                 ), ctx.started)
                 ctx.items += 1
@@ -171,12 +177,15 @@ class Plex:
                     # episodes (type=4) carry Media; aggregate per show, then detail one best episode per show
                     best_ep: dict[str, tuple[dict, dict]] = {}
                     per_show: dict[str, dict] = defaultdict(dict)
+                    newest_ep: dict[str, int] = {}
                     ctx.progress(f"{name}: {label} – epizody")
                     async for ep in self._all(c, sec["key"], 4):
                         show_key = ep.get("grandparentRatingKey")
                         if not show_key:
                             continue
                         b = _media_basic(ep)
+                        if ep.get("addedAt") and ep["addedAt"] > newest_ep.get(show_key, 0):
+                            newest_ep[show_key] = ep["addedAt"]
                         per_show[show_key] = _merge(per_show.get(show_key), b)
                         cur = best_ep.get(show_key)
                         if not cur or best_quality(cur[1]["quality"], b["quality"]) != cur[1]["quality"]:
@@ -187,7 +196,8 @@ class Plex:
                         if isinstance(d, dict) and d:
                             per_show[show_key] = _merge(per_show[show_key], _media_detail(d))
                     async for show in self._all(c, sec["key"]):
-                        await emit(show, "show", per_show.get(show["ratingKey"]) or _media_basic({}))
+                        await emit(show, "show", per_show.get(show["ratingKey"]) or _media_basic({}),
+                                   newest_ep.get(show["ratingKey"]))
 
         removed = await store.remove_stale(self.source, ctx.started)
         ctx.note(f"{name}: {ctx.items} titulů, odstraněno {removed}.")

@@ -3,34 +3,58 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-const SA_CATALOGS_CZ = ["netflix", "prime", "disney", "hbo", "apple", "skyshowtime", "curiosity", "crunchyroll", "zee5"];
-const RATING_LABEL = { csfd: "ČSFD", imdb: "IMDb", rottentomatoes: "RT", rottentomatoes_audience: "RT diváci", metacritic: "Metacritic", metacritic_user: "MC uživ.", letterboxd: "Letterboxd", tmdb: "TMDB", tvmaze: "TVmaze", trakt: "Trakt", mdblist: "MDBList", rogerebert: "Ebert" };
-const MON_LABEL = { flatrate: "", free: "zdarma", ads: "s reklamou", addon: "doplněk", library: "" };
+const SA_CATALOGS = ["netflix", "prime", "disney", "hbo", "apple", "skyshowtime", "paramount", "curiosity", "crunchyroll", "mubi", "zee5"];
+const COUNTRIES = ["CZ", "SK", "PL", "DE", "AT", "CH", "HU", "SI", "HR", "RS", "RO", "BG", "GR", "TR", "UA", "EE", "LV", "LT",
+  "GB", "IE", "FR", "BE", "NL", "LU", "ES", "PT", "IT", "SE", "NO", "DK", "FI", "IS", "US", "CA", "MX", "BR", "AR",
+  "AU", "NZ", "JP", "KR", "IN", "ZA"];
+const TITLE_LANGS = ["cs", "sk", "en", "de", "pl", "hu", "fr", "es", "it", "pt", "nl", "sv", "da", "no", "fi", "uk", "ru",
+  "ro", "hr", "sl", "sr", "bg", "el", "tr", "et", "lv", "lt", "ja", "ko", "zh", "ar"];
+const RATING_LABEL = { csfd: "ČSFD", imdb: "IMDb", rottentomatoes: "RT", rottentomatoes_audience: "RT 👥", metacritic: "Metacritic", metacritic_user: "MC 👥", letterboxd: "Letterboxd", tmdb: "TMDB", tvmaze: "TVmaze", trakt: "Trakt", mdblist: "MDBList", rogerebert: "Ebert" };
 const QUALITY_LABEL = { UHD: "4K", QHD: "1440p", FHD: "1080p", HD: "720p", SD: "SD" };
-const STATUS_LABEL = { ok: "OK", partial: "Částečně", error: "Chyba", running: "Běží", queued: "Ve frontě" };
 
-let isAdmin = false;
+let isAdmin = false, appVersion = "";
 
 async function api(path, opts = {}) {
   const init = { credentials: "same-origin", ...opts, headers: { "Content-Type": "application/json", ...(opts.headers || {}) } };
   if (init.body && typeof init.body !== "string") init.body = JSON.stringify(init.body);
   const r = await fetch(path, init);
-  if (r.status === 401 && !path.startsWith("/api/auth/")) { setAdmin(false); throw new Error("Nepřihlášen"); }
+  if (r.status === 401 && !path.startsWith("/api/auth/")) { setAdmin(false); throw new Error(t("err.unauth")); }
   const data = r.headers.get("content-type")?.includes("json") ? await r.json() : null;
   if (!r.ok) throw new Error(data?.detail || `HTTP ${r.status}`);
   return data;
 }
 
-/* ---------- admin login ---------- */
+/* ---------- start ---------- */
 let authMode = "login";
 async function boot() {
   const st = await api("/api/auth/state");
+  appVersion = st.version;
+  await initI18n(appVersion);
+  buildLangPicker();
+  applyI18n();
   authMode = st.configured ? "login" : "setup";
   loadVersion(true);
   setAdmin(st.logged_in, false);
   openTab(location.hash.slice(1) || "catalog");
   if (st.logged_in) pollBadge();
 }
+
+function buildLangPicker() {
+  const sel = $("#uiLang");
+  sel.innerHTML = UI_LANGS.map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join("");
+  sel.value = uiLang;
+}
+$("#uiLang").addEventListener("change", async (e) => {
+  await initI18n(appVersion, e.target.value);
+  applyI18n();
+  renderLogin();
+  loadVersion();
+  facetsLoaded = false;   // option labels are translated: rebuild them, keep the choice
+  const tab = $$("header nav button").find((b) => b.classList.contains("active"))?.dataset.tab || "catalog";
+  openTab(tab);
+});
+
+/* ---------- admin login ---------- */
 function setAdmin(logged, refresh = true) {
   isAdmin = logged;
   $("#logout").classList.toggle("hidden", !logged);
@@ -41,16 +65,16 @@ function setAdmin(logged, refresh = true) {
 }
 function renderLogin() {
   const setup = authMode === "setup";
-  $("#authHint").textContent = setup ? "První spuštění – nastav heslo pro administraci." : "Pro správu se přihlas.";
+  $("#authHint").textContent = setup ? t("login.setupHint") : t("login.hint");
   $("#authPass2").classList.toggle("hidden", !setup);
   $("#authPass2").required = setup;
-  $("#authBtn").textContent = setup ? "Nastavit heslo" : "Přihlásit";
+  $("#authBtn").textContent = setup ? t("login.setupBtn") : t("login.btn");
 }
 $("#authForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#authErr").textContent = "";
   const password = $("#authPass").value;
-  if (authMode === "setup" && password !== $("#authPass2").value) { $("#authErr").textContent = "Hesla se neshodují."; return; }
+  if (authMode === "setup" && password !== $("#authPass2").value) { $("#authErr").textContent = t("login.mismatch"); return; }
   try {
     await api(authMode === "setup" ? "/api/auth/setup" : "/api/auth/login", { method: "POST", body: { password } });
     $("#authPass").value = $("#authPass2").value = "";
@@ -73,16 +97,14 @@ async function loadVersion(refresh = false) {
     el.textContent = v.current === "dev" ? "dev" : `v${v.current}`;
     el.className = `version v-${v.state}`;
     el.href = v.url;
-    el.title = v.state === "current" ? "Aktuální verze"
-      : v.state === "update" ? `K dispozici je nová verze v${v.latest}`
-      : "Novou verzi nelze ověřit na GitHubu";
+    el.title = v.state === "current" ? t("ver.current") : v.state === "update" ? t("ver.update", { v: v.latest }) : t("ver.unknown");
   } catch (_) { el.className = "version v-unknown"; }
 }
 setInterval(() => loadVersion(), 5 * 60 * 1000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadVersion(true); });
 
 /* ---------- tabs ---------- */
-let statusTimer = null, adminSub = "sync";
+let statusTimer = null, adminSub = "settings";
 function openTab(name) {
   if (!$(`#tab-${name}`)) name = "catalog";
   $$("header nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
@@ -112,40 +134,39 @@ function renderOffer(o) {
   if (o.quality) tags.push(`<span class="tag q-${o.quality}">${QUALITY_LABEL[o.quality] || o.quality}</span>`);
   for (const v of o.video || []) tags.push(`<span class="tag ${/DV|HDR|HLG/.test(v) ? "hdr" : ""}">${esc(v)}</span>`);
   for (const a of o.audio || []) tags.push(`<span class="tag ${/Atmos|DTS:X/.test(a) ? "aud" : ""}">${esc(a)}</span>`);
-  const mon = MON_LABEL[o.monetization] ?? o.monetization;
-  const langs = [];
-  if (o.audio_langs?.length) langs.push(`zvuk: ${o.audio_langs.join(", ")}`);
-  if (o.subtitle_langs?.length) langs.push(`tit.: ${o.subtitle_langs.slice(0, 8).join(", ")}${o.subtitle_langs.length > 8 ? "…" : ""}`);
-  if (o.expires_on) langs.push(`do ${o.expires_on.slice(0, 10)}`);
+  const mon = { free: t("offer.free"), ads: t("offer.ads"), addon: t("offer.addon") }[o.monetization] || "";
+  const info = [];
+  if (o.audio_langs?.length) info.push(`${t("offer.audio")}: ${o.audio_langs.join(", ")}`);
+  if (o.subtitle_langs?.length) info.push(`${t("offer.subs")}: ${o.subtitle_langs.slice(0, 8).join(", ")}${o.subtitle_langs.length > 8 ? "…" : ""}`);
+  if (o.added_at) info.push(t("offer.added", { d: fmtDate(o.added_at) }));
+  if (o.expires_on) info.push(t("offer.until", { d: fmtDate(o.expires_on) }));
   return `<div class="offer ${o.kind}">
     <span class="name">${esc(o.provider_name)}</span>${mon ? `<span class="muted">${esc(mon)}</span>` : ""}
-    ${tags.join("")}<span class="langs">${esc(langs.join(" · "))}</span>
-    ${o.url ? `<a class="play" href="${esc(o.url)}" target="_blank" rel="noopener">Pustit ›</a>` : ""}
+    ${tags.join("")}<span class="langs">${esc(info.join(" · "))}</span>
+    ${o.url ? `<a class="play" href="${esc(o.url)}" target="_blank" rel="noopener">${esc(t("offer.play"))}</a>` : ""}
   </div>`;
 }
-function renderTitle(t) {
-  const ratings = (t.ratings || []).map((r) => {
-    const label = RATING_LABEL[r.source] || r.source;
-    const inner = `${esc(label)} <b>${esc(r.display)}</b>`;
+function renderTitle(ti) {
+  const ratings = (ti.ratings || []).map((r) => {
+    const inner = `${esc(RATING_LABEL[r.source] || r.source)} <b>${esc(r.display)}</b>`;
     return r.url ? `<a class="rating" href="${esc(r.url)}" target="_blank" rel="noopener">${inner}</a>` : `<span class="rating">${inner}</span>`;
   }).join("");
-  const sub = [t.type === "movie" ? "Film" : "Seriál", t.year, t.original_title && t.original_title !== t.title ? t.original_title : null].filter(Boolean).join(" · ");
-  const img = t.poster ? `<img loading="lazy" src="${esc(t.poster)}" alt="">` : `<div class="noimg"></div>`;
+  const sub = [ti.type === "movie" ? t("type.movie") : t("type.show"), ti.year,
+    ti.original_title && ti.original_title !== ti.title ? ti.original_title : null].filter(Boolean).join(" · ");
+  const img = ti.poster ? `<img loading="lazy" src="${esc(ti.poster)}" alt="">` : `<div class="noimg"></div>`;
   return `<article class="title">${img}<div>
-    <h3>${esc(t.title)}</h3><div class="sub">${esc(sub)}</div>
+    <h3>${esc(ti.title)}</h3><div class="sub">${esc(sub)}</div>
     <div class="ratings">${ratings}</div>
-    <div class="offers">${(t.where || []).map(renderOffer).join("")}</div>
+    <div class="offers">${(ti.where || []).map(renderOffer).join("")}</div>
   </div></article>`;
 }
 
-/* ---------- catalog (with search) ---------- */
+/* ---------- catalogue (with search), filters remembered per viewer ---------- */
 let cPage = 1, catalogSeq = 0, searchTimer = null, facetsLoaded = false;
-const FILTERS = [["cProvider", "provider"], ["cType", "type"], ["cQuality", "min_quality"], ["cVideo", "video"],
+const FILTERS = [["cProvider", "provider"], ["cType", "type"], ["cQuality", "quality"], ["cVideo", "video"],
                  ["cAudio", "audio"], ["cLang", "lang"], ["cSub", "sub"], ["cSort", "sort"]];
 const FILTER_KEY = "medialect.filters";
-let langNames = null;
-try { langNames = new Intl.DisplayNames(["cs"], { type: "language" }); } catch (_) { /* old browser */ }
-const langName = (code) => { try { const n = langNames?.of(code); return n && n !== code ? n : code; } catch (_) { return code; } };
+const DEFAULT_SORT = "added";
 
 function savedFilters() { try { return JSON.parse(localStorage.getItem(FILTER_KEY) || "{}"); } catch (_) { return {}; } }
 function saveFilters() {
@@ -153,35 +174,42 @@ function saveFilters() {
   for (const [id] of FILTERS) f[id] = $(`#${id}`).value;
   try { localStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch (_) { /* private mode */ }
 }
-function setOptions(sel, first, items) {
+function setOptions(sel, items) {
   const keep = sel.value;
-  sel.innerHTML = first + items.map((o) => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("");
-  sel.value = keep;
+  sel.innerHTML = items.map((o) => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("");
+  if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
 }
+const withCount = (label, n) => `${label} (${fmtNum(n)})`;
 async function loadFacets() {
   const [{ items }, f] = await Promise.all([api("/api/providers"), api("/api/facets")]);
-  setOptions($("#cProvider"), `<option value="">Všechny služby</option>`, items.map((p) => ({ value: p.provider, label: `${p.name} (${p.titles})` })));
-  setOptions($("#cVideo"), `<option value="">Jakýkoli obraz</option>`, f.video.map((t) => ({ value: t.value, label: `${t.value} (${t.titles})` })));
-  setOptions($("#cAudio"), `<option value="">Jakýkoli zvuk</option>`, f.audio.map((t) => ({ value: t.value, label: `${t.value} (${t.titles})` })));
-  const langs = (arr) => arr.map((t) => ({ value: t.value, label: `${langName(t.value)} (${t.titles})` }))
-    .sort((a, b) => a.label.localeCompare(b.label, "cs"));
-  setOptions($("#cLang"), `<option value="">Jakýkoli jazyk zvuku</option>`, langs(f.audio_langs));
-  setOptions($("#cSub"), `<option value="">Jakékoli titulky</option>`, langs(f.subtitle_langs));
-  setOptions($("#cSort"), `<option value="year">Nejnovější</option><option value="title">Název</option>`,
-    f.ratings.map((r) => ({ value: r.value, label: `Hodnocení ${RATING_LABEL[r.value] || r.value}` })));
+  setOptions($("#cProvider"), [{ value: "", label: t("f.allProviders") },
+    ...items.map((p) => ({ value: p.provider, label: withCount(p.name, p.titles) }))]);
+  setOptions($("#cType"), [{ value: "", label: t("f.allTypes") }, { value: "movie", label: t("f.movies") }, { value: "show", label: t("f.shows") }]);
+  setOptions($("#cQuality"), [{ value: "", label: t("f.anyQuality") },
+    ...f.quality.map((q) => ({ value: q.value, label: withCount(QUALITY_LABEL[q.value] || q.value, q.titles) }))]);
+  setOptions($("#cVideo"), [{ value: "", label: t("f.anyVideo") }, ...f.video.map((x) => ({ value: x.value, label: withCount(x.value, x.titles) }))]);
+  setOptions($("#cAudio"), [{ value: "", label: t("f.anyAudio") }, ...f.audio.map((x) => ({ value: x.value, label: withCount(x.value, x.titles) }))]);
+  const langs = (arr) => arr.map((x) => ({ value: x.value, label: withCount(langName(x.value), x.titles) }))
+    .sort((a, b) => a.label.localeCompare(b.label, uiLang));
+  setOptions($("#cLang"), [{ value: "", label: t("f.anyAudioLang") }, ...langs(f.audio_langs)]);
+  setOptions($("#cSub"), [{ value: "", label: t("f.anySub") }, ...langs(f.subtitle_langs)]);
+  setOptions($("#cSort"), [{ value: "added", label: t("sort.added") }, { value: "year", label: t("sort.year") },
+    { value: "title", label: t("sort.title") },
+    ...f.ratings.map((r) => ({ value: r.value, label: t("sort.rating", { name: RATING_LABEL[r.value] || r.value }) }))]);
   if (!facetsLoaded) {                     // first load: restore the viewer's last choice
     const saved = savedFilters();
     for (const [id] of FILTERS) {
       const sel = $(`#${id}`);
       if (saved[id] !== undefined && [...sel.options].some((o) => o.value === saved[id])) sel.value = saved[id];
     }
+    if (!saved.cSort) $("#cSort").value = DEFAULT_SORT;
     facetsLoaded = true;
   }
 }
 async function loadCatalog() {
   const seq = ++catalogSeq;
   const q = $("#q").value.trim();
-  const sort = $("#cSort").value || "year";
+  const sort = $("#cSort").value || DEFAULT_SORT;
   const params = new URLSearchParams({ page: cPage, page_size: 40, sort, order: sort === "title" ? "asc" : "desc" });
   if (q.length >= 2) params.set("q", q);
   for (const [id, key] of FILTERS) {
@@ -191,8 +219,11 @@ async function loadCatalog() {
     const data = await api(`/api/catalog?${params}`);
     if (seq !== catalogSeq) return;
     const pages = Math.max(1, Math.ceil(data.total / data.page_size));
-    $("#cInfo").textContent = `${data.total} titulů` + (data.total > data.page_size ? ` · strana ${data.page}/${pages}` : "");
-    $("#catalog").innerHTML = data.items.length ? data.items.map(renderTitle).join("") : `<p class="muted">Nic nenalezeno.</p>`;
+    let info = t("cat.count", { n: fmtNum(data.total) });
+    if (data.total > data.page_size) info += ` · ${t("cat.page", { p: data.page, n: pages })}`;
+    if (sort === "added") info += ` · ${t("cat.addedNote")}`;
+    $("#cInfo").textContent = info;
+    $("#catalog").innerHTML = data.items.length ? data.items.map(renderTitle).join("") : `<p class="muted">${esc(t("cat.none"))}</p>`;
     $("#cPrev").disabled = cPage <= 1;
     $("#cNext").disabled = cPage >= pages;
     $(".pager").classList.toggle("hidden", pages <= 1);
@@ -201,37 +232,36 @@ async function loadCatalog() {
 $("#q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { cPage = 1; loadCatalog(); }, 250); });
 $$(".filters select").forEach((s) => s.addEventListener("change", () => { cPage = 1; saveFilters(); loadCatalog(); }));
 $("#cReset").addEventListener("click", () => {
-  for (const [id] of FILTERS) $(`#${id}`).value = id === "cSort" ? "year" : "";
+  for (const [id] of FILTERS) $(`#${id}`).value = id === "cSort" ? DEFAULT_SORT : "";
   cPage = 1; saveFilters(); loadCatalog();
 });
 $("#cPrev").addEventListener("click", () => { cPage--; loadCatalog(); scrollTo(0, 0); });
 $("#cNext").addEventListener("click", () => { cPage++; loadCatalog(); scrollTo(0, 0); });
 
-/* ---------- status ---------- */
-const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString("cs-CZ") : "–");
+/* ---------- synchronisation status ---------- */
+const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString(uiLang) : "–");
 const fmtDur = (sec) => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec / 60); return m ? `${m} min ${sec % 60} s` : `${sec} s`; };
+const jobLabel = (j) => (j.id === "ratings" ? t("job.ratings") : j.label);
 async function loadStatus() {
   const [st, stats] = await Promise.all([api("/api/sync/status"), api("/api/stats")]);
   updateSyncBadge(st);
-  $("#stats").textContent = `${stats.titles} titulů · ${stats.offers} nabídek · ${stats.ratings} hodnocení · poslední plná synchronizace: ${fmtTime(st.last_full)}`;
+  $("#stats").textContent = t("sync.stats", { t: fmtNum(stats.titles), o: fmtNum(stats.offers), r: fmtNum(stats.ratings), d: fmtTime(st.last_full) });
   const now = Date.now() / 1000;
-  $("#jobs").innerHTML = `<tr><th>Zdroj</th><th>Stav</th><th>Začátek</th><th>Položek</th><th>Průběh / poslední zpráva</th><th></th></tr>` +
+  $("#jobs").innerHTML = `<tr><th>${t("col.source")}</th><th>${t("col.status")}</th><th>${t("col.start")}</th><th>${t("col.items")}</th><th>${t("col.detail")}</th><th></th></tr>` +
     st.jobs.map((j) => {
       const l = j.last || {}, p = j.progress;
       const status = j.running ? "running" : j.queued ? "queued" : l.status;
       const started = p ? p.started_at : l.started_at;
       const items = p ? p.items : l.items;
-      const detail = p
-        ? `<b>${esc(p.phase || "…")}</b> · běží ${fmtDur(now - p.started_at)}`
-        : `<pre>${esc(l.message || "")}</pre>`;
-      return `<tr><td>${esc(j.label)}</td>
-        <td class="st-${status || ""}">${esc(STATUS_LABEL[status] || "Zatím neběželo")}</td>
+      const detail = p ? `<b>${esc(p.phase || "…")}</b> · ${esc(t("sync.runningFor", { d: fmtDur(now - p.started_at) }))}` : `<pre>${esc(l.message || "")}</pre>`;
+      return `<tr><td>${esc(jobLabel(j))}</td>
+        <td class="st-${status || ""}">${esc(status ? t(`st.${status}`) : t("st.never"))}</td>
         <td>${fmtTime(started)}</td><td>${items ?? ""}</td>
         <td>${detail}</td>
-        <td><button class="ghost" data-job="${esc(j.id)}" ${j.running ? "disabled" : ""}>Spustit</button></td></tr>`;
+        <td><button class="ghost" data-job="${esc(j.id)}" ${j.running ? "disabled" : ""}>${esc(t("sync.run"))}</button></td></tr>`;
     }).join("");
   $$("#jobs button[data-job]").forEach((b) => b.addEventListener("click", async () => { await api(`/api/sync?job=${encodeURIComponent(b.dataset.job)}`, { method: "POST" }); setTimeout(loadStatus, 500); }));
-  $("#budgets").textContent = `Dnes využito – Streaming Availability: ${st.budgets.sa}, ČSFD: ${st.budgets.csfd}, MDBList: ${st.budgets.mdblist}, OMDb: ${st.budgets.omdb}`;
+  $("#budgets").textContent = t("sync.budgets", { sa: st.budgets.sa, csfd: st.budgets.csfd, mdb: st.budgets.mdblist, omdb: st.budgets.omdb });
 }
 
 /* header badge: visible on every tab while something synchronises */
@@ -241,7 +271,7 @@ function updateSyncBadge(st) {
   badge.classList.toggle("hidden", !running.length);
   if (running.length) {
     const queued = st.jobs.filter((j) => j.queued).length;
-    badge.textContent = `⟳ ${running.map((j) => j.progress?.phase || j.label).join(" · ")}${queued ? ` (+${queued} ve frontě)` : ""}`;
+    badge.textContent = `⟳ ${running.map((j) => j.progress?.phase || jobLabel(j)).join(" · ")}${queued ? ` (${t("sync.queued", { n: queued })})` : ""}`;
   }
 }
 async function pollBadge() {
@@ -250,15 +280,73 @@ async function pollBadge() {
   }
 }
 setInterval(pollBadge, 10000);
-
 $("#syncBadge").addEventListener("click", () => { adminSub = "sync"; openTab("admin"); });
 $("#syncAll").addEventListener("click", async () => { await api("/api/sync", { method: "POST" }); setTimeout(loadStatus, 500); });
 
-/* ---------- settings ---------- */
+/* ---------- catalogue settings ---------- */
 let current = null;
 const getPath = (o, p) => p.split(".").reduce((a, k) => a?.[k], o);
 const setPath = (o, p, v) => { const ks = p.split("."); const last = ks.pop(); ks.reduce((a, k) => (a[k] ??= {}), o)[last] = v; };
 
+function fillChoices() {
+  const country = $("#setCountry"), lang = $("#setLanguage");
+  const cur = current || {};
+  const countries = [...new Set([...COUNTRIES, (cur.country || "CZ").toUpperCase()])];
+  country.innerHTML = countries.map((c) => ({ c, n: regionName(c) })).sort((a, b) => a.n.localeCompare(b.n, uiLang))
+    .map(({ c, n }) => `<option value="${c}">${esc(n)} (${c})</option>`).join("");
+  const langs = [...new Set([...TITLE_LANGS, cur.language || "cs"])];
+  lang.innerHTML = langs.map((c) => ({ c, n: langName(c) })).sort((a, b) => a.n.localeCompare(b.n, uiLang))
+    .map(({ c, n }) => `<option value="${c}">${esc(n)} (${c})</option>`).join("");
+}
+
+async function loadJwProviders() {
+  const box = $("#jwProviders");
+  box.innerHTML = `<span class="muted">${esc(t("set.loading"))}</span>`;
+  try {
+    const { items } = await api(`/api/justwatch/providers?country=${encodeURIComponent($("#setCountry").value)}`);
+    const sel = new Set(current.justwatch.providers || []);
+    box.innerHTML = items.map((p) => `<label title="${esc(p.monetization_types.join(", "))}"><input type="checkbox" value="${esc(p.short_name)}" ${sel.has(p.short_name) ? "checked" : ""}>${p.icon ? `<img src="${esc(p.icon)}" alt="">` : ""}${esc(p.name)}</label>`).join("");
+  } catch (e) { box.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+
+function markDirty(dirty) {
+  $("#saveSettings").classList.toggle("attention", dirty);
+  $("#saveMsg").textContent = dirty ? t("set.unsaved") : "";
+  $("#saveMsg").classList.toggle("dirty", dirty);
+}
+
+async function loadSettings() {
+  current = await api("/api/settings");
+  fillChoices();
+  const f = $("#settingsForm");
+  for (const el of $$("[name]", f)) {
+    const v = getPath(current, el.name);
+    if (el.type === "checkbox") el.checked = !!v; else el.value = v ?? "";
+  }
+  $("#servers").innerHTML = "";
+  current.servers.forEach(addServerRow);
+  const sel = new Set(current.streaming_availability.catalogs || []);
+  $("#saCatalogs").innerHTML = SA_CATALOGS.map((c) => `<label><input type="checkbox" value="${c}" ${sel.has(c) ? "checked" : ""}>${c}</label>`).join("");
+  markDirty(false);
+  loadJwProviders();
+}
+$("#settingsForm").addEventListener("input", () => markDirty(true));
+$("#settingsForm").addEventListener("change", (e) => { markDirty(true); if (e.target.id === "setCountry") loadJwProviders(); });
+$("#settingsForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = {};
+  for (const el of $$("[name]", e.target)) setPath(body, el.name, el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value.trim());
+  const jw = $$("#jwProviders input:checked").map((i) => i.value);
+  if ($$("#jwProviders input").length) body.justwatch.providers = jw;
+  body.streaming_availability.catalogs = $$("#saCatalogs input:checked").map((i) => i.value);
+  try {
+    current = await api("/api/settings", { method: "PUT", body });
+    await loadSettings();
+    $("#saveMsg").textContent = t("set.saved");
+  } catch (err) { $("#saveMsg").textContent = err.message; }
+});
+
+/* ---------- media servers (each saved on its own) ---------- */
 function fillServer(node, srv) {
   node.dataset.id = srv.id || "";
   for (const el of $$("[data-k]", node)) {
@@ -271,31 +359,31 @@ function fillServer(node, srv) {
 }
 function addServerRow(srv = {}) {
   const node = $("#serverTpl").content.firstElementChild.cloneNode(true);
+  applyI18n(node);
   fillServer(node, srv);
   const res = $(".result", node);
   const say = (text, cls = "muted") => { res.textContent = text; res.className = `${cls} result`; };
-  $$("[data-k]", node).forEach((el) => el.addEventListener("input", () => say(node.dataset.id ? "Neuložené změny" : "Nový server – ulož ho")));
+  $$("[data-k]", node).forEach((el) => el.addEventListener("input", () => say(node.dataset.id ? t("srv.unsaved") : t("srv.new"))));
   $(".save", node).addEventListener("click", async () => {
-    say("Ukládám…");
+    say(t("srv.saving"));
     try {
       const saved = await api("/api/servers", { method: "POST", body: readServer(node) });
       fillServer(node, saved);
-      say("Uloženo.", "ok");
-    } catch (e) { say(`Chyba: ${e.message}`, "err"); }
+      say(t("srv.saved"), "ok");
+    } catch (e) { say(`${t("srv.error")}: ${e.message}`, "err"); }
   });
   $(".test", node).addEventListener("click", async () => {
-    say("Testuji…");
+    say(t("srv.testing"));
     try {
       const r = await api("/api/servers/test", { method: "POST", body: readServer(node) });
-      r.ok ? say(`Spojení OK – ${r.info.name || ""} ${r.info.version || ""}`, "ok") : say(`Chyba: ${r.error}`, "err");
-    } catch (e) { say(`Chyba: ${e.message}`, "err"); }
+      r.ok ? say(`${t("srv.ok")} – ${r.info.name || ""} ${r.info.version || ""}`, "ok") : say(`${t("srv.error")}: ${r.error}`, "err");
+    } catch (e) { say(`${t("srv.error")}: ${e.message}`, "err"); }
   });
   $(".remove", node).addEventListener("click", async () => {
     if (!node.dataset.id) { node.remove(); return; }
-    const name = $("[data-k=name]", node).value || "server";
-    if (!confirm(`Odebrat ${name}? Zmizí i jeho tituly z katalogu.`)) return;
+    if (!confirm(t("srv.confirmRemove", { name: $("[data-k=name]", node).value || "server" }))) return;
     try { await api(`/api/servers/${encodeURIComponent(node.dataset.id)}`, { method: "DELETE" }); node.remove(); }
-    catch (e) { say(`Chyba: ${e.message}`, "err"); }
+    catch (e) { say(`${t("srv.error")}: ${e.message}`, "err"); }
   });
   $("#servers").appendChild(node);
   return node;
@@ -307,52 +395,16 @@ function readServer(node) {
 }
 $("#addServer").addEventListener("click", () => $("[data-k=name]", addServerRow({ type: "emby", link_mode: "auto" })).focus());
 
-async function loadJwProviders() {
-  const box = $("#jwProviders");
-  try {
-    const { items } = await api("/api/justwatch/providers");
-    const sel = new Set(current.justwatch.providers || []);
-    box.innerHTML = items.map((p) => `<label title="${esc(p.monetization_types.join(", "))}"><input type="checkbox" value="${esc(p.short_name)}" ${sel.has(p.short_name) ? "checked" : ""}>${p.icon ? `<img src="${esc(p.icon)}" alt="">` : ""}${esc(p.name)}</label>`).join("");
-  } catch (e) { box.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
-}
-
-async function loadSettings() {
-  current = await api("/api/settings");
-  const f = $("#settingsForm");
-  for (const el of $$("[name]", f)) {
-    const v = getPath(current, el.name);
-    if (el.type === "checkbox") el.checked = !!v; else el.value = v ?? "";
-  }
-  $("#servers").innerHTML = "";
-  current.servers.forEach(addServerRow);
-  const sel = new Set(current.streaming_availability.catalogs || []);
-  $("#saCatalogs").innerHTML = SA_CATALOGS_CZ.map((c) => `<label><input type="checkbox" value="${c}" ${sel.has(c) ? "checked" : ""}>${c}</label>`).join("");
-  loadJwProviders();
-}
-$("#settingsForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const body = {};
-  for (const el of $$("[name]", e.target)) setPath(body, el.name, el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value.trim());
-  const jw = $$("#jwProviders input:checked").map((i) => i.value);
-  if ($$("#jwProviders input").length) body.justwatch.providers = jw;
-  body.streaming_availability.catalogs = $$("#saCatalogs input:checked").map((i) => i.value);
-  try {
-    current = await api("/api/settings", { method: "PUT", body });
-    $("#saveMsg").textContent = "Uloženo.";
-    loadSettings();
-  } catch (err) { $("#saveMsg").textContent = err.message; }
-  setTimeout(() => ($("#saveMsg").textContent = ""), 4000);
-});
-
+/* ---------- access ---------- */
 $("#showToken").addEventListener("click", async () => { $("#apiToken").textContent = (await api("/api/auth/token")).token; });
 $("#regenToken").addEventListener("click", async () => {
-  if (!confirm("Starý klíč přestane fungovat. Pokračovat?")) return;
+  if (!confirm(t("acc.regenConfirm"))) return;
   $("#apiToken").textContent = (await api("/api/auth/token/regenerate", { method: "POST" })).token;
 });
 $("#pwForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
-  try { await api("/api/auth/password", { method: "POST", body: { old: fd.get("old"), new: fd.get("new") } }); $("#pwMsg").textContent = "Změněno."; e.target.reset(); }
+  try { await api("/api/auth/password", { method: "POST", body: { old: fd.get("old"), new: fd.get("new") } }); $("#pwMsg").textContent = t("acc.pwDone"); e.target.reset(); }
   catch (err) { $("#pwMsg").textContent = err.message; }
 });
 

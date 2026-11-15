@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import httpx
 from contextlib import asynccontextmanager
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response
@@ -110,9 +111,11 @@ async def api_search(request: Request, q: str, type: str | None = Query(None, pa
 @app.get("/api/catalog")
 async def api_catalog(request: Request, q: str | None = None, provider: str | None = None, type: str | None = Query(None, pattern="^(movie|show)$"),
                       min_quality: str | None = None, video: str | None = None, audio: str | None = None,
-                      lang: str | None = None, sub: str | None = None, sort: str = "year", order: str = "desc",
+                      lang: str | None = None, sub: str | None = None, quality: str | None = None,
+                      sort: str = "added", order: str = "desc",
                       page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)):
-    return await queries.catalog(provider, type, min_quality, video, audio, lang, sub, sort, order, page, page_size, q=q,
+    return await queries.catalog(provider, type, min_quality, video, audio, lang, sub, quality, sort, order, page,
+                                 page_size, q=q,
                                  link_ctx=await link_ctx(request))
 
 
@@ -162,8 +165,11 @@ async def api_poster(server_id: str, path: str):
     headers = ({"X-Plex-Token": srv.get("token", "")} if srv["type"] == "plex"
                else {"X-Emby-Token": srv.get("token", "")} if srv["type"] == "emby"
                else {"Authorization": f'MediaBrowser Token="{srv.get("token", "")}"'})
-    async with http_client(headers=headers, timeout=20) as c:
-        r = await c.get(srv["url"].rstrip("/") + path)
+    try:
+        async with http_client(headers=headers, timeout=20) as c:
+            r = await c.get(srv["url"].rstrip("/") + path)
+    except httpx.HTTPError:
+        raise HTTPException(502, "Server je nedostupný.")
     if r.status_code != 200:
         raise HTTPException(r.status_code, "Obrázek nedostupný.")
     return Response(r.content, media_type=r.headers.get("content-type", "image/jpeg"),
@@ -265,6 +271,7 @@ with open(os.path.join(STATIC, "index.html"), encoding="utf-8") as _f:
     # version in the asset URLs, so a new image never runs with a browser-cached old app.js/app.css
     INDEX_HTML = (_f.read()
                   .replace('href="/static/app.css"', f'href="/static/app.css?v={VERSION}"')
+                  .replace('src="/static/i18n.js"', f'src="/static/i18n.js?v={VERSION}"')
                   .replace('src="/static/app.js"', f'src="/static/app.js?v={VERSION}"'))
 
 

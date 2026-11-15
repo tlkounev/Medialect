@@ -11,115 +11,140 @@
   <header>
     <strong class="logo">Medialect <a id="appVersion" class="version" target="_blank" rel="noopener"></a></strong>
     <nav>
-      <button data-tab="catalog" class="active">Katalog</button>
-      <button data-tab="admin">Administrace</button>
+      <button data-tab="catalog" class="active" data-i18n="nav.catalog">Katalog</button>
+      <button data-tab="admin" data-i18n="nav.admin">Administrace</button>
     </nav>
-    <button id="syncBadge" class="sync-badge hidden" title="Synchronizace – podrobnosti v administraci"></button>
-    <button id="logout" class="ghost hidden">Odhlásit</button>
+    <button id="syncBadge" class="sync-badge hidden" data-i18n-title="sync.badgeTitle"></button>
+    <label class="lang-picker" data-i18n-title="lang.choose">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+      <select id="uiLang" data-i18n-aria="lang.choose"></select>
+    </label>
+    <button id="logout" class="ghost hidden" data-i18n="logout">Odhlásit</button>
   </header>
 
   <main>
     <section id="tab-catalog">
       <div class="searchbar">
-        <input id="q" type="search" placeholder="Hledat film nebo seriál…" autofocus>
+        <input id="q" type="search" data-i18n-ph="search.ph" autofocus>
       </div>
       <div class="filters">
-        <select id="cProvider"><option value="">Všechny služby</option></select>
-        <select id="cType"><option value="">Vše</option><option value="movie">Filmy</option><option value="show">Seriály</option></select>
-        <select id="cQuality"><option value="">Jakákoli kvalita</option><option value="FHD">Full HD+</option><option value="UHD">4K</option></select>
-        <select id="cVideo" aria-label="Obraz"><option value="">Jakýkoli obraz</option></select>
-        <select id="cAudio" aria-label="Zvuk"><option value="">Jakýkoli zvuk</option></select>
-        <select id="cLang" aria-label="Jazyk zvuku"><option value="">Jakýkoli jazyk zvuku</option></select>
-        <select id="cSub" aria-label="Titulky"><option value="">Jakékoli titulky</option></select>
-        <select id="cSort" aria-label="Řazení"><option value="year">Nejnovější</option><option value="title">Název</option></select>
-        <button type="button" id="cReset" class="ghost">Zrušit filtry</button>
+        <select id="cProvider" data-i18n-aria="aria.provider"></select>
+        <select id="cType" data-i18n-aria="aria.type"></select>
+        <select id="cQuality" data-i18n-aria="aria.quality"></select>
+        <select id="cVideo" data-i18n-aria="aria.video"></select>
+        <select id="cAudio" data-i18n-aria="aria.audio"></select>
+        <select id="cLang" data-i18n-aria="aria.audioLang"></select>
+        <select id="cSub" data-i18n-aria="aria.sub"></select>
+        <select id="cSort" data-i18n-aria="aria.sort"></select>
+        <button type="button" id="cReset" class="ghost" data-i18n="f.reset">Zrušit filtry</button>
       </div>
       <div id="cInfo" class="muted"></div>
       <div id="catalog" class="results"></div>
-      <div class="pager"><button id="cPrev" class="ghost">‹ Předchozí</button><button id="cNext" class="ghost">Další ›</button></div>
+      <div class="pager"><button id="cPrev" class="ghost" data-i18n="pager.prev"></button><button id="cNext" class="ghost" data-i18n="pager.next"></button></div>
     </section>
 
     <section id="tab-admin" class="hidden">
       <div id="adminLogin" class="auth">
         <form id="authForm" class="card">
-          <h2>Administrace</h2>
+          <h2 data-i18n="login.title">Administrace</h2>
           <p id="authHint"></p>
-          <input id="authPass" type="password" autocomplete="current-password" placeholder="Heslo" required minlength="8">
-          <input id="authPass2" type="password" autocomplete="new-password" placeholder="Heslo znovu" class="hidden">
-          <button type="submit" id="authBtn">Přihlásit</button>
+          <input id="authPass" type="password" autocomplete="current-password" data-i18n-ph="login.pass" required minlength="8">
+          <input id="authPass2" type="password" autocomplete="new-password" data-i18n-ph="login.pass2" class="hidden">
+          <button type="submit" id="authBtn"></button>
           <p id="authErr" class="err"></p>
         </form>
       </div>
 
       <div id="adminPanel" class="hidden">
         <nav class="subnav">
-          <button data-sub="sync" class="active">Synchronizace</button>
-          <button data-sub="settings">Nastavení</button>
+          <button data-sub="settings" class="active" data-i18n="sub.settings">Nastavení</button>
+          <button data-sub="sync" data-i18n="sub.sync">Synchronizace</button>
         </nav>
-        <div id="sub-sync">
-      <div class="row"><h2>Synchronizace</h2><button id="syncAll">Spustit vše</button></div>
-      <div id="stats" class="muted"></div>
-      <table id="jobs"></table>
-      <div id="budgets" class="muted"></div>
-    </div>
-        <div id="sub-settings" class="hidden">
-      <fieldset><legend>Mediální servery</legend>
-        <p class="muted">Každý server se ukládá zvlášť. Po uložení nového serveru nebo změně připojení se hned spustí jeho synchronizace.</p>
-        <div id="servers"></div>
-        <button type="button" id="addServer" class="ghost">+ Přidat server</button>
-      </fieldset>
 
-      <form id="settingsForm">
-        <fieldset><legend>Obecné</legend>
-          <label>Země <input name="country" size="3"></label>
-          <label>Jazyk názvů <input name="language" size="5"></label>
-          <label>Synchronizace každých <input name="sync_interval_hours" type="number" min="1" step="1"> h</label>
-        </fieldset>
+        <div id="sub-settings">
+          <!-- catalogue settings: one box, one save button -->
+          <section class="settings-box">
+            <header class="box-head">
+              <h2 data-i18n="set.title">Nastavení katalogu</h2>
+              <p class="muted" data-i18n="set.intro"></p>
+            </header>
+            <form id="settingsForm">
+              <fieldset><legend data-i18n="set.general">Obecné</legend>
+                <label class="field"><span data-i18n="set.country"></span><select name="country" id="setCountry"></select><small data-i18n="set.country.h"></small></label>
+                <label class="field"><span data-i18n="set.language"></span><select name="language" id="setLanguage"></select><small data-i18n="set.language.h"></small></label>
+                <label class="field"><span data-i18n="set.interval"></span><input name="sync_interval_hours" type="number" min="1" step="1"><small data-i18n="set.interval.h"></small></label>
+              </fieldset>
 
-        <fieldset><legend>JustWatch (streamovací služby)</legend>
-          <label class="chk"><input type="checkbox" name="justwatch.enabled"> Zapnuto</label>
-          <label>Pauza mezi dotazy <input name="justwatch.request_delay_s" type="number" min="0" step="0.1"> s</label>
-          <p class="muted">Vyber služby, kde máš účet:</p>
-          <div id="jwProviders" class="chips"><span class="muted">Načítám…</span></div>
-        </fieldset>
+              <fieldset><legend data-i18n="set.jw">JustWatch</legend>
+                <p class="muted section-hint" data-i18n="set.jw.h"></p>
+                <label class="chk"><input type="checkbox" name="justwatch.enabled"> <span data-i18n="set.enabled"></span></label>
+                <label class="field"><span data-i18n="set.jw.delay"></span><input name="justwatch.request_delay_s" type="number" min="0" step="0.1"><small data-i18n="set.jw.delay.h"></small></label>
+                <div class="field wide"><span data-i18n="set.jw.providers"></span><small data-i18n="set.jw.providers.h"></small>
+                  <div id="jwProviders" class="chips"></div></div>
+              </fieldset>
 
-        <fieldset><legend>Streaming Availability API (volitelné, přesnější deep linky)</legend>
-          <label class="chk"><input type="checkbox" name="streaming_availability.enabled"> Zapnuto</label>
-          <label>Přístup <select name="streaming_availability.mode"><option value="direct">Přímo (api.movieofthenight.com)</option><option value="rapidapi">RapidAPI</option></select></label>
-          <label>API klíč <input name="streaming_availability.api_key" type="password" autocomplete="off"></label>
-          <label>Denní limit dotazů <input name="streaming_availability.daily_budget" type="number" min="1"></label>
-          <div id="saCatalogs" class="chips"></div>
-        </fieldset>
+              <fieldset><legend data-i18n="set.sa">Streaming Availability API</legend>
+                <p class="muted section-hint" data-i18n="set.sa.h"></p>
+                <label class="chk"><input type="checkbox" name="streaming_availability.enabled"> <span data-i18n="set.enabled"></span></label>
+                <label class="field"><span data-i18n="set.sa.mode"></span><select name="streaming_availability.mode"><option value="direct" data-i18n="set.sa.direct"></option><option value="rapidapi">RapidAPI</option></select><small data-i18n="set.sa.mode.h"></small></label>
+                <label class="field"><span data-i18n="set.sa.key"></span><input name="streaming_availability.api_key" type="password" autocomplete="off"><small data-i18n="set.sa.key.h"></small></label>
+                <label class="field"><span data-i18n="set.sa.budget"></span><input name="streaming_availability.daily_budget" type="number" min="1"><small data-i18n="set.sa.budget.h"></small></label>
+                <div class="field wide"><span data-i18n="set.sa.catalogs"></span><small data-i18n="set.sa.catalogs.h"></small>
+                  <div id="saCatalogs" class="chips"></div></div>
+              </fieldset>
 
-        <fieldset><legend>Hodnocení</legend>
-          <label class="chk"><input type="checkbox" name="ratings.imdb_dataset"> IMDb (oficiální dataset, denně)</label>
-          <label class="chk"><input type="checkbox" name="ratings.justwatch_scores"> Skóre z JustWatch (IMDb, TMDB, RT)</label>
-          <label class="chk"><input type="checkbox" name="ratings.csfd"> ČSFD</label>
-          <label>ČSFD titulů denně (0 = bez limitu) <input name="ratings.csfd_daily_budget" type="number" min="0"></label>
-          <label>MDBList API klíč <input name="ratings.mdblist_api_key" type="password" autocomplete="off"></label>
-          <label>MDBList dotazů denně <input name="ratings.mdblist_daily_budget" type="number" min="1"></label>
-          <label>TMDB API klíč nebo token <input name="ratings.tmdb_api_key" type="password" autocomplete="off"></label>
-          <label class="chk"><input type="checkbox" name="ratings.tvmaze"> TVmaze (seriály, bez klíče)</label>
-          <label>OMDb API klíč <input name="ratings.omdb_api_key" type="password" autocomplete="off"></label>
-          <label>OMDb dotazů denně <input name="ratings.omdb_daily_budget" type="number" min="1"></label>
-          <label>Obnovit hodnocení po <input name="ratings.refresh_days" type="number" min="1"> dnech</label>
-        </fieldset>
+              <fieldset><legend data-i18n="set.ratings">Hodnocení</legend>
+                <label class="chk"><input type="checkbox" name="ratings.imdb_dataset"> <span data-i18n="set.r.imdb"></span><small data-i18n="set.r.imdb.h"></small></label>
+                <label class="chk"><input type="checkbox" name="ratings.justwatch_scores"> <span data-i18n="set.r.jw"></span><small data-i18n="set.r.jw.h"></small></label>
+                <label class="chk"><input type="checkbox" name="ratings.csfd"> <span data-i18n="set.r.csfd"></span><small data-i18n="set.r.csfd.h"></small></label>
+                <label class="chk"><input type="checkbox" name="ratings.tvmaze"> <span data-i18n="set.r.tvmaze"></span><small data-i18n="set.r.tvmaze.h"></small></label>
+                <label class="field"><span data-i18n="set.r.csfdBudget"></span><input name="ratings.csfd_daily_budget" type="number" min="0"><small data-i18n="set.r.csfdBudget.h"></small></label>
+                <label class="field"><span data-i18n="set.r.tmdb"></span><input name="ratings.tmdb_api_key" type="password" autocomplete="off"><small data-i18n="set.r.tmdb.h"></small></label>
+                <label class="field"><span data-i18n="set.r.omdb"></span><input name="ratings.omdb_api_key" type="password" autocomplete="off"><small data-i18n="set.r.omdb.h"></small></label>
+                <label class="field"><span data-i18n="set.r.omdbBudget"></span><input name="ratings.omdb_daily_budget" type="number" min="1"><small data-i18n="set.r.omdbBudget.h"></small></label>
+                <label class="field"><span data-i18n="set.r.mdb"></span><input name="ratings.mdblist_api_key" type="password" autocomplete="off"><small data-i18n="set.r.mdb.h"></small></label>
+                <label class="field"><span data-i18n="set.r.mdbBudget"></span><input name="ratings.mdblist_daily_budget" type="number" min="1"><small data-i18n="set.r.mdbBudget.h"></small></label>
+                <label class="field"><span data-i18n="set.r.refresh"></span><input name="ratings.refresh_days" type="number" min="1"><small data-i18n="set.r.refresh.h"></small></label>
+              </fieldset>
+            </form>
+            <div class="savebar">
+              <button type="submit" form="settingsForm" id="saveSettings" data-i18n="set.save">Uložit nastavení katalogu</button>
+              <span id="saveMsg" class="muted"></span>
+            </div>
+          </section>
 
-        <div class="row"><button type="submit">Uložit</button><span id="saveMsg" class="muted"></span></div>
-      </form>
+          <!-- media servers: each row has its own buttons -->
+          <section class="settings-box">
+            <header class="box-head">
+              <h2 data-i18n="srv.title">Mediální servery</h2>
+              <p class="muted" data-i18n="srv.intro"></p>
+            </header>
+            <div id="servers"></div>
+            <button type="button" id="addServer" class="ghost" data-i18n="srv.add">+ Přidat server</button>
+          </section>
 
-      <fieldset><legend>API pro další aplikace</legend>
-        <p class="muted">Hlavička <code>X-Api-Key</code> nebo parametr <code>?api_key=</code>.</p>
-        <div class="row"><code id="apiToken">••••</code><button type="button" id="showToken" class="ghost">Zobrazit</button><button type="button" id="regenToken" class="ghost">Vygenerovat nový</button></div>
-      </fieldset>
+          <!-- access: unrelated to the catalogue settings -->
+          <section class="settings-box">
+            <header class="box-head"><h2 data-i18n="acc.title">Přístup a zabezpečení</h2></header>
+            <fieldset><legend data-i18n="acc.api">API</legend>
+              <p class="muted section-hint" data-i18n="acc.api.h"></p>
+              <div class="row"><code id="apiToken">••••</code><button type="button" id="showToken" class="ghost" data-i18n="acc.show"></button><button type="button" id="regenToken" class="ghost" data-i18n="acc.regen"></button></div>
+            </fieldset>
+            <fieldset><legend data-i18n="acc.pw">Heslo</legend>
+              <form id="pwForm" class="row">
+                <input name="old" type="password" data-i18n-ph="acc.pwOld" required>
+                <input name="new" type="password" data-i18n-ph="acc.pwNew" minlength="8" required>
+                <button type="submit" class="ghost" data-i18n="acc.pwBtn"></button><span id="pwMsg" class="muted"></span>
+              </form>
+            </fieldset>
+          </section>
+        </div>
 
-      <fieldset><legend>Změna hesla</legend>
-        <form id="pwForm" class="row">
-          <input name="old" type="password" placeholder="Současné heslo" required>
-          <input name="new" type="password" placeholder="Nové heslo (min. 8 znaků)" minlength="8" required>
-          <button type="submit" class="ghost">Změnit</button><span id="pwMsg" class="muted"></span>
-        </form>
-      </fieldset>
+        <div id="sub-sync" class="hidden">
+          <div class="row"><h2 data-i18n="sync.title">Synchronizace</h2><button id="syncAll" data-i18n="sync.runAll"></button></div>
+          <div id="stats" class="muted"></div>
+          <table id="jobs"></table>
+          <div id="budgets" class="muted"></div>
         </div>
       </div>
     </section>
@@ -129,27 +154,28 @@
 <template id="serverTpl">
   <div class="server">
     <div class="server-fields">
-      <label>Typ <select data-k="type"><option value="emby">Emby</option><option value="jellyfin">Jellyfin</option><option value="plex">Plex</option></select></label>
-      <label>Název <input data-k="name" placeholder="např. Emby doma"></label>
-      <label>Interní adresa <input data-k="url" placeholder="http://10.0.0.5:8096"></label>
-      <label>Veřejná adresa <input data-k="public_url" placeholder="https://emby.mojedomena.cz (volitelné)"></label>
-      <label>Klíč <input data-k="token" type="password" placeholder="API klíč / X-Plex-Token" autocomplete="off"></label>
-      <label>Odkazy v katalogu <select data-k="link_mode">
-        <option value="auto">Automaticky (doma interní, venku veřejná)</option>
-        <option value="public">Vždy veřejná adresa</option>
-        <option value="internal">Vždy interní adresa</option>
+      <label><span data-i18n="srv.type"></span> <select data-k="type"><option value="emby">Emby</option><option value="jellyfin">Jellyfin</option><option value="plex">Plex</option></select></label>
+      <label><span data-i18n="srv.name"></span> <input data-k="name" data-i18n-ph="srv.name.ph"></label>
+      <label><span data-i18n="srv.url"></span> <input data-k="url" placeholder="http://10.0.0.5:8096"></label>
+      <label><span data-i18n="srv.public"></span> <input data-k="public_url" data-i18n-ph="srv.public.ph"></label>
+      <label><span data-i18n="srv.token"></span> <input data-k="token" type="password" data-i18n-ph="srv.token.ph" autocomplete="off"></label>
+      <label><span data-i18n="srv.links"></span> <select data-k="link_mode">
+        <option value="auto" data-i18n="srv.links.auto"></option>
+        <option value="public" data-i18n="srv.links.public"></option>
+        <option value="internal" data-i18n="srv.links.internal"></option>
       </select></label>
-      <label class="chk"><input data-k="enabled" type="checkbox" checked> Zapnuto</label>
+      <label class="chk"><input data-k="enabled" type="checkbox" checked> <span data-i18n="set.enabled"></span></label>
     </div>
     <div class="server-actions">
-      <button type="button" class="save">Uložit</button>
-      <button type="button" class="ghost test">Otestovat</button>
-      <button type="button" class="ghost danger remove">Odebrat</button>
+      <button type="button" class="save" data-i18n="srv.save"></button>
+      <button type="button" class="ghost test" data-i18n="srv.test"></button>
+      <button type="button" class="ghost danger remove" data-i18n="srv.remove"></button>
       <span class="muted result"></span>
     </div>
   </div>
 </template>
 
+<script src="/static/i18n.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
