@@ -9,7 +9,7 @@ import time
 from .sources.base import http_client
 
 REPO = os.environ.get("MEDIALECT_REPO", "tlkounev/medialect")
-CHECK_EVERY_S = 6 * 3600
+CHECK_EVERY_S = 15 * 60   # GitHub allows 60 unauthenticated requests per hour and IP
 RETRY_AFTER_ERROR_S = 15 * 60
 _VERSION = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
 
