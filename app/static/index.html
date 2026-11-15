@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Medialect</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div id="auth" class="auth hidden">
+  <form id="authForm" class="card">
+    <h1>Medialect</h1>
+    <p id="authHint"></p>
+    <input id="authPass" type="password" autocomplete="current-password" placeholder="Heslo" required minlength="8">
+    <input id="authPass2" type="password" autocomplete="new-password" placeholder="Heslo znovu" class="hidden">
+    <button type="submit" id="authBtn">Přihlásit</button>
+    <p id="authErr" class="err"></p>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <strong class="logo">Medialect</strong>
+    <nav>
+      <button data-tab="search" class="active">Hledat</button>
+      <button data-tab="catalog">Katalog</button>
+      <button data-tab="status">Stav</button>
+      <button data-tab="settings">Nastavení</button>
+    </nav>
+    <button id="logout" class="ghost">Odhlásit</button>
+  </header>
+
+  <main>
+    <section id="tab-search">
+      <div class="searchbar">
+        <input id="q" type="search" placeholder="Název filmu nebo seriálu…" autofocus>
+        <select id="qType"><option value="">Vše</option><option value="movie">Filmy</option><option value="show">Seriály</option></select>
+      </div>
+      <div id="results" class="results"></div>
+    </section>
+
+    <section id="tab-catalog" class="hidden">
+      <div class="filters">
+        <select id="cProvider"><option value="">Všechny služby</option></select>
+        <select id="cType"><option value="">Vše</option><option value="movie">Filmy</option><option value="show">Seriály</option></select>
+        <select id="cQuality"><option value="">Jakákoli kvalita</option><option value="FHD">Full HD+</option><option value="UHD">4K</option></select>
+        <select id="cVideo"><option value="">Jakýkoli obraz</option><option>DV</option><option>HDR10+</option><option>HDR10</option></select>
+        <select id="cAudio"><option value="">Jakýkoli zvuk</option><option>Atmos</option><option>DTS:X</option><option>TrueHD</option></select>
+        <select id="cLang"><option value="">Jakýkoli dabing</option><option value="cs">Český dabing</option><option value="sk">Slovenský dabing</option></select>
+        <select id="cSort"><option value="csfd">ČSFD</option><option value="imdb" selected>IMDb</option><option value="rottentomatoes">Rotten Tomatoes</option><option value="year">Rok</option><option value="title">Název</option></select>
+      </div>
+      <div id="cInfo" class="muted"></div>
+      <div id="catalog" class="results"></div>
+      <div class="pager"><button id="cPrev" class="ghost">‹ Předchozí</button><button id="cNext" class="ghost">Další ›</button></div>
+    </section>
+
+    <section id="tab-status" class="hidden">
+      <div class="row"><h2>Synchronizace</h2><button id="syncAll">Spustit vše</button></div>
+      <div id="stats" class="muted"></div>
+      <table id="jobs"></table>
+      <div id="budgets" class="muted"></div>
+    </section>
+
+    <section id="tab-settings" class="hidden">
+      <form id="settingsForm">
+        <fieldset><legend>Obecné</legend>
+          <label>Země <input name="country" size="3"></label>
+          <label>Jazyk názvů <input name="language" size="5"></label>
+          <label>Synchronizace každých <input name="sync_interval_hours" type="number" min="1" step="1"> h</label>
+        </fieldset>
+
+        <fieldset><legend>Mediální servery</legend>
+          <div id="servers"></div>
+          <button type="button" id="addServer" class="ghost">+ Přidat server</button>
+        </fieldset>
+
+        <fieldset><legend>JustWatch (streamovací služby)</legend>
+          <label class="chk"><input type="checkbox" name="justwatch.enabled"> Zapnuto</label>
+          <label>Pauza mezi dotazy <input name="justwatch.request_delay_s" type="number" min="0" step="0.1"> s</label>
+          <p class="muted">Vyber služby, kde máš účet:</p>
+          <div id="jwProviders" class="chips"><span class="muted">Načítám…</span></div>
+        </fieldset>
+
+        <fieldset><legend>Streaming Availability API (volitelné, přesnější deep linky)</legend>
+          <label class="chk"><input type="checkbox" name="streaming_availability.enabled"> Zapnuto</label>
+          <label>Přístup <select name="streaming_availability.mode"><option value="direct">Přímo (api.movieofthenight.com)</option><option value="rapidapi">RapidAPI</option></select></label>
+          <label>API klíč <input name="streaming_availability.api_key" type="password" autocomplete="off"></label>
+          <label>Denní limit dotazů <input name="streaming_availability.daily_budget" type="number" min="1"></label>
+          <div id="saCatalogs" class="chips"></div>
+        </fieldset>
+
+        <fieldset><legend>Hodnocení</legend>
+          <label class="chk"><input type="checkbox" name="ratings.imdb_dataset"> IMDb (oficiální dataset, denně)</label>
+          <label class="chk"><input type="checkbox" name="ratings.justwatch_scores"> Skóre z JustWatch (IMDb, TMDB, RT)</label>
+          <label class="chk"><input type="checkbox" name="ratings.csfd"> ČSFD</label>
+          <label>ČSFD titulů denně <input name="ratings.csfd_daily_budget" type="number" min="1"></label>
+          <label>MDBList API klíč <input name="ratings.mdblist_api_key" type="password" autocomplete="off"></label>
+          <label>MDBList dotazů denně <input name="ratings.mdblist_daily_budget" type="number" min="1"></label>
+          <label>Obnovit hodnocení po <input name="ratings.refresh_days" type="number" min="1"> dnech</label>
+        </fieldset>
+
+        <div class="row"><button type="submit">Uložit</button><span id="saveMsg" class="muted"></span></div>
+      </form>
+
+      <fieldset><legend>API pro další aplikace</legend>
+        <p class="muted">Hlavička <code>X-Api-Key</code> nebo parametr <code>?api_key=</code>.</p>
+        <div class="row"><code id="apiToken">••••</code><button type="button" id="showToken" class="ghost">Zobrazit</button><button type="button" id="regenToken" class="ghost">Vygenerovat nový</button></div>
+      </fieldset>
+
+      <fieldset><legend>Změna hesla</legend>
+        <form id="pwForm" class="row">
+          <input name="old" type="password" placeholder="Současné heslo" required>
+          <input name="new" type="password" placeholder="Nové heslo (min. 8 znaků)" minlength="8" required>
+          <button type="submit" class="ghost">Změnit</button><span id="pwMsg" class="muted"></span>
+        </form>
+      </fieldset>
+    </section>
+  </main>
+</div>
+
+<template id="serverTpl">
+  <div class="server">
+    <select data-k="type"><option value="emby">Emby</option><option value="jellyfin">Jellyfin</option><option value="plex">Plex</option></select>
+    <input data-k="name" placeholder="Název (např. Emby doma)">
+    <input data-k="url" placeholder="Interní URL, např. http://192.168.1.10:8096">
+    <input data-k="public_url" placeholder="Veřejná URL pro odkazy (volitelné)">
+    <input data-k="token" type="password" placeholder="API klíč / X-Plex-Token" autocomplete="off">
+    <label class="chk"><input data-k="enabled" type="checkbox" checked> Zapnuto</label>
+    <button type="button" class="ghost test">Otestovat</button>
+    <button type="button" class="ghost danger remove">Odebrat</button>
+    <span class="muted result"></span>
+  </div>
+</template>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

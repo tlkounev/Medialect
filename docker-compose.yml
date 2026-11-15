@@ -1,0 +1,12 @@
+services:
+  medialect:
+    build: .
+    image: medialect:latest
+    container_name: medialect
+    restart: unless-stopped
+    ports:
+      - "8890:8890"
+    environment:
+      - TZ=Europe/Prague
+    volumes:
+      - ./data:/data
