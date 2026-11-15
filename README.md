@@ -34,7 +34,7 @@ Port se mění proměnnou `PORT`. Vlastní build ze zdrojáků: `docker build -t
 | Mediální servery | Typ, interní URL, volitelně veřejnou URL (z ní se staví odkazy „Pustit“), klíč |
 | JustWatch | Zaškrtni služby, kde máš účet. Bez klíče. |
 | Streaming Availability | Volitelné: API klíč z movieofthenight.com (přímo nebo přes RapidAPI), katalogy, denní limit |
-| Hodnocení | IMDb dataset, ČSFD, volitelně klíč MDBList |
+| Hodnocení | IMDb dataset, ČSFD, TVmaze (bez klíče), volitelně klíče TMDB, OMDb a MDBList |
 
 **Kde vzít klíče**
 - **Emby:** Nastavení → Pokročilé → API klíče → Nový.

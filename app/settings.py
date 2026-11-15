@@ -38,6 +38,10 @@ DEFAULTS: dict[str, Any] = {
         "csfd_daily_budget": 0,          # 0 = no daily limit
         "mdblist_api_key": "",
         "mdblist_daily_budget": 900,
+        "tmdb_api_key": "",             # v3 API key or v4 read access token
+        "tvmaze": True,                 # free, no key; series only
+        "omdb_api_key": "",
+        "omdb_daily_budget": 950,       # free key: 1000 requests/day
         "refresh_days": 14,
     },
 }
@@ -45,6 +49,8 @@ DEFAULTS: dict[str, Any] = {
 SECRET_PATHS = [
     ("streaming_availability", "api_key"),
     ("ratings", "mdblist_api_key"),
+    ("ratings", "tmdb_api_key"),
+    ("ratings", "omdb_api_key"),
 ]
 
 

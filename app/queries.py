@@ -9,8 +9,8 @@ from .db import db
 from .links import server_link
 from .quality import QUALITY_ORDER, best_quality, merge_tags, norm
 
-RATING_ORDER = ["csfd", "imdb", "rottentomatoes", "rottentomatoes_audience", "metacritic", "metacritic_user",
-                "letterboxd", "tmdb", "trakt", "mdblist"]
+RATING_ORDER = ["csfd", "imdb", "tmdb", "tvmaze", "rottentomatoes", "rottentomatoes_audience", "metacritic",
+                "metacritic_user", "letterboxd", "trakt", "mdblist"]
 SOURCE_PRIORITY = {"sa": 0, "justwatch": 1}  # whose link wins when both know the same offer
 
 
@@ -107,6 +107,7 @@ async def search(q: str, ttype: str | None = None, providers: list[str] | None =
 
 async def catalog(provider: str | None = None, ttype: str | None = None, min_quality: str | None = None,
                   video: str | None = None, audio: str | None = None, lang: str | None = None,
+                  sub: str | None = None,
                   sort: str = "imdb", order: str = "desc", page: int = 1, page_size: int = 50,
                   q: str | None = None, link_ctx: dict | None = None) -> dict:
     cond, params = [], []
@@ -128,6 +129,9 @@ async def catalog(provider: str | None = None, ttype: str | None = None, min_qua
     if lang:
         cond.append("a.audio_langs LIKE ?")
         params.append(f'%"{lang}"%')
+    if sub:
+        cond.append("a.subtitle_langs LIKE ?")
+        params.append(f'%"{sub}"%')
     av = "SELECT 1 FROM availability a WHERE a.title_id=t.id" + "".join(f" AND {c}" for c in cond)
     where = f"WHERE EXISTS ({av})"
     if ttype:
@@ -174,3 +178,21 @@ async def stats() -> dict:
     o = await db.fetchone("SELECT COUNT(*) AS n FROM availability")
     r = await db.fetchone("SELECT COUNT(*) AS n FROM ratings WHERE display IS NOT NULL")
     return {"titles": t["n"], "offers": o["n"], "ratings": r["n"]}
+
+
+async def facets() -> dict:
+    """Values that actually occur in the catalogue, with title counts, for the filter menus."""
+    async def tags(col: str) -> list[dict]:
+        rows = await db.fetchall(
+            f"SELECT j.value AS v, COUNT(DISTINCT a.title_id) AS n FROM availability a, json_each(a.{col}) j "
+            "WHERE j.value IS NOT NULL AND j.value != '' GROUP BY j.value ORDER BY n DESC")
+        return [{"value": r["v"], "titles": r["n"]} for r in rows]
+    ratings = await db.fetchall(
+        "SELECT source, COUNT(*) AS n FROM ratings WHERE display IS NOT NULL GROUP BY source ORDER BY n DESC")
+    return {
+        "audio_langs": await tags("audio_langs"),
+        "subtitle_langs": await tags("subtitle_langs"),
+        "video": await tags("video"),
+        "audio": await tags("audio"),
+        "ratings": [{"value": r["source"], "titles": r["n"]} for r in ratings],
+    }

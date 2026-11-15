@@ -95,6 +95,9 @@ def main():
     ratings.IMDB_RATINGS_URL = f"{BASE}/imdb/title.ratings.tsv.gz"
     ratings.CSFD = f"{BASE}/csfd"
     ratings.CSFD_DELAY_S = 0
+    ratings.TMDB_API = f"{BASE}/tmdb"
+    ratings.TVMAZE_API = f"{BASE}/tvmaze"
+    ratings.OMDB_API = f"{BASE}/omdb/"
 
     def sql(q):
         con = sqlite3.connect(DB_PATH)
@@ -161,7 +164,8 @@ def main():
                 {"type": "jellyfin", "name": "Jellyfin", "url": f"{BASE}/emby", "token": "embykey"},
                 {"type": "plex", "name": "Plex", "url": f"{BASE}/plex", "token": "plextoken"},
             ],
-            "ratings": {"csfd": True, "imdb_dataset": True, "csfd_daily_budget": 20},
+            "ratings": {"csfd": True, "imdb_dataset": True, "csfd_daily_budget": 20,
+                        "tmdb_api_key": "tmdbkey", "omdb_api_key": "omdbkey", "tvmaze": True},
         }
         r = client.put("/api/settings", json=body).json()
         time.sleep(0.5)
@@ -224,8 +228,14 @@ def main():
         assert provs[f"plex-{plex_id}"]["quality"] == "FHD"
         assert provs[f"plex-{plex_id}"]["url"].startswith("https://app.plex.tv/desktop/#!/server/plexmachine/details?key=%2Flibrary%2Fmetadata%2F102")
         rt = {x["source"]: x["display"] for x in m["ratings"]}
-        assert rt["imdb"] == "8.7" and rt["csfd"] == "91 %" and rt["rottentomatoes"] == "83 %", rt
+        assert rt["imdb"] == "8.7" and rt["csfd"] == "91 %" and rt["rottentomatoes"] == "88 %", rt   # OMDb (newer) over JustWatch
         assert m["ids"]["csfd"] == "9499"
+
+        # TMDB (by tmdb id or found via IMDb id), OMDb (RT + Metacritic), TVmaze (series)
+        assert rt["tmdb"] == "7.9" and rt["metacritic"] == "73/100", rt
+        stored = json.loads(sql("SELECT value FROM kv WHERE key='settings'")[0][0])
+        assert stored["ratings"]["tmdb_api_key"] == "tmdbkey"
+        assert client.get("/api/settings").json()["ratings"]["omdb_api_key"] == S.MASK
 
         # Czech title without ids (Emby) found by search with/without diacritics, ČSFD found by search
         for q in ("pelisky", "Pelíšky"):
@@ -254,6 +264,7 @@ def main():
         e = next(o for o in ch["where"] if o["provider"] == f"emby-{emby_id}")
         assert e["quality"] == "UHD" and "HDR10" in e["video"] and "Atmos" in e["audio"]
         assert {x["source"]: x["display"] for x in ch["ratings"]}["imdb"] == "9.3"
+        assert {x["source"]: x["display"] for x in ch["ratings"]}["tvmaze"] == "8.9", ch["ratings"]
 
         # ---- catalog / providers / poster / api key ----
         cat = client.get("/api/catalog", params={"provider": "oneplay"}).json()
@@ -268,6 +279,20 @@ def main():
         assert [i["title"] for i in cat["items"]] == ["Pelíšky"]
         cat = client.get("/api/catalog", params={"q": "film 100", "sort": "title", "order": "asc", "page_size": 3}).json()
         assert cat["items"][0]["title"] == "Film 1000" and cat["total"] == 10, (cat["total"], [i["title"] for i in cat["items"]])
+        # facets: every language present, subtitle filter
+        f = client.get("/api/facets").json()
+        alang = {x["value"] for x in f["audio_langs"]}
+        assert {"cs", "en"} <= alang, alang
+        assert {"cs", "en"} <= {x["value"] for x in f["subtitle_langs"]}
+        assert "DV" in {x["value"] for x in f["video"]} and "Atmos" in {x["value"] for x in f["audio"]}
+        assert {"csfd", "imdb", "tmdb", "tvmaze"} <= {x["value"] for x in f["ratings"]}, f["ratings"]
+        assert all(x["value"] not in ("tmdb_api", "omdb") for x in f["ratings"])
+        cat = client.get("/api/catalog", params={"lang": "en", "type": "movie", "provider": f"emby-{emby_id}"}).json()
+        assert [i["title"] for i in cat["items"]] == ["Matrix"], [i["title"] for i in cat["items"]]
+        cat = client.get("/api/catalog", params={"sub": "en", "provider": f"emby-{emby_id}"}).json()
+        assert [i["title"] for i in cat["items"]] == ["Matrix"]
+        cat = client.get("/api/catalog", params={"sort": "tvmaze"}).json()
+        assert cat["items"][0]["ids"].get("imdb") == "tt7366338"
         print("  providers ->", client.get("/api/providers").json()["items"])
         img = client.get(dune["poster"])
         assert img.status_code == 200 or img.status_code == 404  # plex photo transcoder not mocked
@@ -342,7 +367,8 @@ def main():
         ch = client.get("/api/search", params={"q": "chernobyl"}).json()["items"][0]
         assert "netflix" not in {o["provider"] for o in ch["where"]}
         m2 = client.get("/api/titles/by/imdb/tt0133093").json()
-        assert {x["source"]: x["display"] for x in m2["ratings"]}["imdb"] == "8.7"  # dataset not overwritten by JW
+        r2 = {x["source"]: x["display"] for x in m2["ratings"]}
+        assert r2["imdb"] == "8.7" and r2["tmdb"] == "7.9" and r2["rottentomatoes"] == "88 %", r2  # JW re-sync overwrites nothing
         print("  stats ->", client.get("/api/stats").json())
     print("ALL TESTS PASSED")
 

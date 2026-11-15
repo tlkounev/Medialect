@@ -280,6 +280,145 @@ async def mdblist(ctx: SyncContext) -> None:
             await asyncio.sleep(0.2)
 
 
+
+# --- shared helper for per-title rating sources -----------------------------
+async def _due(source: str, refresh_days: float, kinds: tuple[str, ...], ttype: str | None = None) -> list:
+    """Titles in the catalogue that have one of the id kinds and no fresh `source` rating."""
+    refresh = time.time() - refresh_days * 86400
+    sql = (f"""SELECT t.id, t.type,
+                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='imdb') AS imdb,
+                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='tvdb') AS tvdb,
+                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='tmdb_movie') AS tmdb_movie,
+                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='tmdb_tv') AS tmdb_tv
+           FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source=?
+           WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)
+             AND EXISTS (SELECT 1 FROM title_ids i WHERE i.title_id=t.id AND i.kind IN ({','.join('?' * len(kinds))}))
+             AND (r.updated_at IS NULL OR r.updated_at < ?)""")
+    params: list = [source, *kinds, refresh]
+    if ttype:
+        sql += " AND t.type=?"
+        params.append(ttype)
+    sql += " ORDER BY r.updated_at IS NOT NULL, r.updated_at, t.id"
+    return await db.fetchall(sql, params)
+
+
+# --- TMDB (free API key) ------------------------------------------------------
+TMDB_API = "https://api.themoviedb.org/3"
+
+
+def _tmdb_auth(key: str) -> tuple[dict, dict]:
+    if key.startswith("eyJ"):            # v4 read access token
+        return {"Authorization": f"Bearer {key}"}, {}
+    return {}, {"api_key": key}
+
+
+async def tmdb(ctx: SyncContext) -> None:
+    cfg = ctx.settings["ratings"]
+    key = cfg.get("tmdb_api_key")
+    if not key:
+        return
+    rows = await _due("tmdb_api", float(cfg.get("refresh_days", 14)), ("tmdb_movie", "tmdb_tv", "imdb"))
+    headers, auth = _tmdb_auth(key)
+    async with http_client(headers=headers) as c:
+        for i, row in enumerate(rows, 1):
+            ctx.progress(f"TMDB: {i}/{len(rows)}")
+            kind = "movie" if row["type"] == "movie" else "tv"
+            tmdb_id = row["tmdb_movie"] if kind == "movie" else row["tmdb_tv"]
+            if not tmdb_id and row["imdb"]:
+                r = await c.get(f"{TMDB_API}/find/{row['imdb']}", params={**auth, "external_source": "imdb_id"})
+                if r.status_code == 401:
+                    raise SourceError("TMDB: neplatný API klíč.")
+                hits = (r.json().get("movie_results" if kind == "movie" else "tv_results") or []) if r.status_code == 200 else []
+                if hits:
+                    tmdb_id = str(hits[0]["id"])
+                    await store.add_title_id(row["id"], f"tmdb_{kind if kind == 'movie' else 'tv'}", tmdb_id)
+            if not tmdb_id:
+                await store.set_rating(row["id"], "tmdb_api", None, None)
+                continue
+            r = await c.get(f"{TMDB_API}/{kind}/{tmdb_id}", params=auth)
+            if r.status_code == 401:
+                raise SourceError("TMDB: neplatný API klíč.")
+            if r.status_code == 429:
+                await asyncio.sleep(10)
+                continue
+            if r.status_code == 200:
+                d = r.json()
+                avg, votes = d.get("vote_average"), d.get("vote_count")
+                if avg and votes:
+                    await store.set_rating(row["id"], "tmdb", avg * 10, f"{avg:.1f}", votes,
+                                           f"https://www.themoviedb.org/{kind}/{tmdb_id}")
+                    ctx.items += 1
+            await store.set_rating(row["id"], "tmdb_api", None, None)   # marker: checked now
+            await asyncio.sleep(0.15)
+
+
+# --- TVmaze (free, no key, series only) ---------------------------------------
+TVMAZE_API = "https://api.tvmaze.com"
+
+
+async def tvmaze(ctx: SyncContext) -> None:
+    cfg = ctx.settings["ratings"]
+    rows = await _due("tvmaze", float(cfg.get("refresh_days", 14)), ("imdb", "tvdb"), ttype="show")
+    async with http_client() as c:
+        for i, row in enumerate(rows, 1):
+            ctx.progress(f"TVmaze: {i}/{len(rows)}")
+            show = None
+            for param, value in (("imdb", row["imdb"]), ("thetvdb", row["tvdb"])):
+                if not value:
+                    continue
+                r = await c.get(f"{TVMAZE_API}/lookup/shows", params={param: value})
+                if r.status_code == 429:
+                    await asyncio.sleep(10)
+                    r = await c.get(f"{TVMAZE_API}/lookup/shows", params={param: value})
+                await asyncio.sleep(0.6)            # TVmaze allows 20 calls per 10 s
+                if r.status_code == 200:
+                    show = r.json()
+                    break
+            avg = ((show or {}).get("rating") or {}).get("average")
+            if avg:
+                await store.set_rating(row["id"], "tvmaze", avg * 10, f"{avg:.1f}", None, show.get("url"))
+                ctx.items += 1
+            else:
+                await store.set_rating(row["id"], "tvmaze", None, None)
+
+
+# --- OMDb (free key, 1000 requests/day): relays IMDb, Rotten Tomatoes, Metacritic --
+OMDB_API = "https://www.omdbapi.com/"
+
+async def omdb(ctx: SyncContext) -> None:
+    cfg = ctx.settings["ratings"]
+    key = cfg.get("omdb_api_key")
+    if not key:
+        return
+    rows = await _due("omdb", float(cfg.get("refresh_days", 14)), ("imdb",))
+    budget = int(cfg.get("omdb_daily_budget", 950))
+    async with http_client() as c:
+        for i, row in enumerate(rows, 1):
+            ctx.progress(f"OMDb: {i}/{len(rows)}")
+            if not await db.budget_take("omdb", budget):
+                ctx.partial = True
+                ctx.note(f"OMDb: denní limit {budget} dotazů vyčerpán, pokračuje se zítra.")
+                return
+            r = await c.get(OMDB_API, params={"apikey": key, "i": row["imdb"]})
+            if r.status_code == 401:
+                raise SourceError("OMDb: neplatný API klíč nebo vyčerpaný limit.")
+            d = r.json() if r.status_code == 200 else {}
+            if d.get("Response") == "False" and "limit" in (d.get("Error") or "").lower():
+                ctx.partial = True
+                ctx.note("OMDb: limit API vyčerpán.")
+                return
+            for rt in d.get("Ratings") or []:
+                src, val = rt.get("Source"), rt.get("Value") or ""
+                if src == "Rotten Tomatoes" and val.endswith("%"):
+                    await store.set_rating(row["id"], "rottentomatoes", float(val[:-1]), val.replace("%", " %"))
+                elif src == "Metacritic" and "/" in val:
+                    score = val.split("/")[0]
+                    await store.set_rating(row["id"], "metacritic", float(score), f"{score}/100")
+            await store.set_rating(row["id"], "omdb", None, None)        # marker: checked now
+            ctx.items += 1
+            await asyncio.sleep(0.25)
+
+
 async def sync(ctx: SyncContext) -> None:
     cfg = ctx.settings["ratings"]
     if await db.kv_get("migrate.csfd_reset_v2") is None:
@@ -290,6 +429,18 @@ async def sync(ctx: SyncContext) -> None:
         await imdb_dataset(ctx)
     if cfg.get("mdblist_api_key"):
         await mdblist(ctx)
+    for name, fn, on in (("TMDB", tmdb, cfg.get("tmdb_api_key")), ("TVmaze", tvmaze, cfg.get("tvmaze", True)),
+                         ("OMDb", omdb, cfg.get("omdb_api_key"))):
+        if not on:
+            continue
+        try:
+            await fn(ctx)
+        except SourceError as e:            # one broken source must not stop the others
+            ctx.partial = True
+            ctx.note(str(e))
+        except Exception as e:  # noqa: BLE001
+            ctx.partial = True
+            ctx.note(f"{name}: {type(e).__name__}: {e}")
     if cfg.get("csfd", True):
         await csfd(ctx)
         if cfg.get("imdb_dataset", True):

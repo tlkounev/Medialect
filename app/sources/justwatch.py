@@ -107,9 +107,10 @@ async def _store_entry(ctx: SyncContext, entry, selected: dict[str, str]) -> Non
                                    f"https://www.imdb.com/title/{entry.imdb_id}/",
                                    only_if_missing=ctx.settings["ratings"].get("imdb_dataset", True))
         if sc.tmdb_score:
-            await store.set_rating(tid, "tmdb", sc.tmdb_score * 10, f"{sc.tmdb_score:.1f}")
+            # JustWatch scores only fill gaps; dedicated sources (TMDB API, OMDb, MDBList) win
+            await store.set_rating(tid, "tmdb", sc.tmdb_score * 10, f"{sc.tmdb_score:.1f}", only_if_missing=True)
         if sc.tomatometer is not None:
-            await store.set_rating(tid, "rottentomatoes", sc.tomatometer, f"{sc.tomatometer} %")
+            await store.set_rating(tid, "rottentomatoes", sc.tomatometer, f"{sc.tomatometer} %", only_if_missing=True)
     ctx.items += 1
 
 

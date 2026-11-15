@@ -110,9 +110,9 @@ async def api_search(request: Request, q: str, type: str | None = Query(None, pa
 @app.get("/api/catalog")
 async def api_catalog(request: Request, q: str | None = None, provider: str | None = None, type: str | None = Query(None, pattern="^(movie|show)$"),
                       min_quality: str | None = None, video: str | None = None, audio: str | None = None,
-                      lang: str | None = None, sort: str = "imdb", order: str = "desc",
+                      lang: str | None = None, sub: str | None = None, sort: str = "year", order: str = "desc",
                       page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)):
-    return await queries.catalog(provider, type, min_quality, video, audio, lang, sort, order, page, page_size, q=q,
+    return await queries.catalog(provider, type, min_quality, video, audio, lang, sub, sort, order, page, page_size, q=q,
                                  link_ctx=await link_ctx(request))
 
 
@@ -131,6 +131,11 @@ async def api_title_by_id(request: Request, kind: str, value: str):
     if not row:
         raise HTTPException(404, "Titul nenalezen.")
     return (await queries.hydrate([row["title_id"]], await link_ctx(request)))[0]
+
+
+@app.get("/api/facets")
+async def api_facets():
+    return await queries.facets()
 
 
 @app.get("/api/providers")
@@ -236,7 +241,7 @@ async def jw_providers(country: str | None = None):
 async def sync_status():
     return {"jobs": await manager.status(), "last_full": await db.kv_get("sync.last_full", 0),
             "running": bool(manager.running),
-            "budgets": {n: await db.budget_used(n) for n in ("sa", "csfd", "mdblist")}}
+            "budgets": {n: await db.budget_used(n) for n in ("sa", "csfd", "mdblist", "omdb")}}
 
 
 @app.post("/api/sync", dependencies=authed)
