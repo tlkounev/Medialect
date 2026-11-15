@@ -71,5 +71,17 @@
 "acc.api.h": "Pro jiné aplikace, např. ovladač TV: hlavička X-Api-Key nebo parametr ?api_key=.",
 "acc.show": "Zobrazit", "acc.regen": "Vygenerovat nový", "acc.regenConfirm": "Starý klíč přestane fungovat. Pokračovat?",
 "acc.pw": "Změna hesla", "acc.pwOld": "Současné heslo", "acc.pwNew": "Nové heslo (min. 8 znaků)", "acc.pwBtn": "Změnit",
-"acc.pwDone": "Heslo změněno."
+"acc.pwDone": "Heslo změněno.",
+"wiz.title": "Vítej v Medialectu",
+"wiz.step": "Krok {n} z {m}",
+"wiz.country.h": "Vyber zemi, ve které se díváš. Podle ní se nabídnou služby, které tam fungují.",
+"wiz.next": "Pokračovat",
+"wiz.back": "Zpět",
+"wiz.skip": "Přeskočit",
+"wiz.finish": "Dokončit a spustit synchronizaci",
+"wiz.providers": "Které služby máš?",
+"wiz.providers.h": "Zaškrtni služby, ke kterým máš přístup. Ostatní se v katalogu nezobrazí, změnit to jde kdykoli v Nastavení.",
+"wiz.ratings": "Hodnocení",
+"wiz.ratings.h": "Odkud brát hodnocení. Další zdroje (TMDB, OMDb, MDBList) přidáš v Nastavení.",
+"set.jw.showAll": "Zobrazit všechny služby v zemi ({n})"
 }

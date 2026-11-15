@@ -71,5 +71,17 @@
 "acc.api.h": "Dla innych aplikacji, np. pilota TV: nagłówek X-Api-Key lub parametr ?api_key=.",
 "acc.show": "Pokaż", "acc.regen": "Wygeneruj nowy", "acc.regenConfirm": "Stary klucz przestanie działać. Kontynuować?",
 "acc.pw": "Zmiana hasła", "acc.pwOld": "Obecne hasło", "acc.pwNew": "Nowe hasło (min. 8 znaków)", "acc.pwBtn": "Zmień",
-"acc.pwDone": "Hasło zmienione."
+"acc.pwDone": "Hasło zmienione.",
+"wiz.title": "Witaj w Medialect",
+"wiz.step": "Krok {n} z {m}",
+"wiz.country.h": "Wybierz kraj, w którym oglądasz. Zostaną zaproponowane serwisy dostępne w tym kraju.",
+"wiz.next": "Dalej",
+"wiz.back": "Wstecz",
+"wiz.skip": "Pomiń",
+"wiz.finish": "Zakończ i uruchom synchronizację",
+"wiz.providers": "Jakie serwisy masz?",
+"wiz.providers.h": "Zaznacz serwisy, do których masz dostęp. Pozostałe nie pojawią się w katalogu; możesz to zmienić w Ustawieniach.",
+"wiz.ratings": "Oceny",
+"wiz.ratings.h": "Skąd brać oceny. Kolejne źródła (TMDB, OMDb, MDBList) dodasz w Ustawieniach.",
+"set.jw.showAll": "Pokaż wszystkie serwisy w kraju ({n})"
 }

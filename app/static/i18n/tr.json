@@ -71,5 +71,17 @@
 "acc.api.h": "Diğer uygulamalar için, ör. TV kumandası: X-Api-Key başlığı veya ?api_key= parametresi.",
 "acc.show": "Göster", "acc.regen": "Yenisini oluştur", "acc.regenConfirm": "Eski anahtar çalışmayı durduracak. Devam edilsin mi?",
 "acc.pw": "Parolayı değiştir", "acc.pwOld": "Geçerli parola", "acc.pwNew": "Yeni parola (en az 8 karakter)", "acc.pwBtn": "Değiştir",
-"acc.pwDone": "Parola değiştirildi."
+"acc.pwDone": "Parola değiştirildi.",
+"wiz.title": "Medialect'e hoş geldin",
+"wiz.step": "Adım {n}/{m}",
+"wiz.country.h": "İzlediğin ülkeyi seç. Orada kullanılabilen hizmetler önerilir.",
+"wiz.next": "Devam",
+"wiz.back": "Geri",
+"wiz.skip": "Atla",
+"wiz.finish": "Bitir ve senkronizasyonu başlat",
+"wiz.providers": "Hangi hizmetlere sahipsin?",
+"wiz.providers.h": "Erişimin olan hizmetleri işaretle. Diğerleri katalogda görünmez; bunu Ayarlar'dan istediğin zaman değiştirebilirsin.",
+"wiz.ratings": "Puanlar",
+"wiz.ratings.h": "Puanların nereden alınacağı. Diğer kaynakları (TMDB, OMDb, MDBList) Ayarlar'dan eklersin.",
+"set.jw.showAll": "Ülkedeki tüm hizmetleri göster ({n})"
 }

@@ -71,5 +71,17 @@
 "acc.api.h": "Za druge aplikacije, npr. TV daljinski: zaglavlje X-Api-Key ili parametar ?api_key=.",
 "acc.show": "Prikaži", "acc.regen": "Generiraj novi", "acc.regenConfirm": "Stari ključ prestat će raditi. Nastaviti?",
 "acc.pw": "Promjena lozinke", "acc.pwOld": "Trenutna lozinka", "acc.pwNew": "Nova lozinka (min. 8 znakova)", "acc.pwBtn": "Promijeni",
-"acc.pwDone": "Lozinka promijenjena."
+"acc.pwDone": "Lozinka promijenjena.",
+"wiz.title": "Dobro došao u Medialect",
+"wiz.step": "Korak {n} od {m}",
+"wiz.country.h": "Odaberi državu u kojoj gledaš. Ponudit će se usluge koje tamo rade.",
+"wiz.next": "Nastavi",
+"wiz.back": "Natrag",
+"wiz.skip": "Preskoči",
+"wiz.finish": "Završi i pokreni sinkronizaciju",
+"wiz.providers": "Koje usluge imaš?",
+"wiz.providers.h": "Označi usluge kojima imaš pristup. Ostale se neće prikazivati u katalogu; to možeš promijeniti u Postavkama.",
+"wiz.ratings": "Ocjene",
+"wiz.ratings.h": "Odakle uzimati ocjene. Ostale izvore (TMDB, OMDb, MDBList) dodaješ u Postavkama.",
+"set.jw.showAll": "Prikaži sve usluge u državi ({n})"
 }

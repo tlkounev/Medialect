@@ -34,7 +34,7 @@ DEFAULTS: dict[str, Any] = {
     "ratings": {
         "imdb_dataset": True,
         "justwatch_scores": True,
-        "csfd": True,
+        "csfd": False,                  # opt-in: ČSFD has no API, pages are scraped
         "csfd_daily_budget": 0,          # 0 = no daily limit
         "mdblist_api_key": "",
         "mdblist_daily_budget": 900,
@@ -70,6 +70,12 @@ async def load() -> dict[str, Any]:
         stored["ratings"]["csfd_daily_budget"] = 0   # the old default was an arbitrary cap, not ČSFD's limit
         await db.kv_set("settings", stored)
         await db.kv_set("migrate.csfd_budget_v2", True)
+    if not await db.kv_get("migrate.csfd_optin_v3"):
+        # ČSFD became opt-in; installs that already ran keep it on unless they turned it off
+        if await db.kv_get("auth.password") and "csfd" not in stored.get("ratings", {}):
+            stored.setdefault("ratings", {})["csfd"] = True
+            await db.kv_set("settings", stored)
+        await db.kv_set("migrate.csfd_optin_v3", True)
     return _merge(DEFAULTS, stored)
 
 

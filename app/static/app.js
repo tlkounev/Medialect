@@ -59,6 +59,7 @@ function setAdmin(logged, refresh = true) {
   isAdmin = logged;
   $("#logout").classList.toggle("hidden", !logged);
   $("#adminPanel").classList.toggle("hidden", !logged);
+  if (!logged) $("#wizard").classList.add("hidden");
   $("#adminLogin").classList.toggle("hidden", logged);
   if (!logged) { $("#syncBadge").classList.add("hidden"); renderLogin(); }
   if (refresh && !$("#tab-admin").classList.contains("hidden")) openTab("admin");
@@ -113,8 +114,15 @@ function openTab(name) {
   clearInterval(statusTimer);
   if (name === "catalog") loadFacets().catch(() => {}).then(loadCatalog);
   if (name === "admin") {
-    if (isAdmin) openSub(adminSub); else $("#authPass").focus();
+    if (isAdmin) openAdmin(); else $("#authPass").focus();
   }
+}
+async function openAdmin() {
+  let pending = false;
+  try { pending = (await api("/api/onboarding")).pending; } catch (_) { /* older server */ }
+  $("#wizard").classList.toggle("hidden", !pending);
+  $("#adminPanel").classList.toggle("hidden", pending);
+  if (pending) startWizard(); else openSub(adminSub);
 }
 function openSub(name) {
   adminSub = name;
@@ -366,7 +374,13 @@ async function loadJwProviders() {
   try {
     const { items } = await api(`/api/justwatch/providers?country=${encodeURIComponent($("#setCountry").value)}`);
     const sel = new Set(current.justwatch.providers || []);
-    box.innerHTML = items.map((p) => `<label title="${esc(p.monetization_types.join(", "))}"><input type="checkbox" value="${esc(p.short_name)}" ${sel.has(p.short_name) ? "checked" : ""}>${p.icon ? `<img src="${esc(p.icon)}" alt="">` : ""}${esc(p.name)}</label>`).join("");
+    box.innerHTML = items.map((p) => `<label class="${sel.has(p.short_name) ? "" : "other"}" title="${esc(p.monetization_types.join(", "))}"><input type="checkbox" value="${esc(p.short_name)}" ${sel.has(p.short_name) ? "checked" : ""}>${p.icon ? `<img src="${esc(p.icon)}" alt="">` : ""}${esc(p.name)}</label>`).join("");
+    // services the user does not have stay hidden; one click shows the rest of the country's offer
+    const anyChosen = items.some((p) => sel.has(p.short_name));
+    $("#jwShowAll").checked = !anyChosen;
+    $("#jwShowAll").closest("label").classList.toggle("hidden", !anyChosen);
+    box.classList.toggle("all", !anyChosen);
+    $("#jwShowAll").nextElementSibling.textContent = t("set.jw.showAll", { n: items.length });
   } catch (e) { box.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
 }
 
@@ -391,8 +405,9 @@ async function loadSettings() {
   markDirty(false);
   loadJwProviders();
 }
-$("#settingsForm").addEventListener("input", () => markDirty(true));
-$("#settingsForm").addEventListener("change", (e) => { markDirty(true); if (e.target.id === "setCountry") loadJwProviders(); });
+$("#jwShowAll").addEventListener("change", (e) => { e.stopPropagation(); $("#jwProviders").classList.toggle("all", e.target.checked); });
+$("#settingsForm").addEventListener("input", (e) => { if (e.target.id !== "jwShowAll") markDirty(true); });
+$("#settingsForm").addEventListener("change", (e) => { if (e.target.id === "jwShowAll") return; markDirty(true); if (e.target.id === "setCountry") loadJwProviders(); });
 $("#settingsForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const body = {};
@@ -405,6 +420,73 @@ $("#settingsForm").addEventListener("submit", async (e) => {
     await loadSettings();
     $("#saveMsg").textContent = t("set.saved");
   } catch (err) { $("#saveMsg").textContent = err.message; }
+});
+
+/* ---------- first-run wizard ---------- */
+const LANG_COUNTRY = { cs: "CZ", sk: "SK", de: "DE", pl: "PL", hu: "HU", fr: "FR", es: "ES", it: "IT", pt: "PT", nl: "NL",
+  sv: "SE", da: "DK", nb: "NO", fi: "FI", uk: "UA", ro: "RO", hr: "HR", sl: "SI", tr: "TR", en: "GB" };
+let wizStepNo = 1, wizProvidersFor = null;
+function guessCountry() {
+  for (const l of navigator.languages || [navigator.language]) {
+    const r = (l || "").split("-")[1];
+    if (r && COUNTRIES.includes(r.toUpperCase())) return r.toUpperCase();
+  }
+  return LANG_COUNTRY[uiLang] || "US";
+}
+function startWizard() {
+  const country = $("#wizCountry"), lang = $("#wizLanguage");
+  country.innerHTML = COUNTRIES.map((c) => ({ c, n: regionName(c) })).sort((a, b) => a.n.localeCompare(b.n, uiLang))
+    .map(({ c, n }) => `<option value="${c}">${esc(n)}</option>`).join("");
+  lang.innerHTML = TITLE_LANGS.map((c) => ({ c, n: langName(c) })).sort((a, b) => a.n.localeCompare(b.n, uiLang))
+    .map(({ c, n }) => `<option value="${c}">${esc(n)}</option>`).join("");
+  country.value = guessCountry();
+  const l = uiLang === "nb" ? "no" : uiLang;
+  lang.value = TITLE_LANGS.includes(l) ? l : "en";
+  wizShow(1);
+}
+function wizShow(n) {
+  wizStepNo = n;
+  $$("#wizard [data-step]").forEach((d) => d.classList.toggle("hidden", Number(d.dataset.step) !== n));
+  $("#wizStep").textContent = t("wiz.step", { n, m: 3 });
+  $("#wizBack").classList.toggle("hidden", n === 1);
+  $("#wizNext").textContent = n === 3 ? t("wiz.finish") : t("wiz.next");
+  $("#wizMsg").textContent = "";
+  if (n === 2) wizLoadProviders();
+  if (n === 3) $("#wizCsfd").closest("label").classList.toggle("hidden", !["CZ", "SK"].includes($("#wizCountry").value));
+}
+async function wizLoadProviders() {
+  const c = $("#wizCountry").value, box = $("#wizProviders");
+  if (wizProvidersFor === c) return;
+  box.innerHTML = `<span class="muted">${esc(t("set.loading"))}</span>`;
+  try {
+    const { items } = await api(`/api/justwatch/providers?country=${encodeURIComponent(c)}`);
+    box.innerHTML = items.map((p) => `<label><input type="checkbox" value="${esc(p.short_name)}">${p.icon ? `<img src="${esc(p.icon)}" alt="">` : ""}${esc(p.name)}</label>`).join("");
+    wizProvidersFor = c;
+  } catch (e) { box.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+$("#wizBack").addEventListener("click", () => wizShow(Math.max(1, wizStepNo - 1)));
+$("#wizNext").addEventListener("click", async () => {
+  if (wizStepNo < 3) { wizShow(wizStepNo + 1); return; }
+  const btn = $("#wizNext");
+  btn.disabled = true;
+  const country = $("#wizCountry").value;
+  const body = {
+    country, language: $("#wizLanguage").value,
+    justwatch: { enabled: true, providers: $$("#wizProviders input:checked").map((i) => i.value) },
+    ratings: { imdb_dataset: $("#wizImdb").checked, tvmaze: $("#wizTvmaze").checked,
+               csfd: ["CZ", "SK"].includes(country) && $("#wizCsfd").checked },
+  };
+  try {
+    await api("/api/settings", { method: "PUT", body });
+    await api("/api/onboarding/done", { method: "POST" });
+    adminSub = "sync";
+    openAdmin();
+  } catch (e) { $("#wizMsg").textContent = e.message; }
+  btn.disabled = false;
+});
+$("#wizSkip").addEventListener("click", async () => {
+  try { await api("/api/onboarding/done", { method: "POST" }); } catch (_) { /* ignore */ }
+  openAdmin();
 });
 
 /* ---------- media servers (each saved on its own) ---------- */

@@ -71,5 +71,17 @@
 "acc.api.h": "Pour d’autres applications, p. ex. une télécommande TV : en-tête X-Api-Key ou paramètre ?api_key=.",
 "acc.show": "Afficher", "acc.regen": "Générer une nouvelle", "acc.regenConfirm": "L’ancienne clé cessera de fonctionner. Continuer ?",
 "acc.pw": "Changer le mot de passe", "acc.pwOld": "Mot de passe actuel", "acc.pwNew": "Nouveau mot de passe (8 caractères min.)", "acc.pwBtn": "Changer",
-"acc.pwDone": "Mot de passe changé."
+"acc.pwDone": "Mot de passe changé.",
+"wiz.title": "Bienvenue dans Medialect",
+"wiz.step": "Étape {n} sur {m}",
+"wiz.country.h": "Choisis le pays où tu regardes. Les services disponibles dans ce pays te seront proposés.",
+"wiz.next": "Continuer",
+"wiz.back": "Retour",
+"wiz.skip": "Passer",
+"wiz.finish": "Terminer et synchroniser",
+"wiz.providers": "Quels services as-tu ?",
+"wiz.providers.h": "Coche les services auxquels tu as accès. Les autres n’apparaîtront pas dans le catalogue ; modifiable à tout moment dans les Paramètres.",
+"wiz.ratings": "Notes",
+"wiz.ratings.h": "D’où viennent les notes. D’autres sources (TMDB, OMDb, MDBList) s’ajoutent dans les Paramètres.",
+"set.jw.showAll": "Afficher tous les services du pays ({n})"
 }

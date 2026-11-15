@@ -173,6 +173,11 @@ def main():
         assert client.post("/api/auth/setup", json={"password": "short"}).status_code == 400
         assert client.post("/api/auth/setup", json={"password": "heslo1234"}).status_code == 200
         assert client.post("/api/auth/setup", json={"password": "heslo1234"}).status_code == 409
+        # first run: setup wizard pending, ČSFD opt-in on a fresh install
+        assert client.get("/api/onboarding").json() == {"pending": True}
+        assert client.get("/api/settings").json()["ratings"]["csfd"] is False
+        assert client.post("/api/onboarding/done").status_code == 200
+        assert client.get("/api/onboarding").json() == {"pending": False}
         assert client.get("/api/auth/state").json()["logged_in"] is True
         token = client.get("/api/auth/token").json()["token"]
 
@@ -386,6 +391,14 @@ def main():
         st = run_sync(client, "ratings")
         assert sql("SELECT COUNT(*) FROM ratings WHERE source='csfd' AND value IS NOT NULL")[0][0] >= 2
 
+        # existing install from before ČSFD became opt-in keeps it on
+        cur = json.loads(sql("SELECT value FROM kv WHERE key='settings'")[0][0])
+        cur["ratings"].pop("csfd", None)
+        sql_exec("UPDATE kv SET value='" + json.dumps(cur).replace("'", "''") + "' WHERE key='settings'")
+        sql_exec("DELETE FROM kv WHERE key='migrate.csfd_optin_v3'")
+        assert client.get("/api/settings").json()["ratings"]["csfd"] is True
+        sql_exec("UPDATE kv SET value='" + json.dumps(cur).replace("'", "''") + "' WHERE key='settings'")
+        assert client.get("/api/settings").json()["ratings"]["csfd"] is False   # migration runs once
         # old default ČSFD cap (400) is migrated to "no limit"
         cur = json.loads(sql("SELECT value FROM kv WHERE key='settings'")[0][0])
         cur["ratings"]["csfd_daily_budget"] = 400

@@ -71,5 +71,17 @@
 "acc.api.h": "Para outras aplicações, p. ex. um comando de TV: cabeçalho X-Api-Key ou parâmetro ?api_key=.",
 "acc.show": "Mostrar", "acc.regen": "Gerar nova", "acc.regenConfirm": "A chave antiga deixa de funcionar. Continuar?",
 "acc.pw": "Alterar palavra-passe", "acc.pwOld": "Palavra-passe atual", "acc.pwNew": "Nova palavra-passe (mín. 8 caracteres)", "acc.pwBtn": "Alterar",
-"acc.pwDone": "Palavra-passe alterada."
+"acc.pwDone": "Palavra-passe alterada.",
+"wiz.title": "Bem-vindo ao Medialect",
+"wiz.step": "Passo {n} de {m}",
+"wiz.country.h": "Escolhe o país onde vês conteúdos. Serão sugeridos os serviços disponíveis lá.",
+"wiz.next": "Continuar",
+"wiz.back": "Voltar",
+"wiz.skip": "Saltar",
+"wiz.finish": "Concluir e iniciar a sincronização",
+"wiz.providers": "Que serviços tens?",
+"wiz.providers.h": "Assinala os serviços a que tens acesso. Os outros não aparecem no catálogo; podes mudar isto nas Definições.",
+"wiz.ratings": "Classificações",
+"wiz.ratings.h": "De onde vêm as classificações. Mais fontes (TMDB, OMDb, MDBList) adicionam-se nas Definições.",
+"set.jw.showAll": "Mostrar todos os serviços do país ({n})"
 }

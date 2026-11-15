@@ -71,5 +71,17 @@
 "acc.api.h": "Más alkalmazásokhoz, pl. TV-távirányítóhoz: X-Api-Key fejléc vagy ?api_key= paraméter.",
 "acc.show": "Megjelenítés", "acc.regen": "Új generálása", "acc.regenConfirm": "A régi kulcs nem fog működni. Folytatod?",
 "acc.pw": "Jelszó módosítása", "acc.pwOld": "Jelenlegi jelszó", "acc.pwNew": "Új jelszó (min. 8 karakter)", "acc.pwBtn": "Módosítás",
-"acc.pwDone": "Jelszó módosítva."
+"acc.pwDone": "Jelszó módosítva.",
+"wiz.title": "Üdv a Medialectben",
+"wiz.step": "{n}/{m}. lépés",
+"wiz.country.h": "Válaszd ki az országot, ahol nézel. Az ott elérhető szolgáltatásokat ajánljuk fel.",
+"wiz.next": "Tovább",
+"wiz.back": "Vissza",
+"wiz.skip": "Kihagyás",
+"wiz.finish": "Befejezés és szinkronizálás",
+"wiz.providers": "Mely szolgáltatásaid vannak?",
+"wiz.providers.h": "Jelöld be azokat, amelyekhez hozzáférsz. A többi nem jelenik meg a katalógusban; ez bármikor módosítható a Beállításokban.",
+"wiz.ratings": "Értékelések",
+"wiz.ratings.h": "Honnan jöjjenek az értékelések. További források (TMDB, OMDb, MDBList) a Beállításokban adhatók hozzá.",
+"set.jw.showAll": "Az ország összes szolgáltatása ({n})"
 }

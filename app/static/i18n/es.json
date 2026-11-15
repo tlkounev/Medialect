@@ -71,5 +71,17 @@
 "acc.api.h": "Para otras aplicaciones, p. ej. un mando de TV: cabecera X-Api-Key o parámetro ?api_key=.",
 "acc.show": "Mostrar", "acc.regen": "Generar nueva", "acc.regenConfirm": "La clave antigua dejará de funcionar. ¿Continuar?",
 "acc.pw": "Cambiar contraseña", "acc.pwOld": "Contraseña actual", "acc.pwNew": "Nueva contraseña (mín. 8 caracteres)", "acc.pwBtn": "Cambiar",
-"acc.pwDone": "Contraseña cambiada."
+"acc.pwDone": "Contraseña cambiada.",
+"wiz.title": "Bienvenido a Medialect",
+"wiz.step": "Paso {n} de {m}",
+"wiz.country.h": "Elige el país donde ves contenido. Se ofrecerán los servicios disponibles allí.",
+"wiz.next": "Continuar",
+"wiz.back": "Atrás",
+"wiz.skip": "Omitir",
+"wiz.finish": "Terminar e iniciar la sincronización",
+"wiz.providers": "¿Qué servicios tienes?",
+"wiz.providers.h": "Marca los servicios a los que tienes acceso. Los demás no aparecerán en el catálogo; puedes cambiarlo en Ajustes.",
+"wiz.ratings": "Notas",
+"wiz.ratings.h": "De dónde vienen las notas. Más fuentes (TMDB, OMDb, MDBList) se añaden en Ajustes.",
+"set.jw.showAll": "Mostrar todos los servicios del país ({n})"
 }
