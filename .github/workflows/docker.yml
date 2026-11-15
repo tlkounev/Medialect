@@ -57,3 +57,29 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  verify:
+    needs: image
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Anonymous pull (package must be public)
+        run: |
+          docker logout ghcr.io || true
+          TAG="sha-${GITHUB_SHA::7}"
+          if ! docker pull "$IMAGE:$TAG"; then
+            echo "::error::$IMAGE:$TAG nejde stáhnout bez přihlášení – v GitHub Packages přepni balíček na Public."
+            exit 1
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+      - name: Smoke test
+        run: |
+          docker run -d --name medialect -p 8890:8890 -e DISABLE_SCHEDULER=1 "$IMAGE:$TAG"
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8890/api/health && curl -fsS http://127.0.0.1:8890/ | grep -q Medialect; then
+              echo "OK"; exit 0
+            fi
+            sleep 2
+          done
+          docker logs medialect
+          exit 1
