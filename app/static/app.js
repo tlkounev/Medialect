@@ -4,7 +4,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const SA_CATALOGS_CZ = ["netflix", "prime", "disney", "hbo", "apple", "skyshowtime", "curiosity", "crunchyroll", "zee5"];
-const RATING_LABEL = { csfd: "ČSFD", imdb: "IMDb", rottentomatoes: "RT", rottentomatoes_audience: "RT diváci", metacritic: "Metacritic", metacritic_user: "MC uživ.", letterboxd: "Letterboxd", tmdb: "TMDB", trakt: "Trakt", mdblist: "MDBList", rogerebert: "Ebert" };
+const RATING_LABEL = { csfd: "ČSFD", imdb: "IMDb", rottentomatoes: "RT", rottentomatoes_audience: "RT diváci", metacritic: "Metacritic", metacritic_user: "MC uživ.", letterboxd: "Letterboxd", tmdb: "TMDB", tvmaze: "TVmaze", trakt: "Trakt", mdblist: "MDBList", rogerebert: "Ebert" };
 const MON_LABEL = { flatrate: "", free: "zdarma", ads: "s reklamou", addon: "doplněk", library: "" };
 const QUALITY_LABEL = { UHD: "4K", QHD: "1440p", FHD: "1080p", HD: "720p", SD: "SD" };
 const STATUS_LABEL = { ok: "OK", partial: "Částečně", error: "Chyba", running: "Běží", queued: "Ve frontě" };
@@ -89,7 +89,7 @@ function openTab(name) {
   $$("main > section").forEach((s) => s.classList.toggle("hidden", s.id !== `tab-${name}`));
   history.replaceState(null, "", `#${name}`);
   clearInterval(statusTimer);
-  if (name === "catalog") loadCatalogProviders().then(loadCatalog);
+  if (name === "catalog") loadFacets().catch(() => {}).then(loadCatalog);
   if (name === "admin") {
     if (isAdmin) openSub(adminSub); else $("#authPass").focus();
   }
@@ -139,21 +139,53 @@ function renderTitle(t) {
 }
 
 /* ---------- catalog (with search) ---------- */
-let cPage = 1, catalogSeq = 0, searchTimer = null;
-async function loadCatalogProviders() {
-  const sel = $("#cProvider"), cur = sel.value;
-  const { items } = await api("/api/providers");
-  sel.innerHTML = `<option value="">Všechny služby</option>` + items.map((p) => `<option value="${esc(p.provider)}">${esc(p.name)} (${p.titles})</option>`).join("");
-  sel.value = cur;
+let cPage = 1, catalogSeq = 0, searchTimer = null, facetsLoaded = false;
+const FILTERS = [["cProvider", "provider"], ["cType", "type"], ["cQuality", "min_quality"], ["cVideo", "video"],
+                 ["cAudio", "audio"], ["cLang", "lang"], ["cSub", "sub"], ["cSort", "sort"]];
+const FILTER_KEY = "medialect.filters";
+let langNames = null;
+try { langNames = new Intl.DisplayNames(["cs"], { type: "language" }); } catch (_) { /* old browser */ }
+const langName = (code) => { try { const n = langNames?.of(code); return n && n !== code ? n : code; } catch (_) { return code; } };
+
+function savedFilters() { try { return JSON.parse(localStorage.getItem(FILTER_KEY) || "{}"); } catch (_) { return {}; } }
+function saveFilters() {
+  const f = {};
+  for (const [id] of FILTERS) f[id] = $(`#${id}`).value;
+  try { localStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch (_) { /* private mode */ }
+}
+function setOptions(sel, first, items) {
+  const keep = sel.value;
+  sel.innerHTML = first + items.map((o) => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("");
+  sel.value = keep;
+}
+async function loadFacets() {
+  const [{ items }, f] = await Promise.all([api("/api/providers"), api("/api/facets")]);
+  setOptions($("#cProvider"), `<option value="">Všechny služby</option>`, items.map((p) => ({ value: p.provider, label: `${p.name} (${p.titles})` })));
+  setOptions($("#cVideo"), `<option value="">Jakýkoli obraz</option>`, f.video.map((t) => ({ value: t.value, label: `${t.value} (${t.titles})` })));
+  setOptions($("#cAudio"), `<option value="">Jakýkoli zvuk</option>`, f.audio.map((t) => ({ value: t.value, label: `${t.value} (${t.titles})` })));
+  const langs = (arr) => arr.map((t) => ({ value: t.value, label: `${langName(t.value)} (${t.titles})` }))
+    .sort((a, b) => a.label.localeCompare(b.label, "cs"));
+  setOptions($("#cLang"), `<option value="">Jakýkoli jazyk zvuku</option>`, langs(f.audio_langs));
+  setOptions($("#cSub"), `<option value="">Jakékoli titulky</option>`, langs(f.subtitle_langs));
+  setOptions($("#cSort"), `<option value="year">Nejnovější</option><option value="title">Název</option>`,
+    f.ratings.map((r) => ({ value: r.value, label: `Hodnocení ${RATING_LABEL[r.value] || r.value}` })));
+  if (!facetsLoaded) {                     // first load: restore the viewer's last choice
+    const saved = savedFilters();
+    for (const [id] of FILTERS) {
+      const sel = $(`#${id}`);
+      if (saved[id] !== undefined && [...sel.options].some((o) => o.value === saved[id])) sel.value = saved[id];
+    }
+    facetsLoaded = true;
+  }
 }
 async function loadCatalog() {
   const seq = ++catalogSeq;
   const q = $("#q").value.trim();
-  const sort = $("#cSort").value;
+  const sort = $("#cSort").value || "year";
   const params = new URLSearchParams({ page: cPage, page_size: 40, sort, order: sort === "title" ? "asc" : "desc" });
   if (q.length >= 2) params.set("q", q);
-  for (const [id, key] of [["cProvider", "provider"], ["cType", "type"], ["cQuality", "min_quality"], ["cVideo", "video"], ["cAudio", "audio"], ["cLang", "lang"]]) {
-    if ($(`#${id}`).value) params.set(key, $(`#${id}`).value);
+  for (const [id, key] of FILTERS) {
+    if (key !== "sort" && $(`#${id}`).value) params.set(key, $(`#${id}`).value);
   }
   try {
     const data = await api(`/api/catalog?${params}`);
@@ -167,7 +199,11 @@ async function loadCatalog() {
   } catch (e) { $("#catalog").innerHTML = `<p class="err">${esc(e.message)}</p>`; }
 }
 $("#q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { cPage = 1; loadCatalog(); }, 250); });
-$$(".filters select").forEach((s) => s.addEventListener("change", () => { cPage = 1; loadCatalog(); }));
+$$(".filters select").forEach((s) => s.addEventListener("change", () => { cPage = 1; saveFilters(); loadCatalog(); }));
+$("#cReset").addEventListener("click", () => {
+  for (const [id] of FILTERS) $(`#${id}`).value = id === "cSort" ? "year" : "";
+  cPage = 1; saveFilters(); loadCatalog();
+});
 $("#cPrev").addEventListener("click", () => { cPage--; loadCatalog(); scrollTo(0, 0); });
 $("#cNext").addEventListener("click", () => { cPage++; loadCatalog(); scrollTo(0, 0); });
 
@@ -195,7 +231,7 @@ async function loadStatus() {
         <td><button class="ghost" data-job="${esc(j.id)}" ${j.running ? "disabled" : ""}>Spustit</button></td></tr>`;
     }).join("");
   $$("#jobs button[data-job]").forEach((b) => b.addEventListener("click", async () => { await api(`/api/sync?job=${encodeURIComponent(b.dataset.job)}`, { method: "POST" }); setTimeout(loadStatus, 500); }));
-  $("#budgets").textContent = `Dnes využito – Streaming Availability: ${st.budgets.sa}, ČSFD: ${st.budgets.csfd}, MDBList: ${st.budgets.mdblist}`;
+  $("#budgets").textContent = `Dnes využito – Streaming Availability: ${st.budgets.sa}, ČSFD: ${st.budgets.csfd}, MDBList: ${st.budgets.mdblist}, OMDb: ${st.budgets.omdb}`;
 }
 
 /* header badge: visible on every tab while something synchronises */

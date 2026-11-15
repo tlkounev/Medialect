@@ -193,3 +193,35 @@ async def csfd_film(fid: str, request: Request):
     page = CSFD_FILM.replace("IMDBLINK", '<a href="https://www.imdb.com/title/tt0167331/" class="button-imdb">IMDb</a>'
                              if fid == "6648" else "")
     return Response(page.replace("89%", "91%") if fid == "9499" else page, media_type="text/html")
+
+
+# ---------------- TMDB / TVmaze / OMDb ----------------
+@app.get("/tmdb/find/{imdb}")
+async def tmdb_find(imdb: str, api_key: str = ""):
+    if api_key != "tmdbkey":
+        return Response(status_code=401)
+    return {"movie_results": [{"id": 4242}] if imdb == "tt0167331" else [], "tv_results": []}
+
+
+@app.get("/tmdb/{kind}/{tid}")
+async def tmdb_item(kind: str, tid: str, api_key: str = ""):
+    if api_key != "tmdbkey":
+        return Response(status_code=401)
+    return {"id": int(tid), "vote_average": 7.9 if tid == "603" else 7.1, "vote_count": 1234}
+
+
+@app.get("/tvmaze/lookup/shows")
+async def tvmaze_lookup(imdb: str | None = None, thetvdb: str | None = None):
+    if imdb == "tt7366338" or thetvdb == "360893":
+        return {"id": 1, "url": "https://www.tvmaze.com/shows/1/chernobyl", "rating": {"average": 8.9}}
+    return Response(status_code=404)
+
+
+@app.get("/omdb/")
+async def omdb(apikey: str, i: str):
+    if apikey != "omdbkey":
+        return Response(status_code=401)
+    return {"Response": "True", "imdbID": i, "Ratings": [
+        {"Source": "Internet Movie Database", "Value": "8.7/10"},
+        {"Source": "Rotten Tomatoes", "Value": "88%"},
+        {"Source": "Metacritic", "Value": "73/100"}]}
