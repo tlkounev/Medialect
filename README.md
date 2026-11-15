@@ -12,7 +12,7 @@ Image se sestavuje automaticky přes GitHub Actions do `ghcr.io/tlkounev/mediale
 
 ### QNAP Container Station
 Create → **Create Application** → název `medialect` → vlož obsah `docker-compose.yml` → Create.
-Pak otevři `http://<NAS>:8890` a nastav heslo.
+Pak otevři `http://<NAS>:8890`. Katalog je přístupný bez přihlášení, heslo se nastavuje při prvním otevření Administrace.
 
 Aktualizace: v Container Station u aplikace zvol znovunasazení s novým stažením image
 (nebo `docker compose pull && docker compose up -d`).
@@ -56,21 +56,23 @@ Port se mění proměnnou `PORT`. Vlastní build ze zdrojáků: `docker build -t
 - **Hodnocení:** IMDb z oficiálního datasetu (`datasets.imdbws.com`, jednou denně), ČSFD scrapingem
   (stránka nemá API; limit titulů za den, pauza 1,5 s), MDBList s limitem 1000 dotazů denně
   na free tarifu, skóre z JustWatch.
-- Synchronizace běží automaticky podle intervalu, ručně ji spustíš na záložce **Stav**.
+- Synchronizace běží automaticky podle intervalu, ručně ji spustíš v **Administrace → Synchronizace**.
 
 ## API
 
-Autorizace: cookie z přihlášení, nebo hlavička `X-Api-Key` (klíč najdeš v Nastavení).
+Katalog je veřejný. Administrace (nastavení, synchronizace, API klíč) vyžaduje přihlášení:
+cookie z přihlášení ve webu, nebo hlavičku `X-Api-Key` (klíč najdeš v Administraci → Nastavení).
 
-| Endpoint | Popis |
-|---|---|
-| `GET /api/search?q=matrix&type=movie` | Hledání (s i bez diakritiky, české i originální názvy) |
-| `GET /api/catalog?provider=netflix&min_quality=UHD&video=DV&audio=Atmos&lang=cs&sort=csfd` | Seznam s filtry a řazením |
-| `GET /api/titles/{id}` | Detail titulu |
-| `GET /api/titles/by/imdb/tt0133093` | Titul podle externího ID (`imdb`, `tmdb_movie`, `tmdb_tv`, `tvdb`, `csfd`) |
-| `GET /api/providers` | Služby a knihovny s počtem titulů |
-| `POST /api/sync[?job=justwatch]` | Spuštění synchronizace |
-| `GET /api/sync/status` | Stav posledních běhů a denních limitů |
+| Endpoint | Přístup | Popis |
+|---|---|---|
+| `GET /api/catalog?q=matrix&provider=netflix&min_quality=UHD&video=DV&audio=Atmos&lang=cs&sort=csfd` | veřejný | Katalog s hledáním, filtry a řazením |
+| `GET /api/search?q=matrix&type=movie` | veřejný | Rychlé hledání (s i bez diakritiky, české i originální názvy) |
+| `GET /api/titles/{id}` | veřejný | Detail titulu |
+| `GET /api/titles/by/imdb/tt0133093` | veřejný | Titul podle externího ID (`imdb`, `tmdb_movie`, `tmdb_tv`, `tvdb`, `csfd`) |
+| `GET /api/providers` | veřejný | Služby a knihovny s počtem titulů |
+| `POST /api/sync[?job=justwatch]` | admin | Spuštění synchronizace |
+| `GET /api/sync/status` | admin | Stav a živý průběh úloh, denní limity |
+| `GET/PUT /api/settings` | admin | Nastavení |
 
 Každá nabídka v `where[]` obsahuje `provider`, `quality` (`SD/HD/FHD/QHD/UHD`), `video`, `audio`,
 `audio_langs`, `subtitle_langs`, `url` a u knihoven `extra.item_id` / `extra.rating_key` pro další integrace.

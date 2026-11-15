@@ -118,7 +118,13 @@ def main():
 
     with TestClient(app) as client:
         # ---- auth ----
-        assert client.get("/api/search?q=x").status_code == 401
+        # catalogue is public, administration is not
+        assert client.get("/api/search?q=x").status_code == 200
+        assert client.get("/api/catalog").status_code == 200
+        for path in ("/api/settings", "/api/sync/status", "/api/auth/token", "/api/justwatch/providers"):
+            assert client.get(path).status_code == 401, path
+        assert client.post("/api/sync").status_code == 401
+        assert client.put("/api/settings", json={}).status_code == 401
         assert client.get("/api/auth/state").json()["configured"] is False
         assert client.post("/api/auth/setup", json={"password": "short"}).status_code == 400
         assert client.post("/api/auth/setup", json={"password": "heslo1234"}).status_code == 200
@@ -232,6 +238,12 @@ def main():
         assert cat["total"] >= 2500
         cat = client.get("/api/catalog", params={"provider": f"emby-{emby_id}", "sort": "csfd"}).json()
         assert [i["title"] for i in cat["items"]][:2] == ["Matrix", "Pelíšky"], [i["title"] for i in cat["items"]]
+        cat = client.get("/api/catalog", params={"q": "matrix"}).json()
+        assert cat["total"] == 1 and cat["items"][0]["title"] in ("Matrix", "The Matrix"), cat["total"]
+        cat = client.get("/api/catalog", params={"q": "pelisky", "provider": f"emby-{emby_id}"}).json()
+        assert [i["title"] for i in cat["items"]] == ["Pelíšky"]
+        cat = client.get("/api/catalog", params={"q": "film 100", "sort": "title", "order": "asc", "page_size": 3}).json()
+        assert cat["items"][0]["title"] == "Film 1000" and cat["total"] == 10, (cat["total"], [i["title"] for i in cat["items"]])
         print("  providers ->", client.get("/api/providers").json()["items"])
         img = client.get(dune["poster"])
         assert img.status_code == 200 or img.status_code == 404  # plex photo transcoder not mocked
@@ -243,9 +255,10 @@ def main():
 
         client.post("/api/auth/logout")
         client.cookies.clear()
-        assert client.get("/api/stats").status_code == 401
-        assert client.get("/api/stats", headers={"X-Api-Key": token}).status_code == 200
-        assert client.get("/api/stats", headers={"X-Api-Key": "nope"}).status_code == 401
+        assert client.get("/api/settings").status_code == 401
+        assert client.get("/api/stats").status_code == 200  # public
+        assert client.get("/api/settings", headers={"X-Api-Key": token}).status_code == 200
+        assert client.get("/api/settings", headers={"X-Api-Key": "nope"}).status_code == 401
         assert client.post("/api/auth/login", json={"password": "spatne"}).status_code == 401
         assert client.post("/api/auth/login", json={"password": "heslo1234"}).status_code == 200
 
