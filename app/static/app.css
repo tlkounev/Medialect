@@ -25,7 +25,8 @@ header nav { display: flex; gap: 4px; flex: 1; }
 header nav button { background: transparent; border-color: transparent; }
 header nav button.active { border-color: var(--line); background: var(--panel); }
 .logo { font-size: 18px; }
-.version { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 4px; }
+.version { font-size: 12px; font-weight: 600; margin-left: 4px; text-decoration: none; }
+.v-current { color: var(--ok); } .v-update { color: var(--err); } .v-unknown { color: var(--muted); }
 main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 
 .auth { display: grid; place-items: center; padding: 48px 0; }
