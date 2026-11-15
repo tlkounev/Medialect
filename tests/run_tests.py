@@ -264,6 +264,35 @@ def main():
         by = client.get("/api/titles/by/imdb/tt0133093").json()
         assert by["id"] == m["id"]
 
+        # ---- per-server save / link mode / delete ----
+        from app import links
+        assert links.is_lan("10.0.0.20") and links.is_lan("192.168.1.5") and links.is_lan("127.0.0.1") and links.is_lan("fd00::1")
+        assert not links.is_lan("8.8.8.8") and not links.is_lan("testclient")
+        emby_srv = next(x for x in client.get("/api/settings").json()["servers"] if x["id"] == emby_id)
+        assert emby_srv["link_mode"] == "auto" and emby_srv["token"] == S.MASK
+        r = client.post("/api/servers", json={**emby_srv, "link_mode": "internal"})
+        assert r.status_code == 200 and r.json()["link_mode"] == "internal", r.text
+        stored = json.loads(sql("SELECT value FROM kv WHERE key='settings'")[0][0])
+        assert next(x for x in stored["servers"] if x["id"] == emby_id)["token"] == "embykey"   # masked token kept
+        m = client.get("/api/titles/by/imdb/tt0133093").json()
+        em = next(o for o in m["where"] if o["provider"] == f"emby-{emby_id}")
+        assert em["url"] == f"{BASE}/emby/web/index.html#!/item?id=m1&serverId=srv123", em["url"]
+        auto = {"type": "emby", "url": "http://10.0.0.5:8096", "public_url": "https://emby.example.cz", "link_mode": "auto"}
+        assert links.server_link(auto, {"item_id": "m1", "server_id": "s"}, lan=True).startswith("http://10.0.0.5:8096/web/")
+        assert links.server_link(auto, {"item_id": "m1", "server_id": "s"}, lan=False).startswith("https://emby.example.cz/web/")
+        plex = {"type": "plex", "url": "http://10.0.0.5:32400", "public_url": "", "link_mode": "auto"}
+        assert links.server_link(plex, {"rating_key": "1", "machine_id": "mm"}, lan=True).startswith("http://10.0.0.5:32400/web/index.html#!/server/mm/")
+        assert links.server_link(plex, {"rating_key": "1", "machine_id": "mm"}, lan=False).startswith("https://app.plex.tv/desktop/#!/server/mm/")
+        assert client.post("/api/servers", json={"type": "emby", "name": "x"}).status_code == 400   # url missing
+        new = client.post("/api/servers", json={"type": "jellyfin", "name": "Nový", "url": f"{BASE}/emby", "token": "embykey"}).json()
+        assert new["id"] and new["token"] == S.MASK
+        run_sync(client, f"server:{new['id']}")
+        assert sql(f"SELECT COUNT(*) FROM availability WHERE source='jellyfin:{new['id']}'")[0][0] == 3
+        assert client.delete(f"/api/servers/{new['id']}").status_code == 200
+        assert sql(f"SELECT COUNT(*) FROM availability WHERE source='jellyfin:{new['id']}'")[0][0] == 0
+        assert all(x["id"] != new["id"] for x in client.get("/api/settings").json()["servers"])
+        assert client.delete(f"/api/servers/{new['id']}").status_code == 404
+
         client.post("/api/auth/logout")
         client.cookies.clear()
         assert client.get("/api/settings").status_code == 401

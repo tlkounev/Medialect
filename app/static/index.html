@@ -61,16 +61,17 @@
       <div id="budgets" class="muted"></div>
     </div>
         <div id="sub-settings" class="hidden">
+      <fieldset><legend>Mediální servery</legend>
+        <p class="muted">Každý server se ukládá zvlášť. Po uložení nového serveru nebo změně připojení se hned spustí jeho synchronizace.</p>
+        <div id="servers"></div>
+        <button type="button" id="addServer" class="ghost">+ Přidat server</button>
+      </fieldset>
+
       <form id="settingsForm">
         <fieldset><legend>Obecné</legend>
           <label>Země <input name="country" size="3"></label>
           <label>Jazyk názvů <input name="language" size="5"></label>
           <label>Synchronizace každých <input name="sync_interval_hours" type="number" min="1" step="1"> h</label>
-        </fieldset>
-
-        <fieldset><legend>Mediální servery</legend>
-          <div id="servers"></div>
-          <button type="button" id="addServer" class="ghost">+ Přidat server</button>
         </fieldset>
 
         <fieldset><legend>JustWatch (streamovací služby)</legend>
@@ -121,15 +122,25 @@
 
 <template id="serverTpl">
   <div class="server">
-    <select data-k="type"><option value="emby">Emby</option><option value="jellyfin">Jellyfin</option><option value="plex">Plex</option></select>
-    <input data-k="name" placeholder="Název (např. Emby doma)">
-    <input data-k="url" placeholder="Interní URL, např. http://192.168.1.10:8096">
-    <input data-k="public_url" placeholder="Veřejná URL pro odkazy (volitelné)">
-    <input data-k="token" type="password" placeholder="API klíč / X-Plex-Token" autocomplete="off">
-    <label class="chk"><input data-k="enabled" type="checkbox" checked> Zapnuto</label>
-    <button type="button" class="ghost test">Otestovat</button>
-    <button type="button" class="ghost danger remove">Odebrat</button>
-    <span class="muted result"></span>
+    <div class="server-fields">
+      <label>Typ <select data-k="type"><option value="emby">Emby</option><option value="jellyfin">Jellyfin</option><option value="plex">Plex</option></select></label>
+      <label>Název <input data-k="name" placeholder="např. Emby doma"></label>
+      <label>Interní adresa <input data-k="url" placeholder="http://10.0.0.5:8096"></label>
+      <label>Veřejná adresa <input data-k="public_url" placeholder="https://emby.mojedomena.cz (volitelné)"></label>
+      <label>Klíč <input data-k="token" type="password" placeholder="API klíč / X-Plex-Token" autocomplete="off"></label>
+      <label>Odkazy v katalogu <select data-k="link_mode">
+        <option value="auto">Automaticky (doma interní, venku veřejná)</option>
+        <option value="public">Vždy veřejná adresa</option>
+        <option value="internal">Vždy interní adresa</option>
+      </select></label>
+      <label class="chk"><input data-k="enabled" type="checkbox" checked> Zapnuto</label>
+    </div>
+    <div class="server-actions">
+      <button type="button" class="save">Uložit</button>
+      <button type="button" class="ghost test">Otestovat</button>
+      <button type="button" class="ghost danger remove">Odebrat</button>
+      <span class="muted result"></span>
+    </div>
   </div>
 </template>
 
