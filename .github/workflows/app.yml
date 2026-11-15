@@ -129,12 +129,18 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
-      - name: Android NDK
+      - name: Android SDK/NDK (preinstalled on the runner)
         working-directory: .
         run: |
-          sdkmanager --install "ndk;27.2.12479018"
-          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          if [ -n "$ANDROID_NDK_LATEST_HOME" ] && [ -d "$ANDROID_NDK_LATEST_HOME" ]; then
+            NDK="$ANDROID_NDK_LATEST_HOME"
+          else
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" >/dev/null
+            NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          fi
+          echo "NDK_HOME=$NDK" >> "$GITHUB_ENV"
+          echo "NDK: $NDK"
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
@@ -143,6 +149,8 @@ jobs:
           workspaces: client/src-tauri
       - run: npm ci
       - run: npx tauri android init --ci
+      - name: App icon
+        run: cp -r src-tauri/icons/android/* src-tauri/gen/android/app/src/main/res/
       - name: Build APK
         env:
           APP_VERSION: ${{ needs.test.outputs.version }}
