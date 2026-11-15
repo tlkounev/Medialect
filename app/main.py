@@ -6,10 +6,10 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, queries, settings as settings_mod
+from . import auth, queries, settings as settings_mod, updates
 from .db import db
 from .sources import justwatch
 from .sources.base import SourceError, http_client
@@ -214,15 +214,27 @@ async def sync_now(job: str | None = None):
     return {"ok": True}
 
 
+@app.get("/api/version")
+async def api_version():
+    return await updates.status(VERSION)
+
+
 @app.get("/api/health")
 async def health():
     return {"ok": True}
 
 
 # --- web UI -----------------------------------------------------------------
+with open(os.path.join(STATIC, "index.html"), encoding="utf-8") as _f:
+    # version in the asset URLs, so a new image never runs with a browser-cached old app.js/app.css
+    INDEX_HTML = (_f.read()
+                  .replace('href="/static/app.css"', f'href="/static/app.css?v={VERSION}"')
+                  .replace('src="/static/app.js"', f'src="/static/app.js?v={VERSION}"'))
+
+
 @app.get("/")
 async def index():
-    return FileResponse(os.path.join(STATIC, "index.html"))
+    return HTMLResponse(INDEX_HTML, headers={"Cache-Control": "no-cache"})
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

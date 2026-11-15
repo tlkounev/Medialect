@@ -118,6 +118,17 @@ def main():
 
     with TestClient(app) as client:
         # ---- auth ----
+        # version badge: newer tag on GitHub -> update, unreachable -> unknown
+        from app import updates
+        async def newer(): return "1.0.7"
+        async def offline(): raise RuntimeError("offline")
+        updates._latest_tag, updates._cache["at"] = newer, 0
+        v = client.get("/api/version").json()
+        assert v["latest"] == "1.0.7" and v["state"] == "unknown", v   # running "dev" cannot be compared
+        assert client.get("/").text.count("?v=") == 2 and client.get("/").headers["cache-control"] == "no-cache"
+        updates._latest_tag, updates._cache["at"] = offline, 0
+        assert client.get("/api/version").json()["state"] == "unknown"
+
         # catalogue is public, administration is not
         assert client.get("/api/search?q=x").status_code == 200
         assert client.get("/api/catalog").status_code == 200

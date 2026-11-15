@@ -1,6 +1,7 @@
 services:
   medialect:
     image: ghcr.io/tlkounev/medialect:latest
+    pull_policy: always
     container_name: medialect
     restart: unless-stopped
     ports:
