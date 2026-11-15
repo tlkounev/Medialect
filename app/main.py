@@ -251,8 +251,8 @@ async def sync_now(job: str | None = None):
 
 
 @app.get("/api/version")
-async def api_version():
-    return await updates.status(VERSION)
+async def api_version(refresh: bool = False):
+    return await updates.status(VERSION, force=refresh)
 
 
 @app.get("/api/health")

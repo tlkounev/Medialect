@@ -137,7 +137,15 @@ def main():
         updates._latest_tag = v102
         updates._cache["at"] -= updates.CHECK_EVERY_S + 1
         assert asyncio.run(updates.status("1.0.1"))["state"] == "update"
-        assert updates.CHECK_EVERY_S <= 30 * 60
+        assert updates.CHECK_EVERY_S <= 5 * 60
+        # opening the page forces a check once the last one is older than a minute
+        async def v103(): return "1.0.3"
+        updates._latest_tag, updates._cache["at"] = v101, 0
+        assert asyncio.run(updates.status("1.0.1"))["state"] == "current"
+        updates._latest_tag = v103
+        updates._cache["at"] -= updates.FORCE_MIN_S + 1
+        assert asyncio.run(updates.status("1.0.1"))["state"] == "current"          # not due yet
+        assert asyncio.run(updates.status("1.0.1", force=True))["state"] == "update"  # page open/focus
         updates._latest_tag, updates._cache["at"] = offline, 0
         assert client.get("/api/version").json()["state"] == "unknown"
 

@@ -26,7 +26,7 @@ let authMode = "login";
 async function boot() {
   const st = await api("/api/auth/state");
   authMode = st.configured ? "login" : "setup";
-  loadVersion();
+  loadVersion(true);
   setAdmin(st.logged_in, false);
   openTab(location.hash.slice(1) || "catalog");
   if (st.logged_in) pollBadge();
@@ -66,10 +66,10 @@ $("#logout").addEventListener("click", async () => {
 });
 
 /* ---------- version: green = up to date, red = update available, grey = cannot check ---------- */
-async function loadVersion() {
+async function loadVersion(refresh = false) {
   const el = $("#appVersion");
   try {
-    const v = await api("/api/version");
+    const v = await api(`/api/version${refresh ? "?refresh=1" : ""}`);
     el.textContent = v.current === "dev" ? "dev" : `v${v.current}`;
     el.className = `version v-${v.state}`;
     el.href = v.url;
@@ -78,8 +78,8 @@ async function loadVersion() {
       : "Novou verzi nelze ověřit na GitHubu";
   } catch (_) { el.className = "version v-unknown"; }
 }
-setInterval(loadVersion, 10 * 60 * 1000);
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadVersion(); });
+setInterval(() => loadVersion(), 5 * 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadVersion(true); });
 
 /* ---------- tabs ---------- */
 let statusTimer = null, adminSub = "sync";
