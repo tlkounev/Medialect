@@ -137,14 +137,21 @@ class EmbyLike:
                 ), ctx.started)
                 ctx.items += 1
 
+            ctx.progress(f"{name}: filmy")
             async for it in self._items(c, uid, "Movie", FIELDS):
                 await emit(it, "movie", media_summary(it))
 
             per_series: dict[str, dict] = defaultdict(dict)
+            ctx.progress(f"{name}: kvalita epizod")
+            n_eps = 0
             async for ep in self._items(c, uid, "Episode", "MediaSources,MediaStreams"):
+                n_eps += 1
+                if n_eps % 500 == 0:
+                    ctx.progress(f"{name}: kvalita epizod ({n_eps})")
                 sid = ep.get("SeriesId")
                 if sid:
                     per_series[sid] = _merge_summary(per_series.get(sid), media_summary(ep))
+            ctx.progress(f"{name}: seriály")
             async for series in self._items(c, uid, "Series", "ProviderIds,OriginalTitle,ProductionYear"):
                 summary = per_series.get(series["Id"]) or media_summary({})
                 await emit(series, "show", summary)

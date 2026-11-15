@@ -92,23 +92,23 @@ async def regen_token():
     return {"token": await auth.api_token(regenerate=True)}
 
 
-# --- data -------------------------------------------------------------------
-@app.get("/api/search", dependencies=authed)
+# --- public catalogue (no login) ----------------------------------------------
+@app.get("/api/search")
 async def api_search(q: str, type: str | None = Query(None, pattern="^(movie|show)$"),
                      provider: str | None = None, limit: int = Query(30, ge=1, le=100)):
     provs = [p for p in (provider or "").split(",") if p] or None
     return {"items": await queries.search(q, type, provs, limit)}
 
 
-@app.get("/api/catalog", dependencies=authed)
-async def api_catalog(provider: str | None = None, type: str | None = Query(None, pattern="^(movie|show)$"),
+@app.get("/api/catalog")
+async def api_catalog(q: str | None = None, provider: str | None = None, type: str | None = Query(None, pattern="^(movie|show)$"),
                       min_quality: str | None = None, video: str | None = None, audio: str | None = None,
                       lang: str | None = None, sort: str = "imdb", order: str = "desc",
                       page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)):
-    return await queries.catalog(provider, type, min_quality, video, audio, lang, sort, order, page, page_size)
+    return await queries.catalog(provider, type, min_quality, video, audio, lang, sort, order, page, page_size, q=q)
 
 
-@app.get("/api/titles/{title_id}", dependencies=authed)
+@app.get("/api/titles/{title_id}")
 async def api_title(title_id: int):
     items = await queries.hydrate([title_id])
     if not items:
@@ -116,7 +116,7 @@ async def api_title(title_id: int):
     return items[0]
 
 
-@app.get("/api/titles/by/{kind}/{value}", dependencies=authed)
+@app.get("/api/titles/by/{kind}/{value}")
 async def api_title_by_id(kind: str, value: str):
     """Lookup by external id, e.g. /api/titles/by/imdb/tt0133093 or /by/tmdb_movie/603."""
     row = await db.fetchone("SELECT title_id FROM title_ids WHERE kind=? AND value=?", (kind, value))
@@ -125,12 +125,12 @@ async def api_title_by_id(kind: str, value: str):
     return (await queries.hydrate([row["title_id"]]))[0]
 
 
-@app.get("/api/providers", dependencies=authed)
+@app.get("/api/providers")
 async def api_providers():
     return {"items": await queries.providers()}
 
 
-@app.get("/api/stats", dependencies=authed)
+@app.get("/api/stats")
 async def api_stats():
     return await queries.stats()
 
@@ -138,7 +138,7 @@ async def api_stats():
 _POSTER_PREFIXES = ("/Items/", "/photo/:/transcode")
 
 
-@app.get("/api/poster/{server_id}", dependencies=authed)
+@app.get("/api/poster/{server_id}")
 async def api_poster(server_id: str, path: str):
     if not path.startswith(_POSTER_PREFIXES) or ".." in path:
         raise HTTPException(400, "Nepovolená cesta.")
@@ -157,7 +157,7 @@ async def api_poster(server_id: str, path: str):
                     headers={"Cache-Control": "private, max-age=604800"})
 
 
-# --- settings & sync --------------------------------------------------------
+# --- administration (login required) -----------------------------------------
 @app.get("/api/settings", dependencies=authed)
 async def get_settings():
     return settings_mod.masked(await settings_mod.load())
@@ -165,7 +165,19 @@ async def get_settings():
 
 @app.put("/api/settings", dependencies=authed)
 async def put_settings(body: dict = Body(...)):
-    return settings_mod.masked(await settings_mod.save(body))
+    before = await settings_mod.load()
+    saved = await settings_mod.save(body)
+    # start what the change made relevant, instead of waiting for the next scheduled run
+    await manager.trigger_new_servers()
+    if saved["justwatch"].get("enabled") and (
+            sorted(saved["justwatch"].get("providers") or []) != sorted(before["justwatch"].get("providers") or [])
+            or not before["justwatch"].get("enabled")):
+        manager.trigger("justwatch")
+    sa_keys = ("enabled", "api_key", "catalogs", "mode")
+    if saved["streaming_availability"].get("enabled") and any(
+            saved["streaming_availability"].get(k) != before["streaming_availability"].get(k) for k in sa_keys):
+        manager.trigger("sa")
+    return settings_mod.masked(saved)
 
 
 @app.post("/api/servers/test", dependencies=authed)
@@ -192,6 +204,7 @@ async def jw_providers(country: str | None = None):
 @app.get("/api/sync/status", dependencies=authed)
 async def sync_status():
     return {"jobs": await manager.status(), "last_full": await db.kv_get("sync.last_full", 0),
+            "running": bool(manager.running),
             "budgets": {n: await db.budget_used(n) for n in ("sa", "csfd", "mdblist")}}
 
 

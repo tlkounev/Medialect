@@ -155,8 +155,11 @@ class Plex:
                 ctx.items += 1
 
             for sec in sections:
+                label = sec.get("title") or sec["key"]
                 if sec.get("type") == "movie":
+                    ctx.progress(f"{name}: {label} – seznam filmů")
                     movies = [m async for m in self._all(c, sec["key"])]
+                    ctx.progress(f"{name}: {label} – detaily {len(movies)} filmů")
                     details = await asyncio.gather(*(self._detail(c, sem, m["ratingKey"]) for m in movies),
                                                    return_exceptions=True)
                     for m, d in zip(movies, details):
@@ -168,6 +171,7 @@ class Plex:
                     # episodes (type=4) carry Media; aggregate per show, then detail one best episode per show
                     best_ep: dict[str, tuple[dict, dict]] = {}
                     per_show: dict[str, dict] = defaultdict(dict)
+                    ctx.progress(f"{name}: {label} – epizody")
                     async for ep in self._all(c, sec["key"], 4):
                         show_key = ep.get("grandparentRatingKey")
                         if not show_key:

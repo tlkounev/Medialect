@@ -20,6 +20,11 @@ class SyncContext:
     items: int = 0
     notes: list[str] = field(default_factory=list)
     partial: bool = False
+    phase: str = ""
+
+    def progress(self, phase: str) -> None:
+        """Human readable description of what the job is doing right now (shown live in the UI)."""
+        self.phase = phase
 
     def note(self, msg: str) -> None:
         log.info("[%s] %s", self.source, msg)

@@ -106,17 +106,25 @@ def main():
     def run_sync(client, job=None):
         t0 = time.time()
         client.post("/api/sync", params={"job": job} if job else None)
+        time.sleep(0.3)
         for _ in range(900):
-            jobs = [j for j in client.get("/api/sync/status").json()["jobs"] if not job or j["id"] == job]
-            if all(j["last"] and j["last"]["started_at"] >= t0 - 1 and not j["running"]
-                   and j["last"]["status"] != "running" for j in jobs):
-                return
+            st = client.get("/api/sync/status").json()
+            jobs = [j for j in st["jobs"] if not job or j["id"] == job]
+            if not st["running"] and not any(j["queued"] for j in st["jobs"]) and all(
+                    j["last"] and j["last"]["status"] != "running" and j["last"]["finished_at"] >= t0 - 30 for j in jobs):
+                return st
             time.sleep(0.2)
         raise TimeoutError
 
     with TestClient(app) as client:
         # ---- auth ----
-        assert client.get("/api/search?q=x").status_code == 401
+        # catalogue is public, administration is not
+        assert client.get("/api/search?q=x").status_code == 200
+        assert client.get("/api/catalog").status_code == 200
+        for path in ("/api/settings", "/api/sync/status", "/api/auth/token", "/api/justwatch/providers"):
+            assert client.get(path).status_code == 401, path
+        assert client.post("/api/sync").status_code == 401
+        assert client.put("/api/settings", json={}).status_code == 401
         assert client.get("/api/auth/state").json()["configured"] is False
         assert client.post("/api/auth/setup", json={"password": "short"}).status_code == 400
         assert client.post("/api/auth/setup", json={"password": "heslo1234"}).status_code == 200
@@ -136,6 +144,12 @@ def main():
             "ratings": {"csfd": True, "imdb_dataset": True, "csfd_daily_budget": 20},
         }
         r = client.put("/api/settings", json=body).json()
+        time.sleep(0.5)
+        st = client.get("/api/sync/status").json()
+        started = {j["id"] for j in st["jobs"] if j["running"] or j["last"]}
+        assert "justwatch" in started and sum(1 for j in started if j.startswith("server:")) == 3, st
+        running = [j for j in st["jobs"] if j["running"]]
+        assert all("phase" in j["progress"] and "items" in j["progress"] for j in running), running
         assert r["streaming_availability"]["api_key"] == S.MASK
         assert all(s["token"] == S.MASK for s in r["servers"])
         # masked secrets survive a round trip
@@ -166,7 +180,8 @@ def main():
         assert any(c[2] == 2010 and c[3] == 2012 for c in JW_CALLS), "window was not split"
 
         # SA cursor walk
-        assert [c.get("cursor") for c in mock_servers.SA_CALLS if c["show_type"] == "movie"] == [None, "c2"]
+        cursors = [c.get("cursor") for c in mock_servers.SA_CALLS if c["show_type"] == "movie"]
+        assert cursors and cursors == [None, "c2"] * (len(cursors) // 2), cursors  # each walk: page 1, then cursor
 
         # ---- search ----
         items = client.get("/api/search", params={"q": "matrix"}).json()["items"]
@@ -223,6 +238,12 @@ def main():
         assert cat["total"] >= 2500
         cat = client.get("/api/catalog", params={"provider": f"emby-{emby_id}", "sort": "csfd"}).json()
         assert [i["title"] for i in cat["items"]][:2] == ["Matrix", "Pelíšky"], [i["title"] for i in cat["items"]]
+        cat = client.get("/api/catalog", params={"q": "matrix"}).json()
+        assert cat["total"] == 1 and cat["items"][0]["title"] in ("Matrix", "The Matrix"), cat["total"]
+        cat = client.get("/api/catalog", params={"q": "pelisky", "provider": f"emby-{emby_id}"}).json()
+        assert [i["title"] for i in cat["items"]] == ["Pelíšky"]
+        cat = client.get("/api/catalog", params={"q": "film 100", "sort": "title", "order": "asc", "page_size": 3}).json()
+        assert cat["items"][0]["title"] == "Film 1000" and cat["total"] == 10, (cat["total"], [i["title"] for i in cat["items"]])
         print("  providers ->", client.get("/api/providers").json()["items"])
         img = client.get(dune["poster"])
         assert img.status_code == 200 or img.status_code == 404  # plex photo transcoder not mocked
@@ -234,9 +255,10 @@ def main():
 
         client.post("/api/auth/logout")
         client.cookies.clear()
-        assert client.get("/api/stats").status_code == 401
-        assert client.get("/api/stats", headers={"X-Api-Key": token}).status_code == 200
-        assert client.get("/api/stats", headers={"X-Api-Key": "nope"}).status_code == 401
+        assert client.get("/api/settings").status_code == 401
+        assert client.get("/api/stats").status_code == 200  # public
+        assert client.get("/api/settings", headers={"X-Api-Key": token}).status_code == 200
+        assert client.get("/api/settings", headers={"X-Api-Key": "nope"}).status_code == 401
         assert client.post("/api/auth/login", json={"password": "spatne"}).status_code == 401
         assert client.post("/api/auth/login", json={"password": "heslo1234"}).status_code == 200
 

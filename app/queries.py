@@ -100,8 +100,10 @@ async def search(q: str, ttype: str | None = None, providers: list[str] | None =
 
 async def catalog(provider: str | None = None, ttype: str | None = None, min_quality: str | None = None,
                   video: str | None = None, audio: str | None = None, lang: str | None = None,
-                  sort: str = "imdb", order: str = "desc", page: int = 1, page_size: int = 50) -> dict:
+                  sort: str = "imdb", order: str = "desc", page: int = 1, page_size: int = 50,
+                  q: str | None = None) -> dict:
     cond, params = [], []
+    nq = norm(q or "")
     if provider:
         provs = [p for p in provider.split(",") if p]
         cond.append(f"a.provider IN ({','.join('?' * len(provs))})")
@@ -124,6 +126,9 @@ async def catalog(provider: str | None = None, ttype: str | None = None, min_qua
     if ttype:
         where += " AND t.type=?"
         params.append(ttype)
+    if nq:
+        where += " AND EXISTS (SELECT 1 FROM title_names n WHERE n.title_id=t.id AND n.norm LIKE ?)"
+        params.append(f"%{nq}%")
     direction = "ASC" if order == "asc" else "DESC"
     if sort in ("title",):
         order_sql, join, jparams = f"t.title COLLATE NOCASE {direction}", "", []
@@ -132,11 +137,19 @@ async def catalog(provider: str | None = None, ttype: str | None = None, min_qua
     else:
         order_sql = f"r.value IS NULL, r.value {direction}, t.year DESC"
         join, jparams = "LEFT JOIN ratings r ON r.title_id=t.id AND r.source=?", [sort]
+    if nq:
+        # search: exact name first, then names starting with the query, then the chosen sort
+        rel = ("(SELECT MAX(n.norm = ?) FROM title_names n WHERE n.title_id=t.id) DESC, "
+               "(SELECT MAX(n.norm LIKE ?) FROM title_names n WHERE n.title_id=t.id) DESC, ")
+        order_sql = rel + order_sql
+        order_params = [nq, f"{nq}%"]
+    else:
+        order_params = []
     total = (await db.fetchone(f"SELECT COUNT(*) AS n FROM titles t {where}", params))["n"]
     page_size = max(1, min(page_size, 200))
     rows = await db.fetchall(
         f"SELECT t.id FROM titles t {join} {where} ORDER BY {order_sql} LIMIT ? OFFSET ?",
-        jparams + params + [page_size, (max(page, 1) - 1) * page_size])
+        jparams + params + order_params + [page_size, (max(page, 1) - 1) * page_size])
     return {"total": total, "page": page, "page_size": page_size,
             "items": await hydrate([r["id"] for r in rows])}
 

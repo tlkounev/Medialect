@@ -108,7 +108,10 @@ async def sync(ctx: SyncContext) -> None:
                 key = f"{country}:{cat}:{show_type}"
                 st = state.get(key) or {}
                 st.setdefault("started", time.time())
+                page = 0
                 while True:
+                    page += 1
+                    ctx.progress(f"{cat} / {'filmy' if show_type == 'movie' else 'seriály'}: stránka {page}")
                     if not await db.budget_take("sa", budget):
                         ctx.partial = True
                         state[key] = st

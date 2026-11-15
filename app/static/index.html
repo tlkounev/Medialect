@@ -7,39 +7,22 @@
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-<div id="auth" class="auth hidden">
-  <form id="authForm" class="card">
-    <h1>Medialect</h1>
-    <p id="authHint"></p>
-    <input id="authPass" type="password" autocomplete="current-password" placeholder="Heslo" required minlength="8">
-    <input id="authPass2" type="password" autocomplete="new-password" placeholder="Heslo znovu" class="hidden">
-    <button type="submit" id="authBtn">Přihlásit</button>
-    <p id="authErr" class="err"></p>
-  </form>
-</div>
-
-<div id="app" class="hidden">
+<div id="app">
   <header>
     <strong class="logo">Medialect</strong>
     <nav>
-      <button data-tab="search" class="active">Hledat</button>
-      <button data-tab="catalog">Katalog</button>
-      <button data-tab="status">Stav</button>
-      <button data-tab="settings">Nastavení</button>
+      <button data-tab="catalog" class="active">Katalog</button>
+      <button data-tab="admin">Administrace</button>
     </nav>
-    <button id="logout" class="ghost">Odhlásit</button>
+    <button id="syncBadge" class="sync-badge hidden" title="Synchronizace – podrobnosti v administraci"></button>
+    <button id="logout" class="ghost hidden">Odhlásit</button>
   </header>
 
   <main>
-    <section id="tab-search">
+    <section id="tab-catalog">
       <div class="searchbar">
-        <input id="q" type="search" placeholder="Název filmu nebo seriálu…" autofocus>
-        <select id="qType"><option value="">Vše</option><option value="movie">Filmy</option><option value="show">Seriály</option></select>
+        <input id="q" type="search" placeholder="Hledat film nebo seriál…" autofocus>
       </div>
-      <div id="results" class="results"></div>
-    </section>
-
-    <section id="tab-catalog" class="hidden">
       <div class="filters">
         <select id="cProvider"><option value="">Všechny služby</option></select>
         <select id="cType"><option value="">Vše</option><option value="movie">Filmy</option><option value="show">Seriály</option></select>
@@ -54,14 +37,30 @@
       <div class="pager"><button id="cPrev" class="ghost">‹ Předchozí</button><button id="cNext" class="ghost">Další ›</button></div>
     </section>
 
-    <section id="tab-status" class="hidden">
+    <section id="tab-admin" class="hidden">
+      <div id="adminLogin" class="auth">
+        <form id="authForm" class="card">
+          <h2>Administrace</h2>
+          <p id="authHint"></p>
+          <input id="authPass" type="password" autocomplete="current-password" placeholder="Heslo" required minlength="8">
+          <input id="authPass2" type="password" autocomplete="new-password" placeholder="Heslo znovu" class="hidden">
+          <button type="submit" id="authBtn">Přihlásit</button>
+          <p id="authErr" class="err"></p>
+        </form>
+      </div>
+
+      <div id="adminPanel" class="hidden">
+        <nav class="subnav">
+          <button data-sub="sync" class="active">Synchronizace</button>
+          <button data-sub="settings">Nastavení</button>
+        </nav>
+        <div id="sub-sync">
       <div class="row"><h2>Synchronizace</h2><button id="syncAll">Spustit vše</button></div>
       <div id="stats" class="muted"></div>
       <table id="jobs"></table>
       <div id="budgets" class="muted"></div>
-    </section>
-
-    <section id="tab-settings" class="hidden">
+    </div>
+        <div id="sub-settings" class="hidden">
       <form id="settingsForm">
         <fieldset><legend>Obecné</legend>
           <label>Země <input name="country" size="3"></label>
@@ -114,6 +113,8 @@
           <button type="submit" class="ghost">Změnit</button><span id="pwMsg" class="muted"></span>
         </form>
       </fieldset>
+        </div>
+      </div>
     </section>
   </main>
 </div>
