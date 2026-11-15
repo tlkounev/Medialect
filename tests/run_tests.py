@@ -234,6 +234,10 @@ def main():
         pel = items[0]
         assert {x["source"]: x["display"] for x in pel["ratings"]}.get("csfd") == "89 %", pel["ratings"]
         assert pel["ids"]["csfd"] == "6648"
+        # IMDb id linked from the ČSFD page -> IMDb rating in the same run
+        assert pel["ids"].get("imdb") == "tt0167331", pel["ids"]
+        assert {x["source"]: x["display"] for x in pel["ratings"]}.get("imdb") == "8.2", pel["ratings"]
+        assert m["ids"]["imdb"] == "tt0133093"
 
         # Dune from Plex: DV + Atmos from detail streams
         dune = client.get("/api/search", params={"q": "dune"}).json()["items"][0]
@@ -301,6 +305,27 @@ def main():
         assert sql(f"SELECT COUNT(*) FROM availability WHERE source='jellyfin:{new['id']}'")[0][0] == 0
         assert all(x["id"] != new["id"] for x in client.get("/api/settings").json()["servers"])
         assert client.delete(f"/api/servers/{new['id']}").status_code == 404
+
+        # ---- ČSFD anti-bot page: run stops, nothing is stored as "not found" ----
+        assert client.put("/api/settings", json={"ratings": {"csfd_daily_budget": 0}}).status_code == 200
+        mock_servers.CSFD_STATE["blocked"] = True
+        sql_exec = lambda q: (lambda con: (con.execute(q), con.commit(), con.close()))(sqlite3.connect(DB_PATH))
+        sql_exec("DELETE FROM ratings WHERE source='csfd'")
+        before = sql("SELECT COUNT(*) FROM title_ids WHERE kind='csfd'")[0][0]
+        st = run_sync(client, "ratings")
+        last = next(j["last"] for j in st["jobs"] if j["id"] == "ratings")
+        assert last["status"] == "partial" and "anti-bot" in last["message"], last
+        assert sql("SELECT COUNT(*) FROM ratings WHERE source='csfd'")[0][0] == 0
+        assert sql("SELECT COUNT(*) FROM title_ids WHERE kind='csfd'")[0][0] == before
+        mock_servers.CSFD_STATE["blocked"] = False
+        st = run_sync(client, "ratings")
+        assert sql("SELECT COUNT(*) FROM ratings WHERE source='csfd' AND value IS NOT NULL")[0][0] >= 2
+
+        # old default ČSFD cap (400) is migrated to "no limit"
+        cur = json.loads(sql("SELECT value FROM kv WHERE key='settings'")[0][0])
+        cur["ratings"]["csfd_daily_budget"] = 400
+        sql_exec("UPDATE kv SET value='" + json.dumps(cur).replace("'", "''") + "' WHERE key='settings'")
+        assert client.get("/api/settings").json()["ratings"]["csfd_daily_budget"] == 0
 
         client.post("/api/auth/logout")
         client.cookies.clear()

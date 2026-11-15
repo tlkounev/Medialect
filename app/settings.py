@@ -35,7 +35,7 @@ DEFAULTS: dict[str, Any] = {
         "imdb_dataset": True,
         "justwatch_scores": True,
         "csfd": True,
-        "csfd_daily_budget": 400,
+        "csfd_daily_budget": 0,          # 0 = no daily limit
         "mdblist_api_key": "",
         "mdblist_daily_budget": 900,
         "refresh_days": 14,
@@ -60,6 +60,10 @@ def _merge(base: dict, override: dict) -> dict:
 
 async def load() -> dict[str, Any]:
     stored = await db.kv_get("settings", {})
+    if stored.get("ratings", {}).get("csfd_daily_budget") == 400 and not await db.kv_get("migrate.csfd_budget_v2"):
+        stored["ratings"]["csfd_daily_budget"] = 0   # the old default was an arbitrary cap, not ČSFD's limit
+        await db.kv_set("settings", stored)
+        await db.kv_set("migrate.csfd_budget_v2", True)
     return _merge(DEFAULTS, stored)
 
 

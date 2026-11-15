@@ -25,6 +25,7 @@ class SyncManager:
     def __init__(self):
         self.running: dict[str, SyncContext] = {}
         self.queued: set[str] = set()
+        self._ratings_again = False
         self._task: asyncio.Task | None = None
         self._full_lock = asyncio.Lock()
 
@@ -67,6 +68,16 @@ class SyncManager:
             await db.execute("UPDATE sync_runs SET finished_at=?, status=?, message=?, items=? WHERE id=?",
                              (time.time(), status, message, ctx.items, run_id))
             log.info("sync %s: %s (%s items)", job_id, status, ctx.items)
+        # new titles need ratings: run (or re-run) the ratings job after every source sync
+        if job_id == "ratings":
+            if self._ratings_again:
+                self._ratings_again = False
+                self.trigger("ratings")
+        elif status != "error" and not self._full_lock.locked():
+            if "ratings" in self.running:
+                self._ratings_again = True
+            else:
+                self.trigger("ratings")
 
     async def run(self, only: str | None = None) -> None:
         if only:
