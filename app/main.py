@@ -9,7 +9,7 @@ from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Respo
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, queries, settings as settings_mod, updates
+from . import auth, links, queries, settings as settings_mod, updates
 from .db import db
 from .sources import justwatch
 from .sources.base import SourceError, http_client
@@ -93,36 +93,44 @@ async def regen_token():
 
 
 # --- public catalogue (no login) ----------------------------------------------
+async def link_ctx(request: Request) -> dict:
+    """Library links follow each server's link_mode; "auto" = internal URL for viewers on the LAN."""
+    s = await settings_mod.load()
+    return {"servers": {srv["id"]: srv for srv in s["servers"]},
+            "lan": links.is_lan(request.client.host if request.client else None)}
+
+
 @app.get("/api/search")
-async def api_search(q: str, type: str | None = Query(None, pattern="^(movie|show)$"),
+async def api_search(request: Request, q: str, type: str | None = Query(None, pattern="^(movie|show)$"),
                      provider: str | None = None, limit: int = Query(30, ge=1, le=100)):
     provs = [p for p in (provider or "").split(",") if p] or None
-    return {"items": await queries.search(q, type, provs, limit)}
+    return {"items": await queries.search(q, type, provs, limit, link_ctx=await link_ctx(request))}
 
 
 @app.get("/api/catalog")
-async def api_catalog(q: str | None = None, provider: str | None = None, type: str | None = Query(None, pattern="^(movie|show)$"),
+async def api_catalog(request: Request, q: str | None = None, provider: str | None = None, type: str | None = Query(None, pattern="^(movie|show)$"),
                       min_quality: str | None = None, video: str | None = None, audio: str | None = None,
                       lang: str | None = None, sort: str = "imdb", order: str = "desc",
                       page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)):
-    return await queries.catalog(provider, type, min_quality, video, audio, lang, sort, order, page, page_size, q=q)
+    return await queries.catalog(provider, type, min_quality, video, audio, lang, sort, order, page, page_size, q=q,
+                                 link_ctx=await link_ctx(request))
 
 
 @app.get("/api/titles/{title_id}")
-async def api_title(title_id: int):
-    items = await queries.hydrate([title_id])
+async def api_title(request: Request, title_id: int):
+    items = await queries.hydrate([title_id], await link_ctx(request))
     if not items:
         raise HTTPException(404, "Titul nenalezen.")
     return items[0]
 
 
 @app.get("/api/titles/by/{kind}/{value}")
-async def api_title_by_id(kind: str, value: str):
+async def api_title_by_id(request: Request, kind: str, value: str):
     """Lookup by external id, e.g. /api/titles/by/imdb/tt0133093 or /by/tmdb_movie/603."""
     row = await db.fetchone("SELECT title_id FROM title_ids WHERE kind=? AND value=?", (kind, value))
     if not row:
         raise HTTPException(404, "Titul nenalezen.")
-    return (await queries.hydrate([row["title_id"]]))[0]
+    return (await queries.hydrate([row["title_id"]], await link_ctx(request)))[0]
 
 
 @app.get("/api/providers")
@@ -178,6 +186,29 @@ async def put_settings(body: dict = Body(...)):
             saved["streaming_availability"].get(k) != before["streaming_availability"].get(k) for k in sa_keys):
         manager.trigger("sa")
     return settings_mod.masked(saved)
+
+
+@app.post("/api/servers", dependencies=authed)
+async def save_server(server: dict = Body(...)):
+    """Add (no id) or update (with id) one media server; starts its sync when the connection changed."""
+    try:
+        srv, changed = await settings_mod.save_server(server)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if changed and srv.get("enabled", True):
+        manager.trigger(f"server:{srv['id']}")
+    return settings_mod.masked({"servers": [srv]})["servers"][0]
+
+
+@app.delete("/api/servers/{server_id}", dependencies=authed)
+async def delete_server(server_id: str):
+    """Remove a server and everything it contributed to the catalogue."""
+    removed = await settings_mod.delete_server(server_id)
+    if not removed:
+        raise HTTPException(404, "Server nenalezen.")
+    await db.execute("DELETE FROM availability WHERE source=?", (f"{removed['type']}:{server_id}",))
+    await db.execute("DELETE FROM sync_runs WHERE source=?", (f"server:{server_id}",))
+    return {"ok": True}
 
 
 @app.post("/api/servers/test", dependencies=authed)

@@ -222,30 +222,53 @@ let current = null;
 const getPath = (o, p) => p.split(".").reduce((a, k) => a?.[k], o);
 const setPath = (o, p, v) => { const ks = p.split("."); const last = ks.pop(); ks.reduce((a, k) => (a[k] ??= {}), o)[last] = v; };
 
-function addServerRow(srv = {}) {
-  const node = $("#serverTpl").content.firstElementChild.cloneNode(true);
+function fillServer(node, srv) {
   node.dataset.id = srv.id || "";
   for (const el of $$("[data-k]", node)) {
     const v = srv[el.dataset.k];
-    if (el.type === "checkbox") el.checked = v ?? true; else if (v !== undefined) el.value = v;
+    if (el.type === "checkbox") el.checked = v ?? true;
+    else if (v !== undefined) el.value = v;
+    else if (el.dataset.k === "link_mode") el.value = "auto";
   }
-  $(".remove", node).addEventListener("click", () => node.remove());
+  node.classList.toggle("unsaved", !srv.id);
+}
+function addServerRow(srv = {}) {
+  const node = $("#serverTpl").content.firstElementChild.cloneNode(true);
+  fillServer(node, srv);
+  const res = $(".result", node);
+  const say = (text, cls = "muted") => { res.textContent = text; res.className = `${cls} result`; };
+  $$("[data-k]", node).forEach((el) => el.addEventListener("input", () => say(node.dataset.id ? "Neuložené změny" : "Nový server – ulož ho")));
+  $(".save", node).addEventListener("click", async () => {
+    say("Ukládám…");
+    try {
+      const saved = await api("/api/servers", { method: "POST", body: readServer(node) });
+      fillServer(node, saved);
+      say("Uloženo.", "ok");
+    } catch (e) { say(`Chyba: ${e.message}`, "err"); }
+  });
   $(".test", node).addEventListener("click", async () => {
-    const res = $(".result", node);
-    res.textContent = "Testuji…";
+    say("Testuji…");
     try {
       const r = await api("/api/servers/test", { method: "POST", body: readServer(node) });
-      res.textContent = r.ok ? `OK ${r.info.name || ""} ${r.info.version || ""}` : `Chyba: ${r.error}`;
-    } catch (e) { res.textContent = `Chyba: ${e.message}`; }
+      r.ok ? say(`Spojení OK – ${r.info.name || ""} ${r.info.version || ""}`, "ok") : say(`Chyba: ${r.error}`, "err");
+    } catch (e) { say(`Chyba: ${e.message}`, "err"); }
+  });
+  $(".remove", node).addEventListener("click", async () => {
+    if (!node.dataset.id) { node.remove(); return; }
+    const name = $("[data-k=name]", node).value || "server";
+    if (!confirm(`Odebrat ${name}? Zmizí i jeho tituly z katalogu.`)) return;
+    try { await api(`/api/servers/${encodeURIComponent(node.dataset.id)}`, { method: "DELETE" }); node.remove(); }
+    catch (e) { say(`Chyba: ${e.message}`, "err"); }
   });
   $("#servers").appendChild(node);
+  return node;
 }
 function readServer(node) {
   const s = { id: node.dataset.id || undefined };
   for (const el of $$("[data-k]", node)) s[el.dataset.k] = el.type === "checkbox" ? el.checked : el.value.trim();
   return s;
 }
-$("#addServer").addEventListener("click", () => addServerRow({ type: "emby" }));
+$("#addServer").addEventListener("click", () => $("[data-k=name]", addServerRow({ type: "emby", link_mode: "auto" })).focus());
 
 async function loadJwProviders() {
   const box = $("#jwProviders");
@@ -273,7 +296,6 @@ $("#settingsForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const body = {};
   for (const el of $$("[name]", e.target)) setPath(body, el.name, el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value.trim());
-  body.servers = $$("#servers .server").map(readServer);
   const jw = $$("#jwProviders input:checked").map((i) => i.value);
   if ($$("#jwProviders input").length) body.justwatch.providers = jw;
   body.streaming_availability.catalogs = $$("#saCatalogs input:checked").map((i) => i.value);

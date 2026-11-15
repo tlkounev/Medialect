@@ -75,6 +75,54 @@ def masked(settings: dict[str, Any]) -> dict[str, Any]:
     return s
 
 
+LINK_MODES = ("auto", "public", "internal")
+_CONNECTION_KEYS = ("type", "url", "token", "enabled")
+
+
+def _clean_server(srv: dict, old: dict | None = None) -> dict:
+    srv = dict(srv)
+    if not srv.get("id"):
+        srv["id"] = uuid.uuid4().hex[:8]
+    if srv.get("token") == MASK:
+        srv["token"] = (old or {}).get("token", "")
+    srv["url"] = (srv.get("url") or "").strip().rstrip("/")
+    srv["public_url"] = (srv.get("public_url") or "").strip().rstrip("/")
+    srv["name"] = (srv.get("name") or "").strip()
+    srv.setdefault("enabled", True)
+    if srv.get("link_mode") not in LINK_MODES:
+        srv["link_mode"] = "auto"
+    return srv
+
+
+async def save_server(server: dict) -> tuple[dict, bool]:
+    """Add or update one server. Returns (server, connection_changed)."""
+    current = await load()
+    servers = list(current.get("servers", []))
+    idx = next((i for i, s in enumerate(servers) if server.get("id") and s["id"] == server["id"]), None)
+    old = servers[idx] if idx is not None else None
+    srv = _clean_server(server, old)
+    if not srv["url"]:
+        raise ValueError("Chybí interní URL serveru.")
+    if srv["type"] not in ("emby", "jellyfin", "plex"):
+        raise ValueError("Neznámý typ serveru.")
+    if idx is None:
+        servers.append(srv)
+    else:
+        servers[idx] = srv
+    current["servers"] = servers
+    await db.kv_set("settings", current)
+    changed = old is None or any(old.get(k) != srv.get(k) for k in _CONNECTION_KEYS)
+    return srv, changed
+
+
+async def delete_server(server_id: str) -> dict | None:
+    current = await load()
+    removed = next((s for s in current.get("servers", []) if s["id"] == server_id), None)
+    current["servers"] = [s for s in current.get("servers", []) if s["id"] != server_id]
+    await db.kv_set("settings", current)
+    return removed
+
+
 async def save(new: dict[str, Any]) -> dict[str, Any]:
     """Save settings from the UI. Masked secrets keep their stored value."""
     current = await load()
@@ -83,19 +131,8 @@ async def save(new: dict[str, Any]) -> dict[str, Any]:
         if merged.get(section, {}).get(key) == MASK:
             merged[section][key] = current[section][key]
     old_servers = {s["id"]: s for s in current.get("servers", []) if s.get("id")}
-    servers = []
-    for srv in new.get("servers", current.get("servers", [])):
-        srv = dict(srv)
-        srv.setdefault("id", uuid.uuid4().hex[:8])
-        if not srv.get("id"):
-            srv["id"] = uuid.uuid4().hex[:8]
-        if srv.get("token") == MASK:
-            srv["token"] = old_servers.get(srv["id"], {}).get("token", "")
-        srv["url"] = (srv.get("url") or "").rstrip("/")
-        srv["public_url"] = (srv.get("public_url") or "").rstrip("/")
-        srv.setdefault("enabled", True)
-        servers.append(srv)
-    merged["servers"] = servers
+    merged["servers"] = [_clean_server(s, old_servers.get(s.get("id")))
+                         for s in new.get("servers", current.get("servers", []))]
     merged["country"] = (merged.get("country") or "CZ").upper()
     await db.kv_set("settings", merged)
     return merged

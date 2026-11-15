@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from .db import db
+from .links import server_link
 from .quality import QUALITY_ORDER, best_quality, merge_tags, norm
 
 RATING_ORDER = ["csfd", "imdb", "rottentomatoes", "rottentomatoes_audience", "metacritic", "metacritic_user",
@@ -20,7 +21,8 @@ def _j(s: str | None) -> list:
         return []
 
 
-async def hydrate(title_ids: list[int]) -> list[dict[str, Any]]:
+async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[dict[str, Any]]:
+    """link_ctx = {"servers": {id: server}, "lan": bool} rebuilds library links for the viewer."""
     if not title_ids:
         return []
     ph = ",".join("?" * len(title_ids))
@@ -43,6 +45,10 @@ async def hydrate(title_ids: list[int]) -> list[dict[str, Any]]:
             "audio": _j(r["audio"]), "audio_langs": _j(r["audio_langs"]), "subtitle_langs": _j(r["subtitle_langs"]),
             "url": r["url"], "expires_on": r["expires_on"], "sources": [r["source"]], "extra": json.loads(r["extra"] or "{}"),
         }
+        if link_ctx and r["kind"] == "library" and ":" in r["source"]:
+            srv = link_ctx["servers"].get(r["source"].split(":", 1)[1])
+            if srv:
+                offer["url"] = server_link(srv, offer["extra"], link_ctx["lan"]) or offer["url"]
         cur = groups.get(key)
         if not cur:
             groups[key] = offer
@@ -77,7 +83,8 @@ async def hydrate(title_ids: list[int]) -> list[dict[str, Any]]:
     return out
 
 
-async def search(q: str, ttype: str | None = None, providers: list[str] | None = None, limit: int = 30) -> list[dict]:
+async def search(q: str, ttype: str | None = None, providers: list[str] | None = None, limit: int = 30,
+                 link_ctx: dict | None = None) -> list[dict]:
     nq = norm(q)
     if not nq:
         return []
@@ -95,13 +102,13 @@ async def search(q: str, ttype: str | None = None, providers: list[str] | None =
     sql += f" AND EXISTS ({av}) GROUP BY t.id ORDER BY exact DESC, prefix DESC, t.year DESC LIMIT ?"
     params.append(limit)
     rows = await db.fetchall(sql, params)
-    return await hydrate([r["id"] for r in rows])
+    return await hydrate([r["id"] for r in rows], link_ctx)
 
 
 async def catalog(provider: str | None = None, ttype: str | None = None, min_quality: str | None = None,
                   video: str | None = None, audio: str | None = None, lang: str | None = None,
                   sort: str = "imdb", order: str = "desc", page: int = 1, page_size: int = 50,
-                  q: str | None = None) -> dict:
+                  q: str | None = None, link_ctx: dict | None = None) -> dict:
     cond, params = [], []
     nq = norm(q or "")
     if provider:
@@ -151,7 +158,7 @@ async def catalog(provider: str | None = None, ttype: str | None = None, min_qua
         f"SELECT t.id FROM titles t {join} {where} ORDER BY {order_sql} LIMIT ? OFFSET ?",
         jparams + params + order_params + [page_size, (max(page, 1) - 1) * page_size])
     return {"total": total, "page": page, "page_size": page_size,
-            "items": await hydrate([r["id"] for r in rows])}
+            "items": await hydrate([r["id"] for r in rows], link_ctx)}
 
 
 async def providers() -> list[dict]:

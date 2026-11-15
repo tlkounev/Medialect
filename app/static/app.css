@@ -74,9 +74,16 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
 .chips label { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 13px; }
 .chips img { width: 18px; height: 18px; border-radius: 4px; }
-#servers { width: 100%; display: grid; gap: 8px; }
-.server { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px; border: 1px dashed var(--line); border-radius: 10px; }
-.server input[data-k="url"], .server input[data-k="public_url"] { min-width: 240px; }
+#servers { width: 100%; display: grid; gap: 10px; }
+.server { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #11141a; }
+.server.unsaved { border-style: dashed; }
+.server-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 12px; }
+.server-fields label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.server-fields label.chk { display: inline-flex; align-self: end; font-size: 14px; color: var(--text); }
+.server-fields input, .server-fields select { width: 100%; }
+.server-fields input[type="checkbox"] { width: auto; }
+.server-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.result.ok { color: var(--ok); } .result.err { color: var(--err); }
 
 @media (max-width: 640px) {
   header { flex-wrap: wrap; } header nav { order: 3; flex: 1 1 100%; overflow-x: auto; } .logo { flex: 1; }
