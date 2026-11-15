@@ -11,6 +11,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
+LABEL org.opencontainers.image.version=${APP_VERSION}
+
 RUN useradd -r -u 1000 medialect && mkdir -p /data && chown medialect /data
 USER medialect
 VOLUME ["/data"]

@@ -8,7 +8,9 @@ Oneplay…). U každého místa ukáže kvalitu obrazu a zvuku, jazyky, odkaz �
 ## Spuštění
 
 Image se sestavuje automaticky přes GitHub Actions do `ghcr.io/tlkounev/medialect`
-(`latest` = poslední verze v `main`, verze podle tagů `v*`, platformy amd64 a arm64).
+(platformy amd64 a arm64). Každé sloučení do `main` vydá novou verzi `1.0.x`: číslo se
+zvýší o jedna, vytvoří se tag `v1.0.x` a image dostane tagy `1.0.x`, `1.0` a `latest`.
+Verze je vidět v hlavičce aplikace.
 
 ### QNAP Container Station
 Create → **Create Application** → název `medialect` → vlož obsah `docker-compose.yml` → Create.

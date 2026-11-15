@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -9,7 +10,7 @@ import httpx
 
 log = logging.getLogger("medialect")
 
-USER_AGENT = "Medialect/0.1 (+self-hosted)"
+USER_AGENT = f"Medialect/{os.environ.get('APP_VERSION', 'dev')} (+self-hosted)"
 
 
 @dataclass
