@@ -163,15 +163,18 @@ function renderTitle(ti) {
 
 /* ---------- catalogue (with search), filters remembered per viewer ---------- */
 let cPage = 1, catalogSeq = 0, searchTimer = null, facetsLoaded = false;
-const FILTERS = [["cProvider", "provider"], ["cType", "type"], ["cQuality", "quality"], ["cVideo", "video"],
-                 ["cAudio", "audio"], ["cLang", "lang"], ["cSub", "sub"], ["cSort", "sort"]];
+// multi-select filters: several values in one filter = any of them, different filters = all of them
+const MULTI = [["cProvider", "provider", "f.allProviders"], ["cType", "type", "f.allTypes"],
+               ["cQuality", "quality", "f.anyQuality"], ["cVideo", "video", "f.anyVideo"], ["cAudio", "audio", "f.anyAudio"],
+               ["cLang", "lang", "f.anyAudioLang"], ["cSub", "sub", "f.anySub"]];
 const FILTER_KEY = "medialect.filters";
 const DEFAULT_SORT = "added";
+const ms = {};                                   // id -> { items: [{value,label,count}], sel: Set }
 
 function savedFilters() { try { return JSON.parse(localStorage.getItem(FILTER_KEY) || "{}"); } catch (_) { return {}; } }
 function saveFilters() {
-  const f = {};
-  for (const [id] of FILTERS) f[id] = $(`#${id}`).value;
+  const f = { cSort: $("#cSort").value };
+  for (const [id] of MULTI) f[id] = [...ms[id].sel];
   try { localStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch (_) { /* private mode */ }
 }
 function setOptions(sel, items) {
@@ -179,30 +182,89 @@ function setOptions(sel, items) {
   sel.innerHTML = items.map((o) => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("");
   if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
 }
-const withCount = (label, n) => `${label} (${fmtNum(n)})`;
+
+function msBuild(id, allKey) {
+  const root = $(`#${id}`);
+  ms[id] = { items: [], sel: new Set(), allKey };
+  root.innerHTML = `<button type="button" class="ms-btn" aria-haspopup="true" aria-expanded="false"></button>
+    <div class="ms-panel hidden" role="group"><div class="ms-list"></div>
+    <button type="button" class="ghost ms-clear" data-i18n="f.clear">${esc(t("f.clear"))}</button></div>`;
+  const btn = root.querySelector(".ms-btn"), panel = root.querySelector(".ms-panel");
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = panel.classList.contains("hidden");
+    $$(".ms-panel").forEach((p) => { p.classList.add("hidden"); p.previousElementSibling.setAttribute("aria-expanded", "false"); });
+    panel.classList.toggle("hidden", !open);
+    btn.setAttribute("aria-expanded", String(open));
+    if (open) {                                  // keep the panel on screen near the right edge
+      panel.style.left = ""; panel.style.right = "";
+      if (panel.getBoundingClientRect().right > document.documentElement.clientWidth - 8) { panel.style.left = "auto"; panel.style.right = "0"; }
+    }
+  });
+  panel.addEventListener("click", (e) => e.stopPropagation());
+  panel.addEventListener("change", (e) => {
+    if (!e.target.matches("input[type=checkbox]")) return;
+    e.target.checked ? ms[id].sel.add(e.target.value) : ms[id].sel.delete(e.target.value);
+    msLabel(id); filtersChanged();
+  });
+  root.querySelector(".ms-clear").addEventListener("click", () => { ms[id].sel.clear(); msRender(id); filtersChanged(); });
+}
+function msLabel(id) {
+  const m = ms[id], chosen = m.items.filter((i) => m.sel.has(i.value));
+  const btn = $(`#${id} .ms-btn`);
+  btn.textContent = !chosen.length ? t(m.allKey) : chosen.length === 1 ? chosen[0].label : `${chosen[0].label} +${chosen.length - 1}`;
+  btn.classList.toggle("on", chosen.length > 0);
+  btn.title = chosen.map((i) => i.label).join(", ");
+}
+function msRender(id) {
+  const m = ms[id];
+  $(`#${id} .ms-list`).innerHTML = m.items.map((i) => `<label><input type="checkbox" value="${esc(i.value)}" ${m.sel.has(i.value) ? "checked" : ""}>
+    <span>${esc(i.label)}</span>${i.count != null ? `<small>${fmtNum(i.count)}</small>` : ""}</label>`).join("")
+    || `<span class="muted">–</span>`;
+  msLabel(id);
+}
+function msSet(id, items) {
+  const m = ms[id];
+  m.items = items;
+  if (facetsLoaded) for (const v of [...m.sel]) if (!items.some((i) => i.value === v)) m.sel.delete(v);
+  msRender(id);
+}
+document.addEventListener("click", () => $$(".ms-panel").forEach((p) => {
+  p.classList.add("hidden"); p.previousElementSibling.setAttribute("aria-expanded", "false"); }));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") document.dispatchEvent(new Event("click")); });
+
+let filterTimer = null;
+function filtersChanged() {
+  cPage = 1; saveFilters();
+  clearTimeout(filterTimer); filterTimer = setTimeout(loadCatalog, 250);
+}
+
 async function loadFacets() {
+  if (!ms.cProvider) for (const [id, , allKey] of MULTI) msBuild(id, allKey);
+  if (!facetsLoaded) {                     // first load: restore the viewer's last choice (old single values too)
+    const saved = savedFilters();
+    for (const [id] of MULTI) {
+      const v = saved[id];
+      ms[id].sel = new Set(Array.isArray(v) ? v : v ? [v] : []);
+    }
+  }
   const [{ items }, f] = await Promise.all([api("/api/providers"), api("/api/facets")]);
-  setOptions($("#cProvider"), [{ value: "", label: t("f.allProviders") },
-    ...items.map((p) => ({ value: p.provider, label: withCount(p.name, p.titles) }))]);
-  setOptions($("#cType"), [{ value: "", label: t("f.allTypes") }, { value: "movie", label: t("f.movies") }, { value: "show", label: t("f.shows") }]);
-  setOptions($("#cQuality"), [{ value: "", label: t("f.anyQuality") },
-    ...f.quality.map((q) => ({ value: q.value, label: withCount(QUALITY_LABEL[q.value] || q.value, q.titles) }))]);
-  setOptions($("#cVideo"), [{ value: "", label: t("f.anyVideo") }, ...f.video.map((x) => ({ value: x.value, label: withCount(x.value, x.titles) }))]);
-  setOptions($("#cAudio"), [{ value: "", label: t("f.anyAudio") }, ...f.audio.map((x) => ({ value: x.value, label: withCount(x.value, x.titles) }))]);
-  const langs = (arr) => arr.map((x) => ({ value: x.value, label: withCount(langName(x.value), x.titles) }))
+  msSet("cProvider", items.map((p) => ({ value: p.provider, label: p.name, count: p.titles })));
+  msSet("cType", [{ value: "movie", label: t("f.movies") }, { value: "show", label: t("f.shows") }]);
+  msSet("cQuality", f.quality.map((q) => ({ value: q.value, label: QUALITY_LABEL[q.value] || q.value, count: q.titles })));
+  msSet("cVideo", f.video.map((x) => ({ value: x.value, label: x.value, count: x.titles })));
+  msSet("cAudio", f.audio.map((x) => ({ value: x.value, label: x.value, count: x.titles })));
+  const langs = (arr) => arr.map((x) => ({ value: x.value, label: langName(x.value), count: x.titles }))
     .sort((a, b) => a.label.localeCompare(b.label, uiLang));
-  setOptions($("#cLang"), [{ value: "", label: t("f.anyAudioLang") }, ...langs(f.audio_langs)]);
-  setOptions($("#cSub"), [{ value: "", label: t("f.anySub") }, ...langs(f.subtitle_langs)]);
+  msSet("cLang", langs(f.audio_langs));
+  msSet("cSub", langs(f.subtitle_langs));
   setOptions($("#cSort"), [{ value: "added", label: t("sort.added") }, { value: "year", label: t("sort.year") },
     { value: "title", label: t("sort.title") },
     ...f.ratings.map((r) => ({ value: r.value, label: t("sort.rating", { name: RATING_LABEL[r.value] || r.value }) }))]);
-  if (!facetsLoaded) {                     // first load: restore the viewer's last choice
+  if (!facetsLoaded) {
     const saved = savedFilters();
-    for (const [id] of FILTERS) {
-      const sel = $(`#${id}`);
-      if (saved[id] !== undefined && [...sel.options].some((o) => o.value === saved[id])) sel.value = saved[id];
-    }
-    if (!saved.cSort) $("#cSort").value = DEFAULT_SORT;
+    const sel = $("#cSort");
+    sel.value = saved.cSort && [...sel.options].some((o) => o.value === saved.cSort) ? saved.cSort : DEFAULT_SORT;
     facetsLoaded = true;
   }
 }
@@ -212,9 +274,7 @@ async function loadCatalog() {
   const sort = $("#cSort").value || DEFAULT_SORT;
   const params = new URLSearchParams({ page: cPage, page_size: 40, sort, order: sort === "title" ? "asc" : "desc" });
   if (q.length >= 2) params.set("q", q);
-  for (const [id, key] of FILTERS) {
-    if (key !== "sort" && $(`#${id}`).value) params.set(key, $(`#${id}`).value);
-  }
+  for (const [id, key] of MULTI) if (ms[id] && ms[id].sel.size) params.set(key, [...ms[id].sel].join(","));
   try {
     const data = await api(`/api/catalog?${params}`);
     if (seq !== catalogSeq) return;
@@ -230,9 +290,10 @@ async function loadCatalog() {
   } catch (e) { $("#catalog").innerHTML = `<p class="err">${esc(e.message)}</p>`; }
 }
 $("#q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { cPage = 1; loadCatalog(); }, 250); });
-$$(".filters select").forEach((s) => s.addEventListener("change", () => { cPage = 1; saveFilters(); loadCatalog(); }));
+$("#cSort").addEventListener("change", () => { cPage = 1; saveFilters(); loadCatalog(); });
 $("#cReset").addEventListener("click", () => {
-  for (const [id] of FILTERS) $(`#${id}`).value = id === "cSort" ? DEFAULT_SORT : "";
+  for (const [id] of MULTI) { ms[id].sel.clear(); msRender(id); }
+  $("#cSort").value = DEFAULT_SORT;
   cPage = 1; saveFilters(); loadCatalog();
 });
 $("#cPrev").addEventListener("click", () => { cPage--; loadCatalog(); scrollTo(0, 0); });

@@ -324,6 +324,16 @@ def main():
         cat = client.get("/api/catalog", params={"quality": "FHD", "provider": f"plex-{plex_id}"}).json()
         assert sorted(i["title"] for i in cat["items"]) == ["Chernobyl", "The Matrix"] or sorted(i["title"] for i in cat["items"]) == ["Matrix", "Černobyl"], [i["title"] for i in cat["items"]]
         print("  providers ->", client.get("/api/providers").json()["items"])
+        # multi-select filters: values in one filter OR, across filters AND (on the same offer)
+        def titles(**prm):
+            return sorted(i["title"] for i in client.get("/api/catalog", params={**prm, "page_size": 200}).json()["items"])
+        plex_q = titles(provider=f"plex-{plex_id}", quality="UHD,FHD")
+        assert plex_q == sorted(titles(provider=f"plex-{plex_id}", quality="UHD") + titles(provider=f"plex-{plex_id}", quality="FHD")), plex_q
+        two = titles(provider=f"emby-{emby_id},plex-{plex_id}")
+        assert set(two) == set(titles(provider=f"emby-{emby_id}")) | set(titles(provider=f"plex-{plex_id}"))
+        assert titles(provider=f"emby-{emby_id}", lang="en,de") == titles(provider=f"emby-{emby_id}", lang="en")
+        assert titles(provider=f"emby-{emby_id}", type="movie,show") == titles(provider=f"emby-{emby_id}")
+        assert titles(provider=f"emby-{emby_id}", video="DV,HDR10") == sorted(set(titles(provider=f"emby-{emby_id}", video="DV")) | set(titles(provider=f"emby-{emby_id}", video="HDR10")))
         img = client.get(dune["poster"])
         assert img.status_code == 200 or img.status_code == 404  # plex photo transcoder not mocked
         assert client.get(f"/api/poster/{emby_id}", params={"path": "/System/Info"}).status_code == 400

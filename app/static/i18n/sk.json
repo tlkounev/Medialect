@@ -6,7 +6,7 @@
 "aria.audioLang": "Jazyk zvuku", "aria.sub": "Titulky", "aria.sort": "Zoradenie",
 "f.allProviders": "Všetky služby", "f.allTypes": "Filmy aj seriály", "f.movies": "Filmy", "f.shows": "Seriály",
 "f.anyQuality": "Akákoľvek kvalita", "f.anyVideo": "Akýkoľvek obraz", "f.anyAudio": "Akýkoľvek zvuk",
-"f.anyAudioLang": "Akýkoľvek jazyk zvuku", "f.anySub": "Akékoľvek titulky", "f.reset": "Zrušiť filtre",
+"f.anyAudioLang": "Akýkoľvek jazyk zvuku", "f.anySub": "Akékoľvek titulky", "f.reset": "Zrušiť filtre", "f.clear": "Zrušiť výber",
 "sort.added": "Novo pridané", "sort.year": "Rok vydania", "sort.title": "Názov", "sort.rating": "Hodnotenie {name}",
 "cat.count": "{n} titulov", "cat.page": "strana {p}/{n}", "cat.none": "Nič sa nenašlo.",
 "cat.addedNote": "dátum pridania poznajú vlastné knižnice a Streaming Availability, ostatné tituly sú na konci",

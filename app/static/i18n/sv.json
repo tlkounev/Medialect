@@ -6,7 +6,7 @@
 "aria.audioLang": "Ljudspråk", "aria.sub": "Undertexter", "aria.sort": "Sortering",
 "f.allProviders": "Alla tjänster", "f.allTypes": "Filmer och serier", "f.movies": "Filmer", "f.shows": "Serier",
 "f.anyQuality": "All kvalitet", "f.anyVideo": "All bild", "f.anyAudio": "Allt ljud",
-"f.anyAudioLang": "Alla ljudspråk", "f.anySub": "Alla undertexter", "f.reset": "Rensa filter",
+"f.anyAudioLang": "Alla ljudspråk", "f.anySub": "Alla undertexter", "f.reset": "Rensa filter", "f.clear": "Rensa val",
 "sort.added": "Nyligen tillagda", "sort.year": "Utgivningsår", "sort.title": "Titel", "sort.rating": "Betyg {name}",
 "cat.count": "{n} titlar", "cat.page": "sida {p}/{n}", "cat.none": "Inget hittades.",
 "cat.addedNote": "datum för tillägg finns för egna bibliotek och Streaming Availability, övriga titlar hamnar sist",

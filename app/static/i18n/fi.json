@@ -6,7 +6,7 @@
 "aria.audioLang": "Äänen kieli", "aria.sub": "Tekstitys", "aria.sort": "Järjestys",
 "f.allProviders": "Kaikki palvelut", "f.allTypes": "Elokuvat ja sarjat", "f.movies": "Elokuvat", "f.shows": "Sarjat",
 "f.anyQuality": "Mikä tahansa laatu", "f.anyVideo": "Mikä tahansa kuva", "f.anyAudio": "Mikä tahansa ääni",
-"f.anyAudioLang": "Mikä tahansa äänen kieli", "f.anySub": "Mikä tahansa tekstitys", "f.reset": "Tyhjennä suodattimet",
+"f.anyAudioLang": "Mikä tahansa äänen kieli", "f.anySub": "Mikä tahansa tekstitys", "f.reset": "Tyhjennä suodattimet", "f.clear": "Tyhjennä valinta",
 "sort.added": "Äskettäin lisätyt", "sort.year": "Julkaisuvuosi", "sort.title": "Nimi", "sort.rating": "Arvio {name}",
 "cat.count": "{n} nimikettä", "cat.page": "sivu {p}/{n}", "cat.none": "Mitään ei löytynyt.",
 "cat.addedNote": "lisäyspäivä tiedetään omista kirjastoista ja Streaming Availabilitystä, muut nimikkeet ovat lopussa",

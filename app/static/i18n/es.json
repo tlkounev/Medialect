@@ -6,7 +6,7 @@
 "aria.audioLang": "Idioma del audio", "aria.sub": "Subtítulos", "aria.sort": "Orden",
 "f.allProviders": "Todos los servicios", "f.allTypes": "Películas y series", "f.movies": "Películas", "f.shows": "Series",
 "f.anyQuality": "Cualquier calidad", "f.anyVideo": "Cualquier imagen", "f.anyAudio": "Cualquier sonido",
-"f.anyAudioLang": "Cualquier idioma de audio", "f.anySub": "Cualquier subtítulo", "f.reset": "Borrar filtros",
+"f.anyAudioLang": "Cualquier idioma de audio", "f.anySub": "Cualquier subtítulo", "f.reset": "Borrar filtros", "f.clear": "Borrar selección",
 "sort.added": "Añadidos recientemente", "sort.year": "Año de estreno", "sort.title": "Título", "sort.rating": "Nota {name}",
 "cat.count": "{n} títulos", "cat.page": "página {p}/{n}", "cat.none": "No se encontró nada.",
 "cat.addedNote": "la fecha de alta la conocen las bibliotecas propias y Streaming Availability, el resto de títulos va al final",

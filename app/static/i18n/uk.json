@@ -6,7 +6,7 @@
 "aria.audioLang": "Мова звуку", "aria.sub": "Субтитри", "aria.sort": "Сортування",
 "f.allProviders": "Усі сервіси", "f.allTypes": "Фільми й серіали", "f.movies": "Фільми", "f.shows": "Серіали",
 "f.anyQuality": "Будь-яка якість", "f.anyVideo": "Будь-яке зображення", "f.anyAudio": "Будь-який звук",
-"f.anyAudioLang": "Будь-яка мова звуку", "f.anySub": "Будь-які субтитри", "f.reset": "Скинути фільтри",
+"f.anyAudioLang": "Будь-яка мова звуку", "f.anySub": "Будь-які субтитри", "f.reset": "Скинути фільтри", "f.clear": "Скинути вибір",
 "sort.added": "Нещодавно додані", "sort.year": "Рік виходу", "sort.title": "Назва", "sort.rating": "Оцінка {name}",
 "cat.count": "{n} назв", "cat.page": "сторінка {p}/{n}", "cat.none": "Нічого не знайдено.",
 "cat.addedNote": "дату додавання знають власні бібліотеки та Streaming Availability, решта назв — у кінці",

@@ -107,6 +107,11 @@ async def search(q: str, ttype: str | None = None, providers: list[str] | None =
     return await hydrate([r["id"] for r in rows], link_ctx)
 
 
+def _list(v: str | None) -> list[str]:
+    """Comma-separated filter value -> list (empty items dropped)."""
+    return [x.strip() for x in (v or "").split(",") if x.strip()]
+
+
 async def catalog(provider: str | None = None, ttype: str | None = None, min_quality: str | None = None,
                   video: str | None = None, audio: str | None = None, lang: str | None = None,
                   sub: str | None = None, quality: str | None = None,
@@ -115,33 +120,29 @@ async def catalog(provider: str | None = None, ttype: str | None = None, min_qua
     cond, params = [], []
     nq = norm(q or "")
     if provider:
-        provs = [p for p in provider.split(",") if p]
+        provs = _list(provider)
         cond.append(f"a.provider IN ({','.join('?' * len(provs))})")
         params += provs
-    if quality in QUALITY_ORDER:
-        cond.append("a.quality = ?")
-        params.append(quality)
+    quals = [x for x in _list(quality) if x in QUALITY_ORDER]
+    if quals:
+        cond.append(f"a.quality IN ({','.join('?' * len(quals))})")
+        params += quals
     if min_quality in QUALITY_ORDER:
         ok = [q for q, v in QUALITY_ORDER.items() if v >= QUALITY_ORDER[min_quality]]
         cond.append(f"a.quality IN ({','.join('?' * len(ok))})")
         params += ok
-    if video:
-        cond.append("a.video LIKE ?")
-        params.append(f'%"{video}"%')
-    if audio:
-        cond.append("a.audio LIKE ?")
-        params.append(f'%"{audio}"%')
-    if lang:
-        cond.append("a.audio_langs LIKE ?")
-        params.append(f'%"{lang}"%')
-    if sub:
-        cond.append("a.subtitle_langs LIKE ?")
-        params.append(f'%"{sub}"%')
+    # several values in one filter = any of them (OR); different filters = all (AND), on the same offer
+    for col, val in (("video", video), ("audio", audio), ("audio_langs", lang), ("subtitle_langs", sub)):
+        vals = _list(val)
+        if vals:
+            cond.append("(" + " OR ".join(f"a.{col} LIKE ?" for _ in vals) + ")")
+            params += [f'%"{v}"%' for v in vals]
     av = "SELECT 1 FROM availability a WHERE a.title_id=t.id" + "".join(f" AND {c}" for c in cond)
     where = f"WHERE EXISTS ({av})"
-    if ttype:
+    types = [x for x in _list(ttype) if x in ("movie", "show")]
+    if len(types) == 1:
         where += " AND t.type=?"
-        params.append(ttype)
+        params.append(types[0])
     if nq:
         where += " AND EXISTS (SELECT 1 FROM title_names n WHERE n.title_id=t.id AND n.norm LIKE ?)"
         params.append(f"%{nq}%")

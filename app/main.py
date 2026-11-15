@@ -109,7 +109,7 @@ async def api_search(request: Request, q: str, type: str | None = Query(None, pa
 
 
 @app.get("/api/catalog")
-async def api_catalog(request: Request, q: str | None = None, provider: str | None = None, type: str | None = Query(None, pattern="^(movie|show)$"),
+async def api_catalog(request: Request, q: str | None = None, provider: str | None = None, type: str | None = Query(None, pattern="^(movie|show)(,(movie|show))?$"),
                       min_quality: str | None = None, video: str | None = None, audio: str | None = None,
                       lang: str | None = None, sub: str | None = None, quality: str | None = None,
                       sort: str = "added", order: str = "desc",
