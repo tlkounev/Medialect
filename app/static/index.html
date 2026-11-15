@@ -19,7 +19,7 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
       <select id="uiLang" data-i18n-aria="lang.choose"></select>
     </label>
-    <button id="logout" class="ghost hidden" data-i18n="logout">Odhlásit</button>
+    <button id="logout" class="ghost hidden web-only" data-i18n="logout">Odhlásit</button>
   </header>
 
   <main>
@@ -114,7 +114,7 @@
                   <div id="jwProviders" class="chips"></div></div>
               </fieldset>
 
-              <fieldset><legend data-i18n="set.sa">Streaming Availability API</legend>
+              <fieldset class="web-only"><legend data-i18n="set.sa">Streaming Availability API</legend>
                 <p class="muted section-hint" data-i18n="set.sa.h"></p>
                 <label class="chk"><input type="checkbox" name="streaming_availability.enabled"> <span data-i18n="set.enabled"></span></label>
                 <label class="field"><span data-i18n="set.sa.mode"></span><select name="streaming_availability.mode"><option value="direct" data-i18n="set.sa.direct"></option><option value="rapidapi">RapidAPI</option></select><small data-i18n="set.sa.mode.h"></small></label>
@@ -145,7 +145,7 @@
           </section>
 
           <!-- media servers: each row has its own buttons -->
-          <section class="settings-box">
+          <section class="settings-box web-only">
             <header class="box-head">
               <h2 data-i18n="srv.title">Mediální servery</h2>
               <p class="muted" data-i18n="srv.intro"></p>
@@ -155,7 +155,7 @@
           </section>
 
           <!-- access: unrelated to the catalogue settings -->
-          <section class="settings-box">
+          <section class="settings-box web-only">
             <header class="box-head"><h2 data-i18n="acc.title">Přístup a zabezpečení</h2></header>
             <fieldset><legend data-i18n="acc.api">API</legend>
               <p class="muted section-hint" data-i18n="acc.api.h"></p>
