@@ -71,5 +71,17 @@
 "acc.api.h": "Pentru alte aplicații, de ex. o telecomandă TV: antetul X-Api-Key sau parametrul ?api_key=.",
 "acc.show": "Afișează", "acc.regen": "Generează alta", "acc.regenConfirm": "Cheia veche nu va mai funcționa. Continui?",
 "acc.pw": "Schimbă parola", "acc.pwOld": "Parola actuală", "acc.pwNew": "Parolă nouă (min. 8 caractere)", "acc.pwBtn": "Schimbă",
-"acc.pwDone": "Parola a fost schimbată."
+"acc.pwDone": "Parola a fost schimbată.",
+"wiz.title": "Bun venit în Medialect",
+"wiz.step": "Pasul {n} din {m}",
+"wiz.country.h": "Alege țara în care te uiți. Vor fi propuse serviciile disponibile acolo.",
+"wiz.next": "Continuă",
+"wiz.back": "Înapoi",
+"wiz.skip": "Omite",
+"wiz.finish": "Finalizează și pornește sincronizarea",
+"wiz.providers": "Ce servicii ai?",
+"wiz.providers.h": "Bifează serviciile la care ai acces. Celelalte nu apar în catalog; poți schimba oricând din Setări.",
+"wiz.ratings": "Note",
+"wiz.ratings.h": "De unde vin notele. Alte surse (TMDB, OMDb, MDBList) se adaugă în Setări.",
+"set.jw.showAll": "Afișează toate serviciile din țară ({n})"
 }

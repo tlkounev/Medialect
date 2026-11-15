@@ -71,5 +71,17 @@
 "acc.api.h": "För andra appar, t.ex. en tv-fjärrkontroll: header X-Api-Key eller parametern ?api_key=.",
 "acc.show": "Visa", "acc.regen": "Skapa ny", "acc.regenConfirm": "Den gamla nyckeln slutar fungera. Fortsätta?",
 "acc.pw": "Byt lösenord", "acc.pwOld": "Nuvarande lösenord", "acc.pwNew": "Nytt lösenord (minst 8 tecken)", "acc.pwBtn": "Byt",
-"acc.pwDone": "Lösenordet har bytts."
+"acc.pwDone": "Lösenordet har bytts.",
+"wiz.title": "Välkommen till Medialect",
+"wiz.step": "Steg {n} av {m}",
+"wiz.country.h": "Välj landet där du tittar. Tjänsterna som finns där föreslås.",
+"wiz.next": "Fortsätt",
+"wiz.back": "Tillbaka",
+"wiz.skip": "Hoppa över",
+"wiz.finish": "Slutför och starta synkronisering",
+"wiz.providers": "Vilka tjänster har du?",
+"wiz.providers.h": "Markera tjänsterna du har tillgång till. De andra visas inte i katalogen; det kan ändras när som helst i Inställningar.",
+"wiz.ratings": "Betyg",
+"wiz.ratings.h": "Varifrån betygen kommer. Fler källor (TMDB, OMDb, MDBList) lägger du till i Inställningar.",
+"set.jw.showAll": "Visa alla tjänster i landet ({n})"
 }

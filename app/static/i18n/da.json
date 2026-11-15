@@ -71,5 +71,17 @@
 "acc.api.h": "Til andre apps, f.eks. en tv-fjernbetjening: header X-Api-Key eller parameteren ?api_key=.",
 "acc.show": "Vis", "acc.regen": "Generér ny", "acc.regenConfirm": "Den gamle nøgle holder op med at virke. Fortsæt?",
 "acc.pw": "Skift adgangskode", "acc.pwOld": "Nuværende adgangskode", "acc.pwNew": "Ny adgangskode (mindst 8 tegn)", "acc.pwBtn": "Skift",
-"acc.pwDone": "Adgangskoden er skiftet."
+"acc.pwDone": "Adgangskoden er skiftet.",
+"wiz.title": "Velkommen til Medialect",
+"wiz.step": "Trin {n} af {m}",
+"wiz.country.h": "Vælg det land, du ser i. Tjenesterne, der findes der, bliver foreslået.",
+"wiz.next": "Fortsæt",
+"wiz.back": "Tilbage",
+"wiz.skip": "Spring over",
+"wiz.finish": "Afslut og start synkronisering",
+"wiz.providers": "Hvilke tjenester har du?",
+"wiz.providers.h": "Markér de tjenester, du har adgang til. De andre vises ikke i kataloget; det kan ændres når som helst i Indstillinger.",
+"wiz.ratings": "Bedømmelser",
+"wiz.ratings.h": "Hvor bedømmelserne kommer fra. Flere kilder (TMDB, OMDb, MDBList) tilføjes i Indstillinger.",
+"set.jw.showAll": "Vis alle tjenester i landet ({n})"
 }

@@ -71,5 +71,17 @@
 "acc.api.h": "Muille sovelluksille, esim. TV-kaukosäätimelle: otsake X-Api-Key tai parametri ?api_key=.",
 "acc.show": "Näytä", "acc.regen": "Luo uusi", "acc.regenConfirm": "Vanha avain lakkaa toimimasta. Jatketaanko?",
 "acc.pw": "Vaihda salasana", "acc.pwOld": "Nykyinen salasana", "acc.pwNew": "Uusi salasana (väh. 8 merkkiä)", "acc.pwBtn": "Vaihda",
-"acc.pwDone": "Salasana vaihdettu."
+"acc.pwDone": "Salasana vaihdettu.",
+"wiz.title": "Tervetuloa Medialectiin",
+"wiz.step": "Vaihe {n}/{m}",
+"wiz.country.h": "Valitse maa, jossa katselet. Siellä toimivat palvelut tarjotaan valittaviksi.",
+"wiz.next": "Jatka",
+"wiz.back": "Takaisin",
+"wiz.skip": "Ohita",
+"wiz.finish": "Valmis ja aloita synkronointi",
+"wiz.providers": "Mitä palveluja sinulla on?",
+"wiz.providers.h": "Valitse palvelut, joihin sinulla on pääsy. Muut eivät näy luettelossa; voit muuttaa tätä Asetuksissa.",
+"wiz.ratings": "Arviot",
+"wiz.ratings.h": "Mistä arviot haetaan. Lisää lähteitä (TMDB, OMDb, MDBList) lisätään Asetuksissa.",
+"set.jw.showAll": "Näytä kaikki maan palvelut ({n})"
 }

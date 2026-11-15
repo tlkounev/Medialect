@@ -71,5 +71,17 @@
 "acc.api.h": "For other apps, e.g. a TV remote: header X-Api-Key or parameter ?api_key=.",
 "acc.show": "Show", "acc.regen": "Generate new", "acc.regenConfirm": "The old key will stop working. Continue?",
 "acc.pw": "Change password", "acc.pwOld": "Current password", "acc.pwNew": "New password (min. 8 characters)", "acc.pwBtn": "Change",
-"acc.pwDone": "Password changed."
+"acc.pwDone": "Password changed.",
+"wiz.title": "Welcome to Medialect",
+"wiz.step": "Step {n} of {m}",
+"wiz.country.h": "Choose the country you watch in. The services available there will be offered.",
+"wiz.next": "Continue",
+"wiz.back": "Back",
+"wiz.skip": "Skip",
+"wiz.finish": "Finish and start syncing",
+"wiz.providers": "Which services do you have?",
+"wiz.providers.h": "Tick the services you have access to. The others won't appear in the catalogue; you can change this any time in Settings.",
+"wiz.ratings": "Ratings",
+"wiz.ratings.h": "Where ratings come from. Add more sources (TMDB, OMDb, MDBList) in Settings.",
+"set.jw.showAll": "Show all services in the country ({n})"
 }

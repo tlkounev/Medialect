@@ -57,7 +57,20 @@ async def auth_setup(response: Response, password: str = Body(..., embed=True)):
     if await auth.is_configured():
         raise HTTPException(409, "Heslo už je nastavené.")
     await auth.set_password(password)
+    await db.kv_set("onboarding.pending", True)   # first run: the admin gets the setup wizard
+    await db.kv_set("migrate.csfd_optin_v3", True)   # fresh install: ČSFD stays opt-in
     _set_cookie(response, await auth.make_session())
+    return {"ok": True}
+
+
+@app.get("/api/onboarding", dependencies=authed)
+async def onboarding_state():
+    return {"pending": bool(await db.kv_get("onboarding.pending", False))}
+
+
+@app.post("/api/onboarding/done", dependencies=authed)
+async def onboarding_done():
+    await db.kv_set("onboarding.pending", False)
     return {"ok": True}
 
 

@@ -71,5 +71,17 @@
 "acc.api.h": "Voor andere apps, bv. een tv-afstandsbediening: header X-Api-Key of parameter ?api_key=.",
 "acc.show": "Tonen", "acc.regen": "Nieuwe genereren", "acc.regenConfirm": "De oude sleutel werkt dan niet meer. Doorgaan?",
 "acc.pw": "Wachtwoord wijzigen", "acc.pwOld": "Huidig wachtwoord", "acc.pwNew": "Nieuw wachtwoord (min. 8 tekens)", "acc.pwBtn": "Wijzigen",
-"acc.pwDone": "Wachtwoord gewijzigd."
+"acc.pwDone": "Wachtwoord gewijzigd.",
+"wiz.title": "Welkom bij Medialect",
+"wiz.step": "Stap {n} van {m}",
+"wiz.country.h": "Kies het land waar je kijkt. De diensten die daar beschikbaar zijn, worden voorgesteld.",
+"wiz.next": "Doorgaan",
+"wiz.back": "Terug",
+"wiz.skip": "Overslaan",
+"wiz.finish": "Voltooien en synchroniseren",
+"wiz.providers": "Welke diensten heb je?",
+"wiz.providers.h": "Vink de diensten aan waar je toegang toe hebt. De rest verschijnt niet in de catalogus; dit kan altijd in Instellingen.",
+"wiz.ratings": "Scores",
+"wiz.ratings.h": "Waar de scores vandaan komen. Meer bronnen (TMDB, OMDb, MDBList) voeg je toe in Instellingen.",
+"set.jw.showAll": "Alle diensten in het land tonen ({n})"
 }
