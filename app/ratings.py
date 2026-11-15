@@ -6,47 +6,72 @@ import asyncio
 import gzip
 import html
 import io
+import os
 import re
 import time
 from urllib.parse import quote
 
 from . import store
-from .db import db
+from .db import DATA_DIR, db
 from .quality import norm
 from .sources.base import SourceError, SyncContext, http_client
 
 IMDB_RATINGS_URL = "https://datasets.imdbws.com/title.ratings.tsv.gz"
 CSFD = "https://www.csfd.cz"
 CSFD_DELAY_S = 1.5
-BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-              "(KHTML, like Gecko) Chrome/130.0 Safari/537.36")
+CSFD_ERROR_LIMIT = 5        # consecutive failures before the run stops
+IMDB_DATASET_MAX_AGE_S = 20 * 3600
+# Honest, identifiable client. ČSFD sits behind the Anubis anti-bot page, whose default
+# policy challenges browser-like ("Mozilla") user agents; a scraper must not pretend to be one.
+CSFD_UA = (f"Medialect/{os.environ.get('APP_VERSION', 'dev')} "
+           "(self-hosted catalogue; +https://github.com/tlkounev/Medialect)")
+_ANUBIS_MARKERS = ('id="anubis_challenge"', "/.within.website/x/cmd/anubis/")
+
+
+class CsfdBlocked(SourceError):
+    """ČSFD answered with its anti-bot page instead of the real one."""
 
 
 # --- IMDb (official non-commercial dataset, refreshed daily by IMDb) -----
-async def imdb_dataset(ctx: SyncContext) -> None:
-    last = await db.kv_get("ratings.imdb_dataset_at", 0)
-    if time.time() - last < 20 * 3600:
-        ctx.note("IMDb dataset je čerstvý, přeskočeno.")
-        return
+async def _imdb_dataset_file(ctx: SyncContext) -> str:
+    """Local copy of IMDb's daily ratings dataset, downloaded at most once per IMDB_DATASET_MAX_AGE_S."""
+    path = os.path.join(DATA_DIR, "imdb-title.ratings.tsv.gz")
+    if os.path.exists(path) and time.time() - os.path.getmtime(path) < IMDB_DATASET_MAX_AGE_S:
+        return path
     ctx.progress("IMDb: stahuji dataset")
+    tmp = path + ".part"
+    async with http_client(timeout=300) as c:
+        async with c.stream("GET", IMDB_RATINGS_URL) as r:
+            r.raise_for_status()
+            with open(tmp, "wb") as f:
+                async for chunk in r.aiter_bytes(1 << 16):
+                    f.write(chunk)
+    os.replace(tmp, path)
+    return path
+
+
+async def imdb_dataset(ctx: SyncContext) -> None:
+    """Apply IMDb ratings to every title with an IMDb id.
+
+    The dataset is cached for a day, but it is applied on every run, so titles added by
+    a later sync get their rating right away instead of the next day."""
     rows = await db.fetchall("SELECT value, title_id FROM title_ids WHERE kind='imdb'")
     wanted: dict[str, list[int]] = {}
     for r in rows:
         wanted.setdefault(r["value"], []).append(r["title_id"])
     if not wanted:
         return
-    async with http_client(timeout=300) as c:
-        r = await c.get(IMDB_RATINGS_URL)
-        r.raise_for_status()
-        raw = r.content
+    path = await _imdb_dataset_file(ctx)
+    ctx.progress(f"IMDb: přiřazuji hodnocení ({len(wanted)} titulů)")
 
     def parse() -> list[tuple[str, float, int]]:
         found = []
-        with gzip.open(io.BytesIO(raw), "rt", encoding="utf-8") as f:
+        with gzip.open(path, "rt", encoding="utf-8") as f:
             next(f, None)
             for line in f:
-                tconst, avg, votes = line.rstrip("\n").split("\t")
+                tconst, _, rest = line.partition("\t")
                 if tconst in wanted:
+                    avg, votes = rest.rstrip("\n").split("\t")
                     found.append((tconst, float(avg), int(votes)))
         return found
 
@@ -62,16 +87,16 @@ async def imdb_dataset(ctx: SyncContext) -> None:
                        url=excluded.url, updated_at=excluded.updated_at""",
                     (tid, "imdb", avg * 10, f"{avg:.1f}", votes, f"https://www.imdb.com/title/{tconst}/", now))
         await db.conn.commit()
-    await db.kv_set("ratings.imdb_dataset_at", now)
     ctx.items += len(found)
-    ctx.note(f"IMDb: aktualizováno {len(found)} hodnocení.")
+    ctx.note(f"IMDb: {len(found)} hodnocení z {len(wanted)} titulů s IMDb ID.")
 
 
 # --- ČSFD ---------------------------------------------------------------
 _FILM_HREF = re.compile(r'href="/film/(\d+)-[^"/]*/(?:prehled/)?"')
 _YEAR = re.compile(r"\((\d{4})\)")
 _RATING = re.compile(r'class="film-rating-average[^"]*"[^>]*>\s*(\d{1,3})\s*%')
-_VOTES = re.compile(r"Hodnocení\s*<span[^>]*>\s*\(([\d\s\xa0]+)\)")
+_VOTES = re.compile(r'class="ratings-list.*?class="counter"[^>]*>\s*\(?([\d\s\xa0]+)\)?', re.S)
+_IMDB_LINK = re.compile(r"imdb\.com/title/(tt\d{5,10})")
 
 
 _NAME = re.compile(r'class="film-title-name"[^>]*>([^<]+)<')
@@ -90,11 +115,19 @@ def _csfd_search_results(page: str) -> list[tuple[str, int | None, str]]:
     return out
 
 
-async def csfd_find(c, title: str, year: int | None) -> str | None:
-    r = await c.get(f"{CSFD}/hledat/", params={"q": title})
+async def _csfd_get(c, url: str, **kw) -> tuple[str, str]:
+    r = await c.get(url, **kw)
+    if r.status_code in (403, 429, 503) or any(m in r.text for m in _ANUBIS_MARKERS):
+        raise CsfdBlocked(f"ČSFD vrátil místo stránky anti-bot ověření (HTTP {r.status_code}). "
+                          "Hodnocení se zkusí znovu při dalším běhu.")
     if r.status_code != 200:
-        raise SourceError(f"ČSFD hledání HTTP {r.status_code}")
-    results = _csfd_search_results(r.text)
+        raise SourceError(f"ČSFD HTTP {r.status_code}: {url}")
+    return r.text, str(r.url)
+
+
+async def csfd_find(c, title: str, year: int | None) -> str | None:
+    page, _ = await _csfd_get(c, f"{CSFD}/hledat/", params={"q": title})
+    results = _csfd_search_results(page)
     if not results:
         return None
     wanted = norm(title)
@@ -113,15 +146,16 @@ async def csfd_find(c, title: str, year: int | None) -> str | None:
     return None
 
 
-async def csfd_rating(c, csfd_id: str) -> tuple[int | None, int | None, str]:
-    r = await c.get(f"{CSFD}/film/{csfd_id}/")
-    if r.status_code != 200:
-        raise SourceError(f"ČSFD film HTTP {r.status_code}")
-    page = r.text
+async def csfd_rating(c, csfd_id: str) -> tuple[int | None, int | None, str, str | None]:
+    """(rating %, votes, url, IMDb id linked from the page)."""
+    page, url = await _csfd_get(c, f"{CSFD}/film/{csfd_id}/prehled/")
+    if 'class="film-rating-average' not in page and "film-header" not in page:
+        raise SourceError(f"ČSFD: neočekávaná stránka filmu {csfd_id}")
     m = _RATING.search(page)
     v = _VOTES.search(page)
-    votes = int(re.sub(r"\D", "", v.group(1))) if v else None
-    return (int(m.group(1)) if m else None), votes, str(r.url)
+    votes = int(re.sub(r"\D", "", v.group(1))) if v and re.sub(r"\D", "", v.group(1)) else None
+    imdb = _IMDB_LINK.search(page)
+    return (int(m.group(1)) if m else None), votes, url, (imdb.group(1) if imdb else None)
 
 
 async def csfd(ctx: SyncContext) -> None:
@@ -138,13 +172,14 @@ async def csfd(ctx: SyncContext) -> None:
                     r.updated_at, t.id""", (refresh,))
     if not rows:
         return
-    budget = int(cfg.get("csfd_daily_budget", 400))
-    async with http_client(headers={"User-Agent": BROWSER_UA, "Accept-Language": "cs,en;q=0.5"}) as c:
+    budget = int(cfg.get("csfd_daily_budget", 0))   # 0 = no daily limit, only the pause between requests
+    errors = 0
+    async with http_client(headers={"User-Agent": CSFD_UA, "Accept-Language": "cs,en;q=0.5"}) as c:
         for i, row in enumerate(rows, 1):
-            ctx.progress(f"ČSFD: {i}/{len(rows)} (denní limit {budget})")
+            ctx.progress(f"ČSFD: {i}/{len(rows)}" + (f" (denní limit {budget})" if budget else ""))
             if not await db.budget_take("csfd", budget):
                 ctx.partial = True
-                ctx.note("ČSFD: denní limit vyčerpán.")
+                ctx.note(f"ČSFD: denní limit {budget} titulů vyčerpán, pokračuje se zítra.")
                 return
             try:
                 cid = row["csfd_id"]
@@ -156,15 +191,25 @@ async def csfd(ctx: SyncContext) -> None:
                             await store.add_title_id(row["id"], "csfd", cid)
                             break
                 if not cid:
-                    await store.set_rating(row["id"], "csfd", None, None)  # remember "not found"
+                    await store.set_rating(row["id"], "csfd", None, None)  # really not on ČSFD (valid search page)
                     continue
-                value, votes, url = await csfd_rating(c, cid)
+                value, votes, url, imdb = await csfd_rating(c, cid)
                 await store.set_rating(row["id"], "csfd", value, f"{value} %" if value is not None else None, votes, url)
+                if imdb and not await db.fetchone(
+                        "SELECT 1 FROM title_ids WHERE title_id=? AND kind='imdb'", (row["id"],)):
+                    await store.add_title_id(row["id"], "imdb", imdb)  # lets the IMDb dataset rate it too
                 ctx.items += 1
-            except SourceError as e:
+                errors = 0
+            except CsfdBlocked as e:
+                ctx.partial = True
                 ctx.note(str(e))
-                if "429" in str(e) or "403" in str(e):
+                return
+            except SourceError as e:
+                errors += 1
+                ctx.note(str(e))
+                if errors >= CSFD_ERROR_LIMIT:
                     ctx.partial = True
+                    ctx.note("ČSFD: příliš mnoho chyb za sebou, běh přerušen.")
                     return
             await asyncio.sleep(CSFD_DELAY_S)
 
@@ -237,10 +282,16 @@ async def mdblist(ctx: SyncContext) -> None:
 
 async def sync(ctx: SyncContext) -> None:
     cfg = ctx.settings["ratings"]
+    if await db.kv_get("migrate.csfd_reset_v2") is None:
+        # v1.0.0–1.0.3 stored ČSFD's anti-bot page as "not found / no rating": forget those results
+        await db.execute("DELETE FROM ratings WHERE source='csfd' AND value IS NULL")
+        await db.kv_set("migrate.csfd_reset_v2", True)
     if cfg.get("imdb_dataset", True):
         await imdb_dataset(ctx)
     if cfg.get("mdblist_api_key"):
         await mdblist(ctx)
     if cfg.get("csfd", True):
         await csfd(ctx)
+        if cfg.get("imdb_dataset", True):
+            await imdb_dataset(ctx)   # IMDb ids found on ČSFD pages
 

@@ -101,7 +101,7 @@ async def _store_entry(ctx: SyncContext, entry, selected: dict[str, str]) -> Non
         ), ctx.started)
     sc = entry.scoring
     if sc and ctx.settings["ratings"].get("justwatch_scores", True):
-        if sc.imdb_score and entry.imdb_id:
+        if sc.imdb_score and entry.imdb_id and not ctx.settings["ratings"].get("imdb_dataset", True):
             # the official IMDb dataset is fresher; JustWatch only fills the gap until it runs
             await store.set_rating(tid, "imdb", sc.imdb_score * 10, f"{sc.imdb_score:.1f}", sc.imdb_votes,
                                    f"https://www.imdb.com/title/{entry.imdb_id}/",

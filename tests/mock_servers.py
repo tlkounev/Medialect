@@ -158,7 +158,7 @@ async def sa_filters(request: Request):
 # ---------------- IMDb dataset ----------------
 @app.get("/imdb/title.ratings.tsv.gz")
 async def imdb():
-    tsv = "tconst\taverageRating\tnumVotes\ntt0133093\t8.7\t2100000\ntt7366338\t9.3\t900000\ntt0000001\t5.0\t10\n"
+    tsv = "tconst\taverageRating\tnumVotes\ntt0133093\t8.7\t2100000\ntt7366338\t9.3\t900000\ntt0000001\t5.0\t10\ntt0167331\t8.2\t50000\n"
     return Response(gzip.compress(tsv.encode()), media_type="application/gzip")
 
 
@@ -171,15 +171,25 @@ CSFD_SEARCH = """<section class="main-movies"><div class="box-content">
 <article class="article article-poster-50"><div class="article-content"><h3>
 <a href="/film/123-pelisky-2/" class="film-title-name">Pelíšky 2</a><span class="info">(2025)</span></h3></div></article>
 </div></section>"""
-CSFD_FILM = """<div class="rating-average-withtabs"><div class="film-rating-average">  89%  </div></div>
-<li class="tab-nav-item"><a href="/film/6648-pelisky/hodnoceni/">Hodnocení <span class="count">(97 852)</span></a></li>"""
+CSFD_FILM = """<div class="film-header"><h1>Pelíšky</h1></div>
+<div class="rating-average-withtabs"><div class="film-rating-average">  89%  </div></div>
+IMDBLINK
+<section class="box ratings-list"><header><h3>Hodnocení <span class="counter">(97 852)</span></h3></header></section>"""
+ANUBIS = """<html><body><script id="anubis_challenge" type="application/json">{"rules":{"algorithm":"fast"}}</script></body></html>"""
+CSFD_STATE = {"blocked": False}
 
 
 @app.get("/csfd/hledat/")
-async def csfd_search(q: str):
+async def csfd_search(q: str, request: Request):
+    if CSFD_STATE["blocked"] or "Mozilla" in request.headers.get("user-agent", ""):
+        return Response(ANUBIS, media_type="text/html")
     return Response(CSFD_SEARCH, media_type="text/html")
 
 
-@app.get("/csfd/film/{fid}/")
-async def csfd_film(fid: str):
-    return Response(CSFD_FILM.replace("89%", "91%") if fid == "9499" else CSFD_FILM, media_type="text/html")
+@app.get("/csfd/film/{fid}/prehled/")
+async def csfd_film(fid: str, request: Request):
+    if CSFD_STATE["blocked"] or "Mozilla" in request.headers.get("user-agent", ""):
+        return Response(ANUBIS, media_type="text/html")
+    page = CSFD_FILM.replace("IMDBLINK", '<a href="https://www.imdb.com/title/tt0167331/" class="button-imdb">IMDb</a>'
+                             if fid == "6648" else "")
+    return Response(page.replace("89%", "91%") if fid == "9499" else page, media_type="text/html")
