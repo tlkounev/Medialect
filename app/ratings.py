@@ -28,6 +28,7 @@ async def imdb_dataset(ctx: SyncContext) -> None:
     if time.time() - last < 20 * 3600:
         ctx.note("IMDb dataset je čerstvý, přeskočeno.")
         return
+    ctx.progress("IMDb: stahuji dataset")
     rows = await db.fetchall("SELECT value, title_id FROM title_ids WHERE kind='imdb'")
     wanted: dict[str, list[int]] = {}
     for r in rows:
@@ -139,7 +140,8 @@ async def csfd(ctx: SyncContext) -> None:
         return
     budget = int(cfg.get("csfd_daily_budget", 400))
     async with http_client(headers={"User-Agent": BROWSER_UA, "Accept-Language": "cs,en;q=0.5"}) as c:
-        for row in rows:
+        for i, row in enumerate(rows, 1):
+            ctx.progress(f"ČSFD: {i}/{len(rows)} (denní limit {budget})")
             if not await db.budget_take("csfd", budget):
                 ctx.partial = True
                 ctx.note("ČSFD: denní limit vyčerpán.")
@@ -203,7 +205,8 @@ async def mdblist(ctx: SyncContext) -> None:
            ORDER BY r.updated_at IS NOT NULL, r.updated_at""", (refresh,))
     budget = int(cfg.get("mdblist_daily_budget", 900))
     async with http_client() as c:
-        for row in rows:
+        for i, row in enumerate(rows, 1):
+            ctx.progress(f"MDBList: {i}/{len(rows)}")
             if not await db.budget_take("mdblist", budget):
                 ctx.partial = True
                 ctx.note("MDBList: denní limit vyčerpán.")

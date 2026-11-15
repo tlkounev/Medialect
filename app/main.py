@@ -165,7 +165,19 @@ async def get_settings():
 
 @app.put("/api/settings", dependencies=authed)
 async def put_settings(body: dict = Body(...)):
-    return settings_mod.masked(await settings_mod.save(body))
+    before = await settings_mod.load()
+    saved = await settings_mod.save(body)
+    # start what the change made relevant, instead of waiting for the next scheduled run
+    await manager.trigger_new_servers()
+    if saved["justwatch"].get("enabled") and (
+            sorted(saved["justwatch"].get("providers") or []) != sorted(before["justwatch"].get("providers") or [])
+            or not before["justwatch"].get("enabled")):
+        manager.trigger("justwatch")
+    sa_keys = ("enabled", "api_key", "catalogs", "mode")
+    if saved["streaming_availability"].get("enabled") and any(
+            saved["streaming_availability"].get(k) != before["streaming_availability"].get(k) for k in sa_keys):
+        manager.trigger("sa")
+    return settings_mod.masked(saved)
 
 
 @app.post("/api/servers/test", dependencies=authed)
@@ -192,6 +204,7 @@ async def jw_providers(country: str | None = None):
 @app.get("/api/sync/status", dependencies=authed)
 async def sync_status():
     return {"jobs": await manager.status(), "last_full": await db.kv_get("sync.last_full", 0),
+            "running": bool(manager.running),
             "budgets": {n: await db.budget_used(n) for n in ("sa", "csfd", "mdblist")}}
 
 

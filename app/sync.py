@@ -23,7 +23,8 @@ def server_client(server: dict):
 
 class SyncManager:
     def __init__(self):
-        self.running: set[str] = set()
+        self.running: dict[str, SyncContext] = {}
+        self.queued: set[str] = set()
         self._task: asyncio.Task | None = None
         self._full_lock = asyncio.Lock()
 
@@ -45,9 +46,10 @@ class SyncManager:
     async def run_job(self, job_id: str, fn) -> None:
         if job_id in self.running:
             return
-        self.running.add(job_id)
         s = await settings_mod.load()
         ctx = SyncContext(source=job_id, settings=s)
+        self.running[job_id] = ctx
+        self.queued.discard(job_id)
         run_id = await db.execute("INSERT INTO sync_runs(source, started_at, status) VALUES(?,?,?)",
                                   (job_id, ctx.started, "running"))
         status, message = "ok", None
@@ -61,30 +63,54 @@ class SyncManager:
             log.error("sync %s failed: %s", job_id, traceback.format_exc())
             status, message = "error", f"{type(e).__name__}: {e}"
         finally:
-            self.running.discard(job_id)
+            self.running.pop(job_id, None)
             await db.execute("UPDATE sync_runs SET finished_at=?, status=?, message=?, items=? WHERE id=?",
                              (time.time(), status, message, ctx.items, run_id))
             log.info("sync %s: %s (%s items)", job_id, status, ctx.items)
 
     async def run(self, only: str | None = None) -> None:
-        async with self._full_lock:
+        if only:
+            # a single job runs right away, independently of a full run in progress
             for job_id, _label, fn in await self.jobs():
-                if only and job_id != only:
-                    continue
-                await self.run_job(job_id, fn)
-            if not only:
+                if job_id == only:
+                    await self.run_job(job_id, fn)
+            return
+        async with self._full_lock:
+            jobs = await self.jobs()
+            self.queued.update(j for j, _, _ in jobs if j not in self.running)
+            try:
+                for job_id, _label, fn in jobs:
+                    if job_id in self.running:
+                        continue  # already started on its own
+                    await self.run_job(job_id, fn)
+            finally:
+                self.queued.clear()
+            # a run with no source configured yet (fresh install) does not count as a full sync
+            if any(j != "ratings" for j, _, _ in jobs):
                 await db.kv_set("sync.last_full", time.time())
 
     def trigger(self, only: str | None = None) -> None:
         asyncio.create_task(self.run(only))
+
+    async def trigger_new_servers(self) -> None:
+        """Start servers that have never been synchronised (e.g. just added in the settings)."""
+        for job_id, _label, _fn in await self.jobs():
+            if job_id.startswith("server:") and job_id not in self.running:
+                row = await db.fetchone("SELECT 1 FROM sync_runs WHERE source=? LIMIT 1", (job_id,))
+                if not row:
+                    self.trigger(job_id)
 
     async def status(self) -> list[dict]:
         out = []
         for job_id, label, _ in await self.jobs():
             row = await db.fetchone(
                 "SELECT * FROM sync_runs WHERE source=? ORDER BY started_at DESC LIMIT 1", (job_id,))
+            ctx = self.running.get(job_id)
             out.append({
-                "id": job_id, "label": label, "running": job_id in self.running,
+                "id": job_id, "label": label,
+                "running": ctx is not None,
+                "queued": job_id in self.queued,
+                "progress": {"phase": ctx.phase, "items": ctx.items, "started_at": ctx.started} if ctx else None,
                 "last": dict(row) if row else None,
             })
         return out

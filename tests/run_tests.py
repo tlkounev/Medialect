@@ -106,11 +106,13 @@ def main():
     def run_sync(client, job=None):
         t0 = time.time()
         client.post("/api/sync", params={"job": job} if job else None)
+        time.sleep(0.3)
         for _ in range(900):
-            jobs = [j for j in client.get("/api/sync/status").json()["jobs"] if not job or j["id"] == job]
-            if all(j["last"] and j["last"]["started_at"] >= t0 - 1 and not j["running"]
-                   and j["last"]["status"] != "running" for j in jobs):
-                return
+            st = client.get("/api/sync/status").json()
+            jobs = [j for j in st["jobs"] if not job or j["id"] == job]
+            if not st["running"] and not any(j["queued"] for j in st["jobs"]) and all(
+                    j["last"] and j["last"]["status"] != "running" and j["last"]["finished_at"] >= t0 - 30 for j in jobs):
+                return st
             time.sleep(0.2)
         raise TimeoutError
 
@@ -136,6 +138,12 @@ def main():
             "ratings": {"csfd": True, "imdb_dataset": True, "csfd_daily_budget": 20},
         }
         r = client.put("/api/settings", json=body).json()
+        time.sleep(0.5)
+        st = client.get("/api/sync/status").json()
+        started = {j["id"] for j in st["jobs"] if j["running"] or j["last"]}
+        assert "justwatch" in started and sum(1 for j in started if j.startswith("server:")) == 3, st
+        running = [j for j in st["jobs"] if j["running"]]
+        assert all("phase" in j["progress"] and "items" in j["progress"] for j in running), running
         assert r["streaming_availability"]["api_key"] == S.MASK
         assert all(s["token"] == S.MASK for s in r["servers"])
         # masked secrets survive a round trip
@@ -166,7 +174,8 @@ def main():
         assert any(c[2] == 2010 and c[3] == 2012 for c in JW_CALLS), "window was not split"
 
         # SA cursor walk
-        assert [c.get("cursor") for c in mock_servers.SA_CALLS if c["show_type"] == "movie"] == [None, "c2"]
+        cursors = [c.get("cursor") for c in mock_servers.SA_CALLS if c["show_type"] == "movie"]
+        assert cursors and cursors == [None, "c2"] * (len(cursors) // 2), cursors  # each walk: page 1, then cursor
 
         # ---- search ----
         items = client.get("/api/search", params={"q": "matrix"}).json()["items"]

@@ -123,11 +123,14 @@ async def sync(ctx: SyncContext) -> None:
     selected = {sn: packages.get(sn, sn) for sn in cfg["providers"]}
 
     seen: set[str] = set()
-    for provider, pname in selected.items():
+    total = len(selected)
+    for idx, (provider, pname) in enumerate(selected.items(), 1):
         for otype in ("MOVIE", "SHOW"):
             queue = _windows()
             while queue:
                 lo, hi = queue.pop(0)
+                kind = "filmy" if otype == "MOVIE" else "seriály"
+                ctx.progress(f"{pname} ({idx}/{total}): {kind} {lo}–{hi}")
                 entries, capped = await _fetch_window(ctx, provider, otype, lo, hi, delay)
                 if capped and hi > lo:
                     mid = (lo + hi) // 2

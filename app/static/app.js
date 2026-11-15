@@ -7,7 +7,7 @@ const SA_CATALOGS_CZ = ["netflix", "prime", "disney", "hbo", "apple", "skyshowti
 const RATING_LABEL = { csfd: "ČSFD", imdb: "IMDb", rottentomatoes: "RT", rottentomatoes_audience: "RT diváci", metacritic: "Metacritic", metacritic_user: "MC uživ.", letterboxd: "Letterboxd", tmdb: "TMDB", trakt: "Trakt", mdblist: "MDBList", rogerebert: "Ebert" };
 const MON_LABEL = { flatrate: "", free: "zdarma", ads: "s reklamou", addon: "doplněk", library: "" };
 const QUALITY_LABEL = { UHD: "4K", QHD: "1440p", FHD: "1080p", HD: "720p", SD: "SD" };
-const STATUS_LABEL = { ok: "OK", partial: "Částečně", error: "Chyba", running: "Běží" };
+const STATUS_LABEL = { ok: "OK", partial: "Částečně", error: "Chyba", running: "Běží", queued: "Ve frontě" };
 
 async function api(path, opts = {}) {
   const init = { credentials: "same-origin", ...opts, headers: { "Content-Type": "application/json", ...(opts.headers || {}) } };
@@ -54,6 +54,7 @@ function showApp() {
   $("#auth").classList.add("hidden");
   $("#app").classList.remove("hidden");
   openTab(location.hash.slice(1) || "search");
+  pollBadge();
 }
 
 /* ---------- tabs ---------- */
@@ -146,22 +147,49 @@ $("#cNext").addEventListener("click", () => { cPage++; loadCatalog(); scrollTo(0
 
 /* ---------- status ---------- */
 const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString("cs-CZ") : "–");
+const fmtDur = (sec) => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec / 60); return m ? `${m} min ${sec % 60} s` : `${sec} s`; };
 async function loadStatus() {
   const [st, stats] = await Promise.all([api("/api/sync/status"), api("/api/stats")]);
+  updateSyncBadge(st);
   $("#stats").textContent = `${stats.titles} titulů · ${stats.offers} nabídek · ${stats.ratings} hodnocení · poslední plná synchronizace: ${fmtTime(st.last_full)}`;
-  $("#jobs").innerHTML = `<tr><th>Zdroj</th><th>Stav</th><th>Začátek</th><th>Položek</th><th>Zpráva</th><th></th></tr>` +
+  const now = Date.now() / 1000;
+  $("#jobs").innerHTML = `<tr><th>Zdroj</th><th>Stav</th><th>Začátek</th><th>Položek</th><th>Průběh / poslední zpráva</th><th></th></tr>` +
     st.jobs.map((j) => {
-      const l = j.last || {};
-      const status = j.running ? "running" : l.status;
+      const l = j.last || {}, p = j.progress;
+      const status = j.running ? "running" : j.queued ? "queued" : l.status;
+      const started = p ? p.started_at : l.started_at;
+      const items = p ? p.items : l.items;
+      const detail = p
+        ? `<b>${esc(p.phase || "…")}</b> · běží ${fmtDur(now - p.started_at)}`
+        : `<pre>${esc(l.message || "")}</pre>`;
       return `<tr><td>${esc(j.label)}</td>
-        <td class="st-${status || ""}">${esc(STATUS_LABEL[status] || "–")}</td>
-        <td>${fmtTime(l.started_at)}</td><td>${l.items ?? ""}</td>
-        <td><pre>${esc(l.message || "")}</pre></td>
+        <td class="st-${status || ""}">${esc(STATUS_LABEL[status] || "Zatím neběželo")}</td>
+        <td>${fmtTime(started)}</td><td>${items ?? ""}</td>
+        <td>${detail}</td>
         <td><button class="ghost" data-job="${esc(j.id)}" ${j.running ? "disabled" : ""}>Spustit</button></td></tr>`;
     }).join("");
   $$("#jobs button[data-job]").forEach((b) => b.addEventListener("click", async () => { await api(`/api/sync?job=${encodeURIComponent(b.dataset.job)}`, { method: "POST" }); setTimeout(loadStatus, 500); }));
   $("#budgets").textContent = `Dnes využito – Streaming Availability: ${st.budgets.sa}, ČSFD: ${st.budgets.csfd}, MDBList: ${st.budgets.mdblist}`;
 }
+
+/* header badge: visible on every tab while something synchronises */
+function updateSyncBadge(st) {
+  const running = st.jobs.filter((j) => j.running);
+  const badge = $("#syncBadge");
+  badge.classList.toggle("hidden", !running.length);
+  if (running.length) {
+    const queued = st.jobs.filter((j) => j.queued).length;
+    badge.textContent = `⟳ ${running.map((j) => j.progress?.phase || j.label).join(" · ")}${queued ? ` (+${queued} ve frontě)` : ""}`;
+  }
+}
+async function pollBadge() {
+  if (!$("#app").classList.contains("hidden")) {
+    try { updateSyncBadge(await api("/api/sync/status")); } catch (_) { /* ignore */ }
+  }
+}
+setInterval(pollBadge, 10000);
+
+$("#syncBadge").addEventListener("click", () => openTab("status"));
 $("#syncAll").addEventListener("click", async () => { await api("/api/sync", { method: "POST" }); setTimeout(loadStatus, 500); });
 
 /* ---------- settings ---------- */
