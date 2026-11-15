@@ -126,6 +126,15 @@ def main():
         v = client.get("/api/version").json()
         assert v["latest"] == "1.0.7" and v["state"] == "unknown", v   # running "dev" cannot be compared
         assert client.get("/").text.count("?v=") == 2 and client.get("/").headers["cache-control"] == "no-cache"
+        # a release published after the last check must turn the badge red within CHECK_EVERY_S
+        async def v101(): return "1.0.1"
+        async def v102(): return "1.0.2"
+        updates._latest_tag, updates._cache["at"] = v101, 0
+        assert asyncio.run(updates.status("1.0.1"))["state"] == "current"
+        updates._latest_tag = v102
+        updates._cache["at"] -= updates.CHECK_EVERY_S + 1
+        assert asyncio.run(updates.status("1.0.1"))["state"] == "update"
+        assert updates.CHECK_EVERY_S <= 30 * 60
         updates._latest_tag, updates._cache["at"] = offline, 0
         assert client.get("/api/version").json()["state"] == "unknown"
 

@@ -78,7 +78,8 @@ async function loadVersion() {
       : "Novou verzi nelze ověřit na GitHubu";
   } catch (_) { el.className = "version v-unknown"; }
 }
-setInterval(loadVersion, 3600 * 1000);
+setInterval(loadVersion, 10 * 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadVersion(); });
 
 /* ---------- tabs ---------- */
 let statusTimer = null, adminSub = "sync";
