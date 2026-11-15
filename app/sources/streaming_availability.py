@@ -75,6 +75,8 @@ async def store_show(ctx: SyncContext, show: dict, catalogs: set[str]) -> None:
                 "expires_soon": opt.get("expiresSoon"),
             }.items() if v},
             expires_on=dt.datetime.fromtimestamp(expires, dt.UTC).date().isoformat() if expires else None,
+            added_at=(dt.datetime.fromtimestamp(opt["availableSince"], dt.UTC).isoformat(timespec="seconds")
+                      if opt.get("availableSince") else None),
         ), time.time())
     ctx.items += 1
 

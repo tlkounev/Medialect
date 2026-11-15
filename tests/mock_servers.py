@@ -30,6 +30,7 @@ async def emby_users():
 MOVIE = {
     "Id": "m1", "Name": "Matrix", "OriginalTitle": "The Matrix", "ProductionYear": 1999,
     "ProviderIds": {"Imdb": "tt0133093", "Tmdb": "603", "Csfd": "9499-matrix"},
+    "DateCreated": "2026-11-10T20:00:00.0000000Z",
     "ImageTags": {"Primary": "abc"},
     "MediaSources": [{"MediaStreams": [
         {"Type": "Video", "Width": 3840, "Height": 1608, "Codec": "hevc", "VideoRange": "HDR",
@@ -40,7 +41,7 @@ MOVIE = {
         {"Type": "Subtitle", "Language": "cze"}, {"Type": "Subtitle", "Language": "eng"},
     ]}],
 }
-NOIDS = {"Id": "m2", "Name": "Pelíšky", "ProductionYear": 1999, "ProviderIds": {},
+NOIDS = {"Id": "m2", "Name": "Pelíšky", "ProductionYear": 1999, "ProviderIds": {}, "DateCreated": "2025-01-02T10:00:00.0000000Z",
          "MediaSources": [{"MediaStreams": [{"Type": "Video", "Width": 1920, "Height": 1080, "Codec": "h264"},
                                             {"Type": "Audio", "Codec": "aac", "Channels": 2, "Language": "ces"}]}]}
 SERIES = {"Id": "s1", "Name": "Černobyl", "OriginalTitle": "Chernobyl", "ProductionYear": 2019,
@@ -49,7 +50,7 @@ EPISODES = [
     {"Id": "e1", "SeriesId": "s1", "MediaSources": [{"MediaStreams": [
         {"Type": "Video", "Width": 1920, "Height": 1080, "Codec": "h264"},
         {"Type": "Audio", "Codec": "eac3", "Channels": 6, "Language": "eng"}]}]},
-    {"Id": "e2", "SeriesId": "s1", "MediaSources": [{"MediaStreams": [
+    {"Id": "e2", "SeriesId": "s1", "DateCreated": "2026-11-14T08:00:00.0000000Z", "MediaSources": [{"MediaStreams": [
         {"Type": "Video", "Width": 3840, "Height": 2160, "Codec": "hevc", "VideoRangeType": "HDR10"},
         {"Type": "Audio", "Codec": "eac3", "Channels": 6, "Language": "cze", "Profile": "Dolby Atmos"}]}]},
 ]
@@ -87,7 +88,7 @@ async def plex_sections(request: Request):
 
 
 PLEX_MOVIE = {"ratingKey": "101", "title": "Duna: Část druhá", "originalTitle": "Dune: Part Two", "year": 2024,
-              "thumb": "/library/metadata/101/thumb/1",
+              "thumb": "/library/metadata/101/thumb/1", "addedAt": 1763000000,
               "Guid": [{"id": "imdb://tt15239678"}, {"id": "tmdb://693134"}],
               "Media": [{"videoResolution": "4k", "videoCodec": "hevc", "audioCodec": "truehd", "audioChannels": 8}]}
 PLEX_MATRIX = {"ratingKey": "102", "title": "The Matrix", "year": 1999, "Guid": [{"id": "imdb://tt0133093"}],

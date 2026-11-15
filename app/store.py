@@ -37,6 +37,7 @@ class Offer:
     url: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
     expires_on: str | None = None
+    added_at: str | None = None     # ISO date/time the platform or library added it
 
 
 def _clean_ids(info: TitleInfo) -> dict[str, str]:
@@ -110,17 +111,18 @@ async def upsert_title(info: TitleInfo) -> int:
 async def upsert_offer(title_id: int, o: Offer, seen_at: float) -> None:
     await db.execute(
         """INSERT INTO availability(title_id, source, provider, provider_name, kind, monetization, quality,
-               video, audio, audio_langs, subtitle_langs, url, extra, expires_on, seen_at)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               video, audio, audio_langs, subtitle_langs, url, extra, expires_on, added_at, seen_at)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(title_id, source, provider, monetization) DO UPDATE SET
                provider_name=excluded.provider_name, kind=excluded.kind, quality=excluded.quality,
                video=excluded.video, audio=excluded.audio, audio_langs=excluded.audio_langs,
                subtitle_langs=excluded.subtitle_langs, url=excluded.url, extra=excluded.extra,
-               expires_on=excluded.expires_on, seen_at=excluded.seen_at""",
+               expires_on=excluded.expires_on, added_at=COALESCE(excluded.added_at, availability.added_at),
+               seen_at=excluded.seen_at""",
         (
             title_id, o.source, o.provider, o.provider_name, o.kind, o.monetization, o.quality,
             json.dumps(o.video), json.dumps(o.audio), json.dumps(o.audio_langs), json.dumps(o.subtitle_langs),
-            o.url, json.dumps(o.extra), o.expires_on, seen_at,
+            o.url, json.dumps(o.extra), o.expires_on, (o.added_at or "")[:19] or None, seen_at,
         ),
     )
 

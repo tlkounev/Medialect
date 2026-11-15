@@ -10,7 +10,7 @@ from ..quality import (audio_tags, best_quality, langs, merge_tags, quality_from
                        video_tags)
 from .base import SourceError, SyncContext, http_client
 
-FIELDS = "ProviderIds,MediaSources,MediaStreams,OriginalTitle,ProductionYear"
+FIELDS = "ProviderIds,MediaSources,MediaStreams,OriginalTitle,ProductionYear,DateCreated"
 PAGE = 300
 
 
@@ -123,7 +123,7 @@ class EmbyLike:
                 raise SourceError(f"{name}: na serveru není žádný uživatel.")
             uid = admin["Id"]
 
-            async def emit(item: dict, ttype: str, summary: dict) -> None:
+            async def emit(item: dict, ttype: str, summary: dict, added: str | None = None) -> None:
                 tid = await store.upsert_title(store.TitleInfo(
                     type=ttype, title=item.get("Name") or "?", original_title=item.get("OriginalTitle"),
                     year=item.get("ProductionYear"), poster=self.poster(item),
@@ -133,6 +133,7 @@ class EmbyLike:
                     source=self.source, provider=provider, provider_name=name, kind="library",
                     monetization="library", url=self.item_link(item["Id"], server_id),
                     extra={"item_id": item["Id"], "server_id": server_id, "server_type": self.flavor},
+                    added_at=max(filter(None, (item.get("DateCreated"), added)), default=None),
                     **summary,
                 ), ctx.started)
                 ctx.items += 1
@@ -142,19 +143,22 @@ class EmbyLike:
                 await emit(it, "movie", media_summary(it))
 
             per_series: dict[str, dict] = defaultdict(dict)
+            newest_ep: dict[str, str] = {}
             ctx.progress(f"{name}: kvalita epizod")
             n_eps = 0
-            async for ep in self._items(c, uid, "Episode", "MediaSources,MediaStreams"):
+            async for ep in self._items(c, uid, "Episode", "MediaSources,MediaStreams,DateCreated"):
                 n_eps += 1
                 if n_eps % 500 == 0:
                     ctx.progress(f"{name}: kvalita epizod ({n_eps})")
                 sid = ep.get("SeriesId")
                 if sid:
                     per_series[sid] = _merge_summary(per_series.get(sid), media_summary(ep))
+                    if ep.get("DateCreated") and ep["DateCreated"] > newest_ep.get(sid, ""):
+                        newest_ep[sid] = ep["DateCreated"]   # a series is "new" when an episode arrives
             ctx.progress(f"{name}: seriály")
-            async for series in self._items(c, uid, "Series", "ProviderIds,OriginalTitle,ProductionYear"):
+            async for series in self._items(c, uid, "Series", "ProviderIds,OriginalTitle,ProductionYear,DateCreated"):
                 summary = per_series.get(series["Id"]) or media_summary({})
-                await emit(series, "show", summary)
+                await emit(series, "show", summary, newest_ep.get(series["Id"]))
 
         removed = await store.remove_stale(self.source, ctx.started)
         ctx.note(f"{name}: {ctx.items} titulů, odstraněno {removed}.")

@@ -43,7 +43,8 @@ async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[di
             "provider": r["provider"], "provider_name": r["provider_name"], "kind": r["kind"],
             "monetization": r["monetization"], "quality": r["quality"], "video": _j(r["video"]),
             "audio": _j(r["audio"]), "audio_langs": _j(r["audio_langs"]), "subtitle_langs": _j(r["subtitle_langs"]),
-            "url": r["url"], "expires_on": r["expires_on"], "sources": [r["source"]], "extra": json.loads(r["extra"] or "{}"),
+            "url": r["url"], "expires_on": r["expires_on"], "added_at": r["added_at"],
+            "sources": [r["source"]], "extra": json.loads(r["extra"] or "{}"),
         }
         if link_ctx and r["kind"] == "library" and ":" in r["source"]:
             srv = link_ctx["servers"].get(r["source"].split(":", 1)[1])
@@ -61,6 +62,7 @@ async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[di
             "audio_langs": merge_tags(cur["audio_langs"], offer["audio_langs"]),
             "subtitle_langs": merge_tags(cur["subtitle_langs"], offer["subtitle_langs"]),
             "expires_on": cur["expires_on"] or offer["expires_on"],
+            "added_at": max(filter(None, (cur["added_at"], offer["added_at"])), default=None),
             "sources": cur["sources"] + offer["sources"],
             "extra": {**cur["extra"], **offer["extra"]},
         })
@@ -107,7 +109,7 @@ async def search(q: str, ttype: str | None = None, providers: list[str] | None =
 
 async def catalog(provider: str | None = None, ttype: str | None = None, min_quality: str | None = None,
                   video: str | None = None, audio: str | None = None, lang: str | None = None,
-                  sub: str | None = None,
+                  sub: str | None = None, quality: str | None = None,
                   sort: str = "imdb", order: str = "desc", page: int = 1, page_size: int = 50,
                   q: str | None = None, link_ctx: dict | None = None) -> dict:
     cond, params = [], []
@@ -116,6 +118,9 @@ async def catalog(provider: str | None = None, ttype: str | None = None, min_qua
         provs = [p for p in provider.split(",") if p]
         cond.append(f"a.provider IN ({','.join('?' * len(provs))})")
         params += provs
+    if quality in QUALITY_ORDER:
+        cond.append("a.quality = ?")
+        params.append(quality)
     if min_quality in QUALITY_ORDER:
         ok = [q for q, v in QUALITY_ORDER.items() if v >= QUALITY_ORDER[min_quality]]
         cond.append(f"a.quality IN ({','.join('?' * len(ok))})")
@@ -144,7 +149,17 @@ async def catalog(provider: str | None = None, ttype: str | None = None, min_qua
     if sort in ("title",):
         order_sql, join, jparams = f"t.title COLLATE NOCASE {direction}", "", []
     elif sort == "year":
-        order_sql, join, jparams = f"t.year IS NULL, t.year {direction}", "", []
+        order_sql, join, jparams = f"t.year IS NULL, t.year {direction}, t.title COLLATE NOCASE", "", []
+    elif sort == "added":
+        # when the platform/library added it (only some sources know); restricted to the chosen services
+        prov_cond = ""
+        if provider:
+            provs = [p for p in provider.split(",") if p]
+            prov_cond = f" AND a.provider IN ({','.join('?' * len(provs))})"
+        join = (f"LEFT JOIN (SELECT a.title_id, MAX(a.added_at) AS added FROM availability a "
+                f"WHERE a.added_at IS NOT NULL{prov_cond} GROUP BY a.title_id) ad ON ad.title_id=t.id")
+        jparams = [p for p in provider.split(",") if p] if provider else []
+        order_sql = f"ad.added IS NULL, ad.added {direction}, t.year DESC"
     else:
         order_sql = f"r.value IS NULL, r.value {direction}, t.year DESC"
         join, jparams = "LEFT JOIN ratings r ON r.title_id=t.id AND r.source=?", [sort]
@@ -189,7 +204,13 @@ async def facets() -> dict:
         return [{"value": r["v"], "titles": r["n"]} for r in rows]
     ratings = await db.fetchall(
         "SELECT source, COUNT(*) AS n FROM ratings WHERE display IS NOT NULL GROUP BY source ORDER BY n DESC")
+    q = await db.fetchall("SELECT quality AS v, COUNT(DISTINCT title_id) AS n FROM availability "
+                          "WHERE quality IS NOT NULL GROUP BY quality")
+    added = await db.fetchone("SELECT COUNT(DISTINCT title_id) AS n FROM availability WHERE added_at IS NOT NULL")
     return {
+        "quality": sorted(({"value": r["v"], "titles": r["n"]} for r in q),
+                          key=lambda x: -QUALITY_ORDER.get(x["value"], 0)),
+        "with_added_date": added["n"],
         "audio_langs": await tags("audio_langs"),
         "subtitle_langs": await tags("subtitle_langs"),
         "video": await tags("video"),

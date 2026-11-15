@@ -128,7 +128,20 @@ def main():
         updates._latest_tag, updates._cache["at"] = newer, 0
         v = client.get("/api/version").json()
         assert v["latest"] == "1.0.7" and v["state"] == "unknown", v   # running "dev" cannot be compared
-        assert client.get("/").text.count("?v=") == 2 and client.get("/").headers["cache-control"] == "no-cache"
+        assert client.get("/").text.count("?v=") == 3 and client.get("/").headers["cache-control"] == "no-cache"
+        # UI translations: every language file is served and has exactly the Czech key set
+        import glob as _g, re as _re
+        cs_keys = client.get("/static/i18n/cs.json").json()
+        lang_files = sorted(_g.glob(os.path.join(os.path.dirname(__file__), "..", "app", "static", "i18n", "*.json")))
+        assert len(lang_files) >= 20, len(lang_files)
+        for lf in lang_files:
+            code = os.path.basename(lf)[:-5]
+            d = client.get(f"/static/i18n/{code}.json").json()
+            assert set(d) == set(cs_keys), (code, set(cs_keys) ^ set(d))
+            for k, v in cs_keys.items():
+                assert set(_re.findall(r"\{\w+\}", v)) == set(_re.findall(r"\{\w+\}", d[k])), (code, k)
+        js = client.get("/static/i18n.js").text
+        assert all(f'"{os.path.basename(lf)[:-5]}"' in js for lf in lang_files)
         # a release published after the last check must turn the badge red within CHECK_EVERY_S
         async def v101(): return "1.0.1"
         async def v102(): return "1.0.2"
@@ -301,6 +314,15 @@ def main():
         assert [i["title"] for i in cat["items"]] == ["Matrix"]
         cat = client.get("/api/catalog", params={"sort": "tvmaze"}).json()
         assert cat["items"][0]["ids"].get("imdb") == "tt7366338"
+        # sort by date added on the platform/library; exact quality filter; quality facet
+        cat = client.get("/api/catalog", params={"sort": "added", "page_size": 4}).json()
+        assert [i["title"] for i in cat["items"][:3]] == ["Černobyl", "Matrix", "Duna: Část druhá"], [(i["title"], [o["added_at"] for o in i["where"]]) for i in cat["items"]]
+        cat = client.get("/api/catalog", params={"sort": "added", "provider": f"emby-{emby_id}"}).json()
+        assert [i["title"] for i in cat["items"]] == ["Černobyl", "Matrix", "Pelíšky"], [i["title"] for i in cat["items"]]
+        assert any(o["added_at"] == "2026-11-14T08:00:00" for o in cat["items"][0]["where"])
+        assert [x["value"] for x in f["quality"]][:2] == ["UHD", "FHD"] and f["with_added_date"] >= 4, f["quality"]
+        cat = client.get("/api/catalog", params={"quality": "FHD", "provider": f"plex-{plex_id}"}).json()
+        assert sorted(i["title"] for i in cat["items"]) == ["Chernobyl", "The Matrix"] or sorted(i["title"] for i in cat["items"]) == ["Matrix", "Černobyl"], [i["title"] for i in cat["items"]]
         print("  providers ->", client.get("/api/providers").json()["items"])
         img = client.get(dune["poster"])
         assert img.status_code == 200 or img.status_code == 404  # plex photo transcoder not mocked
