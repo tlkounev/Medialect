@@ -8,8 +8,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # creates the v1.0.x release tag
   packages: write
+
+# one release at a time, so two quick merges never get the same version number
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/medialect
@@ -29,8 +34,25 @@ jobs:
   image:
     needs: test
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # all tags, to find the last v1.0.x
+      - id: version
+        name: Version (1.0.x)
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            LAST=$(git tag --list 'v1.0.*' --sort=-v:refname | head -n1)
+            if [ -z "$LAST" ]; then NEXT=0; else NEXT=$(( ${LAST##*.} + 1 )); fi
+            VERSION="1.0.${NEXT}"
+            if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then VERSION="${VERSION}-pr${{ github.event.number }}"; fi
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Verze: $VERSION"
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -45,8 +67,8 @@ jobs:
           images: ${{ env.IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.event_name != 'pull_request' }}
+            type=raw,value=1.0,enable=${{ github.event_name != 'pull_request' }}
             type=sha,format=short
       - uses: docker/build-push-action@v6
         with:
@@ -55,8 +77,14 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: APP_VERSION=${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Release tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git tag "v${{ steps.version.outputs.version }}" "$GITHUB_SHA"
+          git push origin "v${{ steps.version.outputs.version }}"
 
   verify:
     needs: image
@@ -76,7 +104,8 @@ jobs:
         run: |
           docker run -d --name medialect -p 8890:8890 -e DISABLE_SCHEDULER=1 "$IMAGE:$TAG"
           for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8890/api/health && curl -fsS http://127.0.0.1:8890/ | grep -q Medialect; then
+            if curl -fsS http://127.0.0.1:8890/api/health && curl -fsS http://127.0.0.1:8890/ | grep -q Medialect \
+             && curl -fsS http://127.0.0.1:8890/api/auth/state | grep -q '"version":"${{ needs.image.outputs.version }}"'; then
               echo "OK"; exit 0
             fi
             sleep 2

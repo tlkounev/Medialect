@@ -26,6 +26,7 @@ let authMode = "login";
 async function boot() {
   const st = await api("/api/auth/state");
   authMode = st.configured ? "login" : "setup";
+  $("#appVersion").textContent = st.version && st.version !== "dev" ? `v${st.version}` : "";
   setAdmin(st.logged_in, false);
   openTab(location.hash.slice(1) || "catalog");
   if (st.logged_in) pollBadge();

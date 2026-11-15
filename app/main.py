@@ -17,7 +17,7 @@ from .sync import manager, server_client
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(message)s")
 STATIC = os.path.join(os.path.dirname(__file__), "static")
-VERSION = "0.1.0"
+VERSION = os.environ.get("APP_VERSION", "dev")
 
 
 @asynccontextmanager
