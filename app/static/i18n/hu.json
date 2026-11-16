@@ -1,4 +1,5 @@
 {
+"app.updateAvailable": "Elérhető az új {v} verzió.", "app.updateNow": "Frissítés", "app.later": "Később",
 "sync.note": "Adatok letöltése: {p}. A katalógus folyamatosan bővül.", "sync.noteFirst": "Első adatletöltés: {p}. Akár több tíz percig is tarthat; a katalógus folyamatosan bővül.",
 "cat.loading": "Az adatok még töltődnek, a címek hamarosan megjelennek.", "cat.dataBy": "Elérhetőségi adatok:",
 "nav.catalog": "Katalógus", "nav.admin": "Adminisztráció", "logout": "Kijelentkezés", "lang.choose": "A felület nyelve",

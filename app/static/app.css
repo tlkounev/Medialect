@@ -195,3 +195,8 @@ select, input, button { font-family: inherit; }
 #jobs .bar { max-width: 260px; }
 .data-by { font-size: .85em; margin-top: 18px; }
 .data-by a { color: inherit; }
+
+/* app: a new version is available */
+.update-bar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 50; display: flex; flex-wrap: wrap; align-items: center;
+  gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--accent); box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+.update-bar span { flex: 1 1 220px; }

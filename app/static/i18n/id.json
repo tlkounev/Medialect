@@ -1,4 +1,5 @@
 {
+"app.updateAvailable": "Versi baru {v} tersedia.", "app.updateNow": "Perbarui", "app.later": "Nanti",
 "sync.note": "Mengunduh data: {p}. Katalog terisi secara bertahap.", "sync.noteFirst": "Unduhan data pertama: {p}. Bisa memakan puluhan menit; katalog terisi secara bertahap.",
 "cat.loading": "Data masih diunduh, judul akan segera muncul.", "cat.dataBy": "Data ketersediaan:",
 "nav.catalog": "Katalog", "nav.admin": "Administrasi", "logout": "Keluar", "lang.choose": "Bahasa antarmuka",
