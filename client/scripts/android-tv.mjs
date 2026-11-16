@@ -18,11 +18,12 @@ cpSync(join(root, "src-tauri", "icons", "android", "tv-banner.png"), join(res, "
 let m = readFileSync(manifestPath, "utf8");
 const must = (cond, what) => { if (!cond) throw new Error(`AndroidManifest.xml: ${what} not found`); };
 
-if (!m.includes("android.software.leanback")) {
-  must(/<application\b/.test(m), "<application>");
-  m = m.replace(/(\s*)<application\b/, `$1<uses-feature android:name="android.software.leanback" android:required="false" />` +
-    `$1<uses-feature android:name="android.hardware.touchscreen" android:required="false" />$1<application`);
+must(/<application\b/.test(m), "<application>");
+for (const feature of ["android.software.leanback", "android.hardware.touchscreen"]) {
+  if (m.includes(`"${feature}"`)) continue;
+  m = m.replace(/(\s*)<application\b/, `$1<uses-feature android:name="${feature}" android:required="false" />$1<application`);
 }
+must(/android\.hardware\.touchscreen" android:required="false"/.test(m), "touchscreen not required");
 if (!m.includes("android:banner=")) m = m.replace(/<application\b/, '<application android:banner="@drawable/banner"');
 if (!m.includes("LEANBACK_LAUNCHER")) {
   const launcher = /(\s*)<category android:name="android\.intent\.category\.LAUNCHER"\s*\/>/;
