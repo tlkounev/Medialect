@@ -1,4 +1,6 @@
 {
+"upd.title": "Aktualizace aplikace", "upd.check": "Zkontrolovat aktualizace",
+"upd.current": "Používáš nejnovější verzi {v}.", "upd.unknown": "Novou verzi se nepodařilo zjistit.",
 "app.updateAvailable": "Je k dispozici nová verze {v}.", "app.updateNow": "Aktualizovat", "app.later": "Později",
 "sync.note": "Stahuji data: {p}. Katalog se průběžně doplňuje.", "sync.noteFirst": "První stahování dat: {p}. Může trvat i desítky minut, katalog se průběžně doplňuje.",
 "cat.loading": "Data se teprve stahují, tituly se brzy objeví.", "cat.dataBy": "Údaje o dostupnosti:",

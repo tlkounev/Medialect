@@ -1,4 +1,6 @@
 {
+"upd.title": "Posodobitve aplikacije", "upd.check": "Preveri posodobitve",
+"upd.current": "Uporabljaš najnovejšo različico {v}.", "upd.unknown": "Nove različice ni bilo mogoče preveriti.",
 "app.updateAvailable": "Na voljo je nova različica {v}.", "app.updateNow": "Posodobi", "app.later": "Pozneje",
 "sync.note": "Prenašanje podatkov: {p}. Katalog se sproti dopolnjuje.", "sync.noteFirst": "Prvi prenos podatkov: {p}. Lahko traja več deset minut; katalog se sproti dopolnjuje.",
 "cat.loading": "Podatki se še prenašajo, naslovi se bodo kmalu prikazali.", "cat.dataBy": "Podatki o razpoložljivosti:",

@@ -40,8 +40,7 @@ class BackgroundArgs {
 class ApkUpdaterPlugin(private val activity: Activity) : Plugin(activity) {
     private val action = "${activity.packageName}.APK_UPDATE_STATUS"
 
-    // PackageInstaller reports the result here; when the system wants a confirmation,
-    // its dialog is opened (first update, Android < 12, or installing from unknown sources not allowed yet).
+    // PackageInstaller reports the result here; the system's confirmation dialog is opened from it.
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
@@ -79,9 +78,7 @@ class ApkUpdaterPlugin(private val activity: Activity) : Plugin(activity) {
                 val installer = activity.packageManager.packageInstaller
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
                 params.setAppPackageName(activity.packageName)
-                if (Build.VERSION.SDK_INT >= 31) {
-                    params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
-                }
+                // the user always confirms the installation (no silent self-updates)
                 val sessionId = installer.createSession(params)
                 installer.openSession(sessionId).use { session ->
                     val conn = URL(args.url).openConnection() as HttpURLConnection

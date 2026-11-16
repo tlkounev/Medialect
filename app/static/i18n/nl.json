@@ -1,4 +1,6 @@
 {
+"upd.title": "App-updates", "upd.check": "Controleren op updates",
+"upd.current": "Je gebruikt de nieuwste versie {v}.", "upd.unknown": "Kon niet controleren op een nieuwe versie.",
 "app.updateAvailable": "Nieuwe versie {v} is beschikbaar.", "app.updateNow": "Bijwerken", "app.later": "Later",
 "sync.note": "Gegevens downloaden: {p}. De catalogus vult zich gaandeweg.", "sync.noteFirst": "Eerste download van gegevens: {p}. Dit kan tientallen minuten duren; de catalogus vult zich gaandeweg.",
 "cat.loading": "De gegevens worden nog gedownload, titels verschijnen binnenkort.", "cat.dataBy": "Beschikbaarheidsgegevens:",

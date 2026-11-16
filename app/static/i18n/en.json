@@ -1,4 +1,6 @@
 {
+"upd.title": "App updates", "upd.check": "Check for updates",
+"upd.current": "You are on the latest version {v}.", "upd.unknown": "Could not check for a new version.",
 "app.updateAvailable": "New version {v} is available.", "app.updateNow": "Update", "app.later": "Later",
 "sync.note": "Downloading data: {p}. The catalogue fills in as it goes.", "sync.noteFirst": "First data download: {p}. It can take tens of minutes; the catalogue fills in as it goes.",
 "cat.loading": "Data is still downloading, titles will appear soon.", "cat.dataBy": "Availability data:",
