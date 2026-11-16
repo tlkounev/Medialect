@@ -103,6 +103,8 @@ describe("app core", () => {
     const stats = await api("GET", "/api/stats");
     expect(stats.titles).toBe(15);
     expect(stats.sources).toContain("justwatch");
+    const nfxOffer = (await api("GET", "/api/catalog?q=matrix")).items[0].where.find((w: any) => w.provider === "netflix");
+    expect(nfxOffer.icon).toMatch(/^https:\/\/images\.justwatch\.com\//);   // logo instead of the name
     expect((await api("GET", "/api/sync/progress")).running).toEqual([]);
     const popular = fake.jwBodies.filter((b) => b.operationName === "GetPopularTitles");
     expect(popular[0].variables.popularTitlesFilter).toMatchObject({ packages: ["nfx"], objectTypes: ["MOVIE"] });
@@ -297,6 +299,7 @@ describe("app core", () => {
     const m = (await api("GET", "/api/catalog?q=matrix")).items[0];
     const lib = m.where.find((w: any) => w.kind === "library");
     expect(lib.quality).toBe("UHD");
+    expect(lib.icon).toBe("https://emby.example/web/favicon.ico");                // the server's own logo
     expect(lib.url).toBe("https://emby.example/web/index.html#!/item?id=m1&serverId=srv1");
     expect(m.ids.csfd).toBe("9499");
     expect(m.poster).toBe("https://emby.example/Items/m1/Images/Primary?maxHeight=360&tag=t");

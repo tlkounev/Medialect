@@ -291,6 +291,13 @@ def main():
         assert n == 2502, n
         assert any(c[2] == 2010 and c[3] == 2012 for c in JW_CALLS), "window was not split"
 
+        # catalogue logos: streaming services from JustWatch, own servers from the server itself
+        mx = client.get("/api/search", params={"q": "matrix"}).json()["items"][0]
+        libs = [o for o in mx["where"] if o["kind"] == "library"]
+        assert libs and all(o["icon"].endswith("?path=%2Fweb%2Ffavicon.ico") for o in libs), libs
+        assert any(o["kind"] == "stream" and o["icon"] for o in mx["where"]), mx["where"]
+        assert client.get("/api/poster/none?path=/web/other.js").status_code == 400
+
         # services in the user's order (priority), newest titles first
         order = [c[0] for c in JW_CALLS]
         prov_order = list(dict.fromkeys(order))

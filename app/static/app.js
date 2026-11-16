@@ -150,6 +150,13 @@ $$("header nav button").forEach((b) => b.addEventListener("click", () => openTab
 $$(".subnav button").forEach((b) => b.addEventListener("click", () => openSub(b.dataset.sub)));
 
 /* ---------- rendering ---------- */
+window.logoFailed = (img, lib) => {
+  if (lib) { img.remove(); return; }
+  const name = document.createElement("span");
+  name.className = "name";
+  name.textContent = img.alt;
+  img.replaceWith(name);
+};
 function renderOffer(o) {
   const tags = [];
   if (o.quality) tags.push(`<span class="tag q-${o.quality}">${QUALITY_LABEL[o.quality] || o.quality}</span>`);
@@ -162,8 +169,12 @@ function renderOffer(o) {
   if (o.subtitle_langs?.length) info.push(`${t("offer.subs")}: ${o.subtitle_langs.slice(0, 8).map(fl).join(", ")}${o.subtitle_langs.length > 8 ? "…" : ""}`);
   if (o.added_at) info.push(t("offer.added", { d: fmtDate(o.added_at) }));
   if (o.expires_on) info.push(t("offer.until", { d: fmtDate(o.expires_on) }));
+  const lib = o.kind === "library";
+  // streaming services: logo only (name as tooltip, shown instead when the logo cannot load);
+  // own servers: their logo + the name from the settings
+  const logo = o.icon ? `<img class="logo" src="${esc(o.icon)}" alt="${esc(o.provider_name)}" title="${esc(o.provider_name)}" loading="lazy" onerror="logoFailed(this, ${lib})">` : "";
   return `<div class="offer ${o.kind}">
-    <span class="name">${esc(o.provider_name)}</span>${mon ? `<span class="muted">${esc(mon)}</span>` : ""}
+    <span class="prov">${logo}${lib || !o.icon ? `<span class="name">${esc(o.provider_name)}</span>` : ""}</span>${mon ? `<span class="muted">${esc(mon)}</span>` : ""}
     ${tags.join("")}<span class="langs">${esc(info.join(" · "))}</span>
     ${o.url ? `<a class="play" href="${esc(o.url)}" target="_blank" rel="noopener">${esc(t("offer.play"))}</a>` : ""}
   </div>`;

@@ -107,6 +107,11 @@ export function startAutoUpdates(showToast: (t: string) => void): void {
   $("#updInstall")?.addEventListener("click", () => { install(); });
   $("#updCheck")?.addEventListener("click", () => { run(true); });
   renderSettings();
-  setTimeout(() => run(false), 15000);
-  setInterval(() => run(false), CHECK_EVERY_MS);
+  // Android keeps the app in memory for days and freezes its timers in the background: check on start
+  // and every time it comes back to the screen (at most every 10 minutes)
+  let lastAuto = 0;
+  const auto = () => { if (Date.now() - lastAuto >= 10 * 60 * 1000) { lastAuto = Date.now(); run(false); } };
+  setTimeout(auto, 3000);
+  setInterval(auto, CHECK_EVERY_MS);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") auto(); });
 }
