@@ -7,7 +7,7 @@ import logging
 import time
 import traceback
 
-from . import ratings, settings as settings_mod
+from . import ratings, settings as settings_mod, store
 from .db import db
 from .sources import justwatch, streaming_availability
 from .sources.base import SourceError, SyncContext
@@ -87,6 +87,8 @@ class SyncManager:
                     await self.run_job(job_id, fn)
             return
         async with self._full_lock:
+            if n := await store.repair_mixed_titles():
+                log.info("repair: %d titles mixing two works dropped, the full sync recreates them", n)
             jobs = await self.jobs()
             self.queued.update(j for j, _, _ in jobs if j not in self.running)
             try:

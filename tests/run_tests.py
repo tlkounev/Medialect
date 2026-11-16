@@ -248,6 +248,29 @@ def main():
         assert all(l["status"] == "ok" for k, l in status.items() if k != "ratings"), status
         assert status["ratings"]["status"] in ("ok", "partial")  # ČSFD budget deliberately small
         assert client.get("/api/sync/progress").json()["first"] is False
+        # two works of the same name: an entry sharing one id but disagreeing on another stays apart
+        from app import store as st
+        async def mixing():
+            drama = await st.upsert_title(st.TitleInfo(type="show", title="Zrádci", year=2020,
+                                                       ids={"jw": "tsX1", "tmdb_tv": "97547"}))
+            reality = await st.upsert_title(st.TitleInfo(type="show", title="Zrádci", year=2024,
+                                                         ids={"imdb": "tt33321873", "tmdb_tv": "271587", "csfd": "1714308"}))
+            bridge = await st.upsert_title(st.TitleInfo(type="show", title="Zrádci", year=2024,
+                                                        ids={"tmdb_tv": "97547", "imdb": "tt33321873"}))
+            close = await st.upsert_title(st.TitleInfo(type="show", title="Zrádci", year=2021,
+                                                       ids={"tmdb_tv": "97547", "imdb": "tt10720694"}))
+            return drama, reality, bridge, close
+        drama, reality, bridge, close = client.portal.call(mixing)
+        assert len({drama, reality, bridge}) == 3, (drama, reality, bridge)   # bridge disagrees with both
+        assert close == drama                                                # same work, ids complement
+        sql_exec(f"INSERT INTO title_ids(kind, value, title_id) VALUES('tmdb_tv', '999999', {reality})")
+        assert client.portal.call(st.repair_mixed_titles) == 1
+        # switched-off rating sources are hidden (kept stored)
+        from app.queries import rating_visible
+        off = rating_visible({"imdb_dataset": False, "justwatch_scores": False, "csfd": False, "tvmaze": False})
+        assert not any(off(x) for x in ("imdb", "csfd", "tmdb", "tvmaze", "rottentomatoes", "letterboxd"))
+        assert rating_visible({"csfd": True, "justwatch_scores": False, "imdb_dataset": False})("csfd")
+        assert not sql(f"SELECT 1 FROM titles WHERE id={reality}") and sql(f"SELECT 1 FROM titles WHERE id={drama}")
         assert "justwatch" in client.get("/api/stats").json()["sources"]
 
         # JustWatch window splitting: 2010-2014 window had 2500 titles -> must be split, nothing lost

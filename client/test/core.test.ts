@@ -155,6 +155,7 @@ describe("app core", () => {
     expect(fake.calls.some((c) => c.includes("csfd.cz"))).toBe(false);
     const s = await settingsMod.load();
     s.ratings.csfd = true;
+    await settingsMod.save(s);   // hidden in the catalogue while the source is switched off
     const ctx = new SyncContext("ratings", s);
     fake.csfdBlocked = true;
     await ratings.csfd(ctx);
@@ -171,6 +172,19 @@ describe("app core", () => {
   it("version check uses the app-v tags only", async () => {
     const v = await api("GET", "/api/version?refresh=1");
     expect(v).toMatchObject({ current: "0.1.3", latest: "0.1.4", state: "update" });
+  });
+
+  it("keeps two works of the same name apart and repairs old mixes", async () => {
+    const st = await import("../src/core/store");
+    const drama = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2020, ids: { jw: "tsX1", tmdb_tv: "97547" } });
+    const reality = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2024, ids: { imdb: "tt33321873", tmdb_tv: "271587" } });
+    const bridge = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2024, ids: { tmdb_tv: "97547", imdb: "tt33321873" } });
+    const close = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2021, ids: { tmdb_tv: "97547", imdb: "tt10720694" } });
+    expect(new Set([drama, reality, bridge]).size).toBe(3);
+    expect(close).toBe(drama);
+    await env.db.run("INSERT INTO title_ids(kind, value, title_id) VALUES('tmdb_tv', '999999', ?)", [reality]);
+    expect(await st.repairMixedTitles()).toBe(1);
+    expect(await env.db.get("SELECT 1 AS x FROM titles WHERE id=?", [reality])).toBeFalsy();
   });
 
   it("server-only endpoints answer 404", async () => {
