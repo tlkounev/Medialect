@@ -19,7 +19,7 @@ pub struct InstallRequest {
 #[cfg(mobile)]
 pub struct ApkUpdater<R: Runtime>(tauri::plugin::PluginHandle<R>);
 #[cfg(not(mobile))]
-pub struct ApkUpdater<R: Runtime>(std::marker::PhantomData<R>);
+pub struct ApkUpdater<R: Runtime>(std::marker::PhantomData<fn() -> R>);
 
 impl<R: Runtime> ApkUpdater<R> {
     pub fn install(&self, req: InstallRequest) -> Result<()> {
@@ -49,7 +49,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             #[cfg(target_os = "ios")]
             let updater: ApkUpdater<R> = { let _ = api; return Err("not supported on iOS".into()); };
             #[cfg(not(mobile))]
-            let updater = { let _ = api; ApkUpdater::<R>(std::marker::PhantomData) };
+            let updater = { let _ = api; ApkUpdater::<R>(std::marker::PhantomData::<fn() -> R>) };
             app.manage(updater);
             Ok(())
         })
