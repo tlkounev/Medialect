@@ -186,3 +186,12 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 .svc-move button:hover:not(:disabled), .svc-main:hover { background: rgba(79,140,255,.15); }
 
 select, input, button { font-family: inherit; }
+
+/* sync progress */
+.bar { height: 6px; border-radius: 3px; background: var(--line, #2a2f3a); overflow: hidden; margin-top: 6px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent, #4f8cff); transition: width .6s ease; }
+.sync-note { padding: 10px 12px; margin: 8px 0; border-radius: 8px; border: 1px solid var(--line, #2a2f3a); background: rgba(79, 140, 255, .08); }
+.sync-note .bar.hidden { display: none; }
+#jobs .bar { max-width: 260px; }
+.data-by { font-size: .85em; margin-top: 18px; }
+.data-by a { color: inherit; }

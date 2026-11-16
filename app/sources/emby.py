@@ -138,13 +138,13 @@ class EmbyLike:
                 ), ctx.started)
                 ctx.items += 1
 
-            ctx.progress(f"{name}: filmy")
+            ctx.progress(f"{name}: filmy", 0)
             async for it in self._items(c, uid, "Movie", FIELDS):
                 await emit(it, "movie", media_summary(it))
 
             per_series: dict[str, dict] = defaultdict(dict)
             newest_ep: dict[str, str] = {}
-            ctx.progress(f"{name}: kvalita epizod")
+            ctx.progress(f"{name}: kvalita epizod", 1 / 3)
             n_eps = 0
             async for ep in self._items(c, uid, "Episode", "MediaSources,MediaStreams,DateCreated"):
                 n_eps += 1
@@ -155,7 +155,7 @@ class EmbyLike:
                     per_series[sid] = _merge_summary(per_series.get(sid), media_summary(ep))
                     if ep.get("DateCreated") and ep["DateCreated"] > newest_ep.get(sid, ""):
                         newest_ep[sid] = ep["DateCreated"]   # a series is "new" when an episode arrives
-            ctx.progress(f"{name}: seriály")
+            ctx.progress(f"{name}: seriály", 2 / 3)
             async for series in self._items(c, uid, "Series", "ProviderIds,OriginalTitle,ProductionYear,DateCreated"):
                 summary = per_series.get(series["Id"]) or media_summary({})
                 await emit(series, "show", summary, newest_ep.get(series["Id"]))

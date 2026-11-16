@@ -1,4 +1,6 @@
 {
+"sync.note": "Gegevens downloaden: {p}. De catalogus vult zich gaandeweg.", "sync.noteFirst": "Eerste download van gegevens: {p}. Dit kan tientallen minuten duren; de catalogus vult zich gaandeweg.",
+"cat.loading": "De gegevens worden nog gedownload, titels verschijnen binnenkort.", "cat.dataBy": "Beschikbaarheidsgegevens:",
 "nav.catalog": "Catalogus", "nav.admin": "Beheer", "logout": "Afmelden", "lang.choose": "Taal van de interface",
 "sync.badgeTitle": "Synchronisatie – details in beheer",
 "search.ph": "Film of serie zoeken…",

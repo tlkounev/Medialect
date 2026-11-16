@@ -121,7 +121,8 @@ class SyncManager:
                 "id": job_id, "label": label,
                 "running": ctx is not None,
                 "queued": job_id in self.queued,
-                "progress": {"phase": ctx.phase, "items": ctx.items, "started_at": ctx.started} if ctx else None,
+                "progress": {"phase": ctx.phase, "items": ctx.items, "started_at": ctx.started,
+                             "percent": ctx.percent} if ctx else None,
                 "last": dict(row) if row else None,
             })
         return out

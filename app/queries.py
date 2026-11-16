@@ -203,7 +203,8 @@ async def stats() -> dict:
                           "(SELECT 1 FROM availability a WHERE a.title_id=t.id)")
     o = await db.fetchone("SELECT COUNT(*) AS n FROM availability")
     r = await db.fetchone("SELECT COUNT(*) AS n FROM ratings WHERE display IS NOT NULL")
-    return {"titles": t["n"], "offers": o["n"], "ratings": r["n"]}
+    src = await db.fetchall("SELECT DISTINCT source FROM availability")
+    return {"titles": t["n"], "offers": o["n"], "ratings": r["n"], "sources": sorted(x["source"] for x in src)}
 
 
 async def facets() -> dict:

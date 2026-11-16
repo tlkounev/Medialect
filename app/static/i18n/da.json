@@ -1,4 +1,6 @@
 {
+"sync.note": "Henter data: {p}. Kataloget fyldes løbende op.", "sync.noteFirst": "Første datahentning: {p}. Det kan tage flere titals minutter; kataloget fyldes løbende op.",
+"cat.loading": "Data hentes stadig, titlerne dukker snart op.", "cat.dataBy": "Tilgængelighedsdata:",
 "nav.catalog": "Katalog", "nav.admin": "Administration", "logout": "Log ud", "lang.choose": "Grænsefladens sprog",
 "sync.badgeTitle": "Synkronisering – detaljer under administration",
 "search.ph": "Søg efter film eller serie…",

@@ -1,4 +1,6 @@
 {
+"sync.note": "Stahuji data: {p}. Katalog se průběžně doplňuje.", "sync.noteFirst": "První stahování dat: {p}. Může trvat i desítky minut, katalog se průběžně doplňuje.",
+"cat.loading": "Data se teprve stahují, tituly se brzy objeví.", "cat.dataBy": "Údaje o dostupnosti:",
 "nav.catalog": "Katalog", "nav.admin": "Administrace", "logout": "Odhlásit", "lang.choose": "Jazyk rozhraní",
 "sync.badgeTitle": "Synchronizace – podrobnosti v administraci",
 "search.ph": "Hledat film nebo seriál…",

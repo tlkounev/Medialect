@@ -1,4 +1,6 @@
 {
+"sync.note": "Laster ned data: {p}. Katalogen fylles etter hvert.", "sync.noteFirst": "Første nedlasting av data: {p}. Det kan ta flere titalls minutter; katalogen fylles etter hvert.",
+"cat.loading": "Data lastes fortsatt ned, titlene dukker snart opp.", "cat.dataBy": "Tilgjengelighetsdata:",
 "nav.catalog": "Katalog", "nav.admin": "Administrasjon", "logout": "Logg ut", "lang.choose": "Språk i grensesnittet",
 "sync.badgeTitle": "Synkronisering – detaljer under administrasjon",
 "search.ph": "Søk etter film eller serie…",

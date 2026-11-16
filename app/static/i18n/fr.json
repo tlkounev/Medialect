@@ -1,4 +1,6 @@
 {
+"sync.note": "Téléchargement des données : {p}. Le catalogue se remplit au fur et à mesure.", "sync.noteFirst": "Premier téléchargement des données : {p}. Cela peut prendre des dizaines de minutes ; le catalogue se remplit au fur et à mesure.",
+"cat.loading": "Les données sont encore en cours de téléchargement, les titres apparaîtront bientôt.", "cat.dataBy": "Données de disponibilité :",
 "nav.catalog": "Catalogue", "nav.admin": "Administration", "logout": "Se déconnecter", "lang.choose": "Langue de l’interface",
 "sync.badgeTitle": "Synchronisation – détails dans l’administration",
 "search.ph": "Rechercher un film ou une série…",
