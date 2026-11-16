@@ -58,6 +58,8 @@ export function initBackground(): void {
   // timers of a hidden WebView are throttled (up to once a minute); native pauses are not
   env.sleep = (ms: number) => invoke("plugin:apk-updater|sleep", { ms }) as Promise<void>;
   env.diagnose = diagnose;
+  env.localNetwork = async (ask: boolean) =>
+    !!(await invoke<{ granted: boolean }>("plugin:apk-updater|local_network", { ask }))?.granted;
 }
 
 /** Plain-language reason why a media server address cannot be reached (TCP probe in the native plugin). */

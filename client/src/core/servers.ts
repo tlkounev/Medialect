@@ -31,6 +31,10 @@ async function get(base: string, path: string, headers: Record<string, string>, 
     r = await http(base + path, { headers, params, timeoutMs: 120000 });
   } catch (e) {
     // the HTTP client only says "error sending request": find out what is wrong with the address
+    if (e instanceof SourceError && env.localNetwork && !(await env.localNetwork(false).catch(() => true))) {
+      throw new SourceError("Aplikace nemá povolený přístup k místní síti, proto se k serveru doma nedostane. "
+        + "Povol ho v Nastavení Androidu → Aplikace → Medialect → Oprávnění → Zařízení v okolí.");
+    }
     const why = e instanceof SourceError && env.diagnose ? await env.diagnose(base).catch(() => null) : null;
     throw why ? new SourceError(why) : e;
   }
@@ -280,11 +284,20 @@ async function plexSync(srv: any, ctx: SyncContext): Promise<void> {
 }
 
 // --- shared -----------------------------------------------------------------------
+/** Android 17 asks for the home-network permission; only while the app is on screen (a prompt needs it). */
+async function askLocalNetwork(): Promise<void> {
+  if (env.localNetwork) await env.localNetwork(typeof document === "undefined" || document.visibilityState === "visible").catch(() => {});
+}
+
 export function serverSync(srv: any): (ctx: SyncContext) => Promise<void> {
-  return (ctx) => (srv.type === "plex" ? plexSync(srv, ctx) : embySync(srv, ctx));
+  return async (ctx) => {
+    await askLocalNetwork();
+    return srv.type === "plex" ? plexSync(srv, ctx) : embySync(srv, ctx);
+  };
 }
 
 export async function testServer(srv: any): Promise<Record<string, unknown>> {
+  await askLocalNetwork();
   const base = trimSlash(srv.url);
   if (srv.type === "plex") {
     const mc = (await get(base, "/identity", plexHeaders(srv)))?.MediaContainer || {};

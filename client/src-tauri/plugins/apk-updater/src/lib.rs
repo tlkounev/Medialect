@@ -34,6 +34,18 @@ pub struct ApkUpdater<R: Runtime>(tauri::plugin::PluginHandle<R>);
 pub struct ApkUpdater<R: Runtime>(std::marker::PhantomData<fn() -> R>);
 
 impl<R: Runtime> ApkUpdater<R> {
+    pub fn local_network(&self, req: LocalNetworkRequest) -> Result<serde_json::Value> {
+        #[cfg(mobile)]
+        {
+            self.0.run_mobile_plugin::<serde_json::Value>("localNetwork", req).map_err(Into::into)
+        }
+        #[cfg(not(mobile))]
+        {
+            let _ = req;
+            Ok(serde_json::json!({ "granted": true }))
+        }
+    }
+
     pub fn background(&self, req: BackgroundRequest) -> Result<()> {
         #[cfg(mobile)]
         {
@@ -90,9 +102,19 @@ async fn probe(host: String, port: u16) -> Result<String> {
     Ok(res.unwrap_or_else(|_| "timeout".to_string()))
 }
 
+#[derive(Debug, Deserialize, serde::Serialize)]
+pub struct LocalNetworkRequest {
+    pub ask: bool,
+}
+
+#[tauri::command]
+async fn local_network<R: Runtime>(app: tauri::AppHandle<R>, ask: bool) -> Result<serde_json::Value> {
+    app.state::<ApkUpdater<R>>().local_network(LocalNetworkRequest { ask })
+}
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("apk-updater")
-        .invoke_handler(tauri::generate_handler![background, sleep, probe])
+        .invoke_handler(tauri::generate_handler![background, sleep, probe, local_network])
         .setup(|app, api| {
             #[cfg(target_os = "android")]
             let updater = ApkUpdater(api.register_android_plugin("com.plugin.apk_updater", "ApkUpdaterPlugin")?);

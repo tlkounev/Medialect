@@ -12,7 +12,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import app.tauri.annotation.Command
+import app.tauri.PermissionState
 import app.tauri.annotation.InvokeArg
+import app.tauri.annotation.Permission
+import app.tauri.annotation.PermissionCallback
+import app.tauri.plugin.JSObject
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.Plugin
@@ -25,7 +29,14 @@ class BackgroundArgs {
     var percent: Int = -1
 }
 
-@TauriPlugin
+@InvokeArg
+class LocalNetworkArgs {
+    var ask: Boolean = true
+}
+
+@TauriPlugin(
+    permissions = [Permission(strings = ["android.permission.ACCESS_LOCAL_NETWORK"], alias = "localNetwork")]
+)
 class ApkUpdaterPlugin(private val activity: Activity) : Plugin(activity) {
     init {
         // Android 15+ draws apps edge to edge: keep the WebView out from under the status and navigation bars
@@ -72,5 +83,24 @@ class ApkUpdaterPlugin(private val activity: Activity) : Plugin(activity) {
         if (prefs.getBoolean("asked_notifications", false)) return
         prefs.edit().putBoolean("asked_notifications", true).apply()
         activity.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 4711)
+    }
+
+    // Android 17: access to the home network (the user's media servers) needs a runtime permission.
+    // Resolves { granted }; with ask=false (a sync running in the background) it only checks.
+    @Command
+    fun localNetwork(invoke: Invoke) {
+        val args = invoke.parseArgs(LocalNetworkArgs::class.java)
+        if (Build.VERSION.SDK_INT < 37 || getPermissionState("localNetwork") == PermissionState.GRANTED) {
+            invoke.resolve(JSObject().apply { put("granted", true) })
+        } else if (!args.ask) {
+            invoke.resolve(JSObject().apply { put("granted", false) })
+        } else {
+            requestPermissionForAlias("localNetwork", invoke, "localNetworkResult")
+        }
+    }
+
+    @PermissionCallback
+    private fun localNetworkResult(invoke: Invoke) {
+        invoke.resolve(JSObject().apply { put("granted", getPermissionState("localNetwork") == PermissionState.GRANTED) })
     }
 }
