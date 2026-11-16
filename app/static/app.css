@@ -1,7 +1,14 @@
+/* flag emoji everywhere (Windows has none): Twemoji flags, only for the flag code points; CC-BY 4.0, see fonts/ */
+@font-face {
+  font-family: "Twemoji Country Flags";
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
+  src: url("/static/fonts/TwemojiCountryFlags.woff2") format("woff2");
+  font-display: swap;
+}
 :root {
   --bg: #0f1115; --panel: #181b22; --line: #2a2f3a; --text: #e7e9ee; --muted: #8b93a3;
   --accent: #4f8cff; --ok: #3ecf8e; --warn: #f0b429; --err: #ff5d5d;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: "Twemoji Country Flags", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font-size: 15px; }
@@ -142,7 +149,7 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 .wizard h3 { margin: 4px 0 0; width: 100%; font-size: 16px; }
 .wiz-chips label { padding: 8px 12px; font-size: 14px; }
 .wiz-chips label:has(input:checked), .chips label:has(input:checked) { border-color: var(--accent); background: #1b2740; }
-#jwProviders:not(.all) label.other { display: none; }
+#jwProviders:not(.all) .svc.other { display: none; }
 .show-all { margin: 2px 0 6px; }
 
 /* desktop/mobile app: parts that only the server has */
@@ -159,3 +166,23 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 /* logo in the top bar */
 .logo { display: inline-flex; align-items: center; gap: 8px; }
 .logo-img { width: 28px; height: 28px; flex: none; }
+
+/* service picker tiles */
+.svc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 8px; width: 100%; }
+.svc { position: relative; display: grid; border: 2px solid var(--line); border-radius: 12px; background: var(--bg); }
+.svc.on { border-color: var(--accent); background: #1b2740; }
+.svc[draggable="true"] { cursor: grab; }
+.svc-main { display: grid; justify-items: center; gap: 6px; padding: 10px 6px 8px; border: 0; background: none; color: var(--text);
+  border-radius: 10px; width: 100%; cursor: pointer; }
+.svc-main img, .svc-noicon { width: 44px; height: 44px; border-radius: 10px; }
+.svc-noicon { display: grid; place-items: center; background: var(--line); font-weight: 700; }
+.svc-name { font-size: 12px; line-height: 1.25; text-align: center; overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+.svc:not(.on) .svc-main { opacity: .7; }
+.svc-pos { position: absolute; top: 4px; inset-inline-start: 6px; font-size: 11px; font-weight: 700; color: var(--accent); }
+.svc-move { display: flex; border-top: 1px solid var(--line); }
+.svc-move button { flex: 1; padding: 4px 0; border: 0; background: none; color: var(--text); font-size: 16px; border-radius: 0 0 10px 10px; }
+.svc-move button:disabled { opacity: .25; }
+.svc-move button:hover:not(:disabled), .svc-main:hover { background: rgba(79,140,255,.15); }
+
+select, input, button { font-family: inherit; }

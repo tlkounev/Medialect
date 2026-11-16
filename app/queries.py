@@ -21,10 +21,19 @@ def _j(s: str | None) -> list:
         return []
 
 
+async def provider_rank() -> dict[str, int]:
+    """Provider key -> position in the user's service order (settings), for sorting offers."""
+    from . import settings as settings_mod
+    order = (await settings_mod.load())["justwatch"].get("providers") or []
+    keys = await db.kv_get("jw.provider_keys", {})
+    return {keys.get(sn, sn): i for i, sn in enumerate(order)}
+
+
 async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[dict[str, Any]]:
     """link_ctx = {"servers": {id: server}, "lan": bool} rebuilds library links for the viewer."""
     if not title_ids:
         return []
+    rank = await provider_rank()
     ph = ",".join("?" * len(title_ids))
     titles = {r["id"]: dict(r) for r in await db.fetchall(f"SELECT * FROM titles WHERE id IN ({ph})", title_ids)}
     ids: dict[int, dict] = {}
@@ -77,7 +86,8 @@ async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[di
         rs = sorted(ratings.get(tid, []),
                     key=lambda x: RATING_ORDER.index(x["source"]) if x["source"] in RATING_ORDER else 99)
         offers = sorted(where.get(tid, {}).values(),
-                        key=lambda o: (o["kind"] != "library", (o["provider_name"] or "").lower()))
+                        key=lambda o: (o["kind"] != "library", rank.get(o["provider"], 999),
+                                       (o["provider_name"] or "").lower()))
         out.append({
             "id": tid, "type": t["type"], "title": t["title"], "original_title": t["original_title"],
             "year": t["year"], "poster": t["poster"], "ids": ids.get(tid, {}), "ratings": rs, "where": offers,

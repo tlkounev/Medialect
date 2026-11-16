@@ -99,6 +99,12 @@ describe("app core", () => {
     expect(Object.fromEntries(ch.ratings.map((x: any) => [x.source, x.display]))).toMatchObject({ imdb: "9.3", tvmaze: "8.9", tmdb: "8.5" });
     expect(ch.where[0].expires_on).toBe("2027-01-31");
 
+    // offers follow the user's service order; reordering does not start a sync
+    await api("PUT", "/api/settings", { justwatch: { providers: ["opl", "nfx", "dnp"] } });
+    expect(manager.running.size).toBe(0);
+    expect((await api("GET", "/api/catalog?q=matrix")).items[0].where.map((o: any) => o.provider)).toEqual(["oneplay", "netflix"]);
+    await api("PUT", "/api/settings", { justwatch: { providers: ["nfx", "opl", "dnp"] } });
+
     // multi-select filters: OR inside a filter, AND across filters, on the same offer
     const titles = async (qs: string) => (await api("GET", `/api/catalog?page_size=200&${qs}`)).items.map((i: any) => i.title).sort();
     expect(await titles("provider=oneplay")).toEqual(["Matrix"]);

@@ -30,5 +30,22 @@ if (!m.includes("LEANBACK_LAUNCHER")) {
   must(launcher.test(m), "LAUNCHER category");
   m = m.replace(launcher, (all, ws) => `${all}${ws}<category android:name="android.intent.category.LEANBACK_LAUNCHER" />`);
 }
+// keyboard: move the page up instead of shrinking the window (the shrinking showed a black strip)
+if (!m.includes("windowSoftInputMode")) {
+  must(/android:name="\.MainActivity"/.test(m), "MainActivity");
+  m = m.replace(/android:name="\.MainActivity"/, 'android:name=".MainActivity"\n            android:windowSoftInputMode="adjustPan"');
+}
 writeFileSync(manifestPath, m);
+
+// window background in the app's colour, so nothing black shows around the keyboard or while loading
+for (const dir of ["values", "values-night"]) {
+  const themes = join(res, dir, "themes.xml");
+  let x;
+  try { x = readFileSync(themes, "utf8"); } catch { continue; }
+  if (!x.includes("android:windowBackground")) {
+    x = x.replace(/(<style name="Theme\.[^"]+"[^>]*>)/, '$1\n        <item name="android:windowBackground">#FF0F1115</item>');
+    writeFileSync(themes, x);
+    console.log(`${dir}/themes.xml:\n${x}`);
+  }
+}
 console.log(m);

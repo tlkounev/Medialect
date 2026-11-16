@@ -14,6 +14,7 @@ from simplejustwatchapi import justwatch as jw
 from simplejustwatchapi.exceptions import JustWatchError
 
 from .. import store
+from ..db import db
 from ..quality import justwatch_tech, langs, provider_key, quality_from_label
 from .base import SourceError, SyncContext
 
@@ -38,6 +39,10 @@ async def list_providers(country: str) -> list[dict]:
             continue
         out.append({"short_name": p.short_name, "name": p.name, "technical_name": p.technical_name,
                     "icon": p.icon, "monetization_types": mt})
+    # short name (settings) -> provider key (catalogue), for ordering offers by the user's service order
+    keys = await db.kv_get("jw.provider_keys", {})
+    keys.update({p["short_name"]: provider_key(p["technical_name"] or p["name"]) for p in out})
+    await db.kv_set("jw.provider_keys", keys)
     return sorted(out, key=lambda p: p["name"].lower())
 
 

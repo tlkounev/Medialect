@@ -20,6 +20,9 @@ class TitleInfo:
     poster: str | None = None
     ids: dict[str, str] = field(default_factory=dict)   # imdb, tmdb_movie, tmdb_tv, tvdb, csfd, jw, sa
     extra_names: list[str] = field(default_factory=list)
+    # id kinds this source knows better than our own lookups (e.g. the ČSFD id an Emby plugin assigned):
+    # a different stored value is replaced and the rating derived from it is fetched again
+    authoritative: tuple[str, ...] = ()
 
 
 @dataclass
@@ -100,6 +103,15 @@ async def upsert_title(info: TitleInfo) -> int:
                 (info.original_title, info.year, info.poster, now, tid),
             )
         for kind, value in ids.items():
+            if kind in info.authoritative:
+                async with conn.execute("SELECT value FROM title_ids WHERE title_id=? AND kind=?", (tid, kind)) as cur:
+                    old = [r[0] for r in await cur.fetchall()]
+                if old != [value]:
+                    await conn.execute("DELETE FROM title_ids WHERE title_id=? AND kind=? AND value!=?", (tid, kind, value))
+                    await conn.execute("INSERT OR REPLACE INTO title_ids(kind, value, title_id) VALUES(?,?,?)", (kind, value, tid))
+                    if kind == "csfd":
+                        await conn.execute("DELETE FROM ratings WHERE title_id=? AND source='csfd'", (tid,))
+                continue
             await conn.execute("INSERT OR IGNORE INTO title_ids(kind, value, title_id) VALUES(?,?,?)", (kind, value, tid))
         for n in {norm(x) for x in (info.title, info.original_title, *info.extra_names) if x}:
             if n:

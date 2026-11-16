@@ -9,7 +9,7 @@ const ui = join(root, "..", "app", "static");
 const out = join(root, "public", "static");
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
-for (const f of ["app.js", "app.css", "i18n.js", "i18n", "icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "manifest.webmanifest"]) cpSync(join(ui, f), join(out, f), { recursive: true });
+for (const f of ["app.js", "app.css", "i18n.js", "i18n", "icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "manifest.webmanifest", "fonts"]) cpSync(join(ui, f), join(out, f), { recursive: true });
 let html = readFileSync(join(ui, "index.html"), "utf8");
 html = html.replace(/<script src="\/static\/(i18n|app)\.js"><\/script>\s*/g, "");
 if (html.includes('src="/static/app.js"')) throw new Error("index.html: script tags not found/removed");
