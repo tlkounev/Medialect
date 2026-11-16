@@ -83,5 +83,6 @@
 "wiz.providers.h": "Vink de diensten aan waar je toegang toe hebt. De rest verschijnt niet in de catalogus; dit kan altijd in Instellingen.",
 "wiz.ratings": "Scores",
 "wiz.ratings.h": "Waar de scores vandaan komen. Meer bronnen (TMDB, OMDb, MDBList) voeg je toe in Instellingen.",
-"set.jw.showAll": "Alle diensten in het land tonen ({n})"
+"set.jw.showAll": "Alle diensten in het land tonen ({n})",
+"app.noHandler": "De link kan niet worden geopend – de app van de dienst of een browser ontbreekt."
 }

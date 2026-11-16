@@ -16,10 +16,25 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
+function toast(text: string): void {
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 5000);
+}
+
 async function openExternal(url: string): Promise<void> {
   if ((window as any).__TAURI_INTERNALS__) {
     const { openUrl } = await import("@tauri-apps/plugin-opener");
-    await openUrl(url);            // Android hands streaming links to the installed app (Netflix, Disney+, ...)
+    try {
+      await openUrl(url);          // Android hands streaming links to the installed app (Netflix, Disney+, ...)
+    } catch (e) {
+      // e.g. a TV without a browser and without the service's app
+      const t = (window as any).t;
+      toast(typeof t === "function" ? t("app.noHandler") : "No app can open this link.");
+      console.error(e);
+    }
   } else {
     window.open(url, "_blank", "noopener");
   }
@@ -48,6 +63,8 @@ async function start(): Promise<void> {
   await loadScript("/static/i18n.js");
   await loadScript("/static/app.js");
   manager.start();
+  const { isTv, enableTvNavigation } = await import("./tv");
+  if (isTv()) enableTvNavigation();
 }
 
 start().catch((e) => {

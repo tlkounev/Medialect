@@ -83,5 +83,6 @@
 "wiz.providers.h": "Tick the services you have access to. The others won't appear in the catalogue; you can change this any time in Settings.",
 "wiz.ratings": "Ratings",
 "wiz.ratings.h": "Where ratings come from. Add more sources (TMDB, OMDb, MDBList) in Settings.",
-"set.jw.showAll": "Show all services in the country ({n})"
+"set.jw.showAll": "Show all services in the country ({n})",
+"app.noHandler": "The link can't be opened – the service's app or a browser is missing on this device."
 }

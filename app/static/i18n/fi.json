@@ -83,5 +83,6 @@
 "wiz.providers.h": "Valitse palvelut, joihin sinulla on pääsy. Muut eivät näy luettelossa; voit muuttaa tätä Asetuksissa.",
 "wiz.ratings": "Arviot",
 "wiz.ratings.h": "Mistä arviot haetaan. Lisää lähteitä (TMDB, OMDb, MDBList) lisätään Asetuksissa.",
-"set.jw.showAll": "Näytä kaikki maan palvelut ({n})"
+"set.jw.showAll": "Näytä kaikki maan palvelut ({n})",
+"app.noHandler": "Linkkiä ei voi avata – laitteesta puuttuu palvelun sovellus tai selain."
 }

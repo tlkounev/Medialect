@@ -83,5 +83,6 @@
 "wiz.providers.h": "Zaškrtni služby, ku ktorým máš prístup. Ostatné sa v katalógu nezobrazia, zmeniť to môžeš kedykoľvek v Nastaveniach.",
 "wiz.ratings": "Hodnotenia",
 "wiz.ratings.h": "Odkiaľ brať hodnotenia. Ďalšie zdroje (TMDB, OMDb, MDBList) pridáš v Nastaveniach.",
-"set.jw.showAll": "Zobraziť všetky služby v krajine ({n})"
+"set.jw.showAll": "Zobraziť všetky služby v krajine ({n})",
+"app.noHandler": "Odkaz sa nedá otvoriť – v zariadení chýba aplikácia služby alebo prehliadač."
 }
