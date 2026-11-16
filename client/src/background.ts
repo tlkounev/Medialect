@@ -8,7 +8,8 @@ let active = false, last = 0, lastText = "";
 
 function describe(): { text: string; percent: number | null } {
   const jobs = [...manager.running.values()];
-  const label = (id: string) => (id === "ratings" ? ((window as any).t?.("job.ratings") || "Hodnocení") : id === "justwatch" ? "JustWatch" : id);
+  const t = (window as any).t;
+  const label = (id: string) => (id === "ratings" ? (t?.("job.ratings") || "Hodnocení") : id === "justwatch" ? (t?.("job.catalog") || "Katalog") : id);
   const parts = jobs.map((c) => `${label(c.source)}${c.percent != null ? ` ${c.percent} %` : ""}`);
   const known = jobs.map((c) => c.percent).filter((p): p is number => p != null);
   return { text: parts.join(" · "), percent: known.length ? Math.round(known.reduce((a, b) => a + b, 0) / known.length) : null };

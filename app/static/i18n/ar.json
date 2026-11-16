@@ -1,4 +1,5 @@
 {
+"job.catalog": "الكتالوج",
 "upd.title": "تحديثات التطبيق", "upd.check": "البحث عن تحديثات",
 "upd.current": "أنت تستخدم أحدث إصدار {v}.", "upd.unknown": "تعذّر التحقق من وجود إصدار جديد.",
 "app.updateAvailable": "يتوفر إصدار جديد {v}.", "app.updateNow": "تحديث", "app.later": "لاحقًا",

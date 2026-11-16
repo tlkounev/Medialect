@@ -1,4 +1,5 @@
 {
+"job.catalog": "Katalog",
 "upd.title": "Aktualizacje aplikacji", "upd.check": "Sprawdź aktualizacje",
 "upd.current": "Masz najnowszą wersję {v}.", "upd.unknown": "Nie udało się sprawdzić nowej wersji.",
 "app.updateAvailable": "Dostępna jest nowa wersja {v}.", "app.updateNow": "Aktualizuj", "app.later": "Później",

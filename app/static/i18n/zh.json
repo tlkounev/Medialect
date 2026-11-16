@@ -1,4 +1,5 @@
 {
+"job.catalog": "片库",
 "upd.title": "应用更新", "upd.check": "检查更新",
 "upd.current": "你正在使用最新版本 {v}。", "upd.unknown": "无法检查新版本。",
 "app.updateAvailable": "新版本 {v} 可用。", "app.updateNow": "更新", "app.later": "稍后",

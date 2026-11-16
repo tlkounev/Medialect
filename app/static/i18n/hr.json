@@ -1,4 +1,5 @@
 {
+"job.catalog": "Katalog",
 "upd.title": "Ažuriranja aplikacije", "upd.check": "Provjeri ažuriranja",
 "upd.current": "Koristiš najnoviju verziju {v}.", "upd.unknown": "Nije moguće provjeriti novu verziju.",
 "app.updateAvailable": "Dostupna je nova verzija {v}.", "app.updateNow": "Ažuriraj", "app.later": "Kasnije",

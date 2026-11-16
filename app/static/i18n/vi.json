@@ -1,4 +1,5 @@
 {
+"job.catalog": "Danh mục",
 "upd.title": "Cập nhật ứng dụng", "upd.check": "Kiểm tra cập nhật",
 "upd.current": "Bạn đang dùng phiên bản mới nhất {v}.", "upd.unknown": "Không thể kiểm tra phiên bản mới.",
 "app.updateAvailable": "Đã có phiên bản mới {v}.", "app.updateNow": "Cập nhật", "app.later": "Để sau",

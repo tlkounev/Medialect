@@ -1,4 +1,5 @@
 {
+"job.catalog": "Katalog",
 "upd.title": "Uygulama güncellemeleri", "upd.check": "Güncellemeleri denetle",
 "upd.current": "En son sürümü ({v}) kullanıyorsunuz.", "upd.unknown": "Yeni sürüm denetlenemedi.",
 "app.updateAvailable": "Yeni sürüm {v} mevcut.", "app.updateNow": "Güncelle", "app.later": "Sonra",

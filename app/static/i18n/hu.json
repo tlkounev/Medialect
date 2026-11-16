@@ -1,4 +1,5 @@
 {
+"job.catalog": "Katalógus",
 "upd.title": "Alkalmazásfrissítések", "upd.check": "Frissítések keresése",
 "upd.current": "A legújabb verziót ({v}) használod.", "upd.unknown": "Nem sikerült új verziót keresni.",
 "app.updateAvailable": "Elérhető az új {v} verzió.", "app.updateNow": "Frissítés", "app.later": "Később",

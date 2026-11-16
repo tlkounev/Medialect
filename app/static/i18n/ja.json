@@ -1,4 +1,5 @@
 {
+"job.catalog": "カタログ",
 "upd.title": "アプリの更新", "upd.check": "更新を確認",
 "upd.current": "最新バージョン {v} を使用しています。", "upd.unknown": "新しいバージョンを確認できませんでした。",
 "app.updateAvailable": "新しいバージョン {v} があります。", "app.updateNow": "更新", "app.later": "後で",

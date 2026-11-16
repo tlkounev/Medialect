@@ -1,4 +1,5 @@
 {
+"job.catalog": "Katalog",
 "upd.title": "Aktualizace aplikace", "upd.check": "Zkontrolovat aktualizace",
 "upd.current": "Používáš nejnovější verzi {v}.", "upd.unknown": "Novou verzi se nepodařilo zjistit.",
 "app.updateAvailable": "Je k dispozici nová verze {v}.", "app.updateNow": "Aktualizovat", "app.later": "Později",
