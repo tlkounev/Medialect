@@ -71,6 +71,9 @@ export async function listProviders(country: string): Promise<ProviderInfo[]> {
     const keys = await env.db.kvGet<Record<string, string>>("jw.provider_keys", {});
     for (const p of out) keys[p.short_name] = providerKey(p.technical_name || p.name);
     await env.db.kvSet("jw.provider_keys", keys);
+    const icons = await env.db.kvGet<Record<string, string>>("jw.provider_icons", {});
+    for (const p of out) if (p.icon) icons[providerKey(p.technical_name || p.name)] = p.icon;
+    await env.db.kvSet("jw.provider_icons", icons);
   }
   return out.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 }

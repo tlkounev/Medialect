@@ -58,8 +58,10 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .rating b { font-weight: 600; }
 .offers { display: grid; gap: 6px; }
 .offer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 8px; border-radius: 8px; background: #11141a; }
-.offer .name { font-weight: 600; min-width: 120px; }
-.offer.library .name::before { content: "▣ "; color: var(--ok); }
+.offer .prov { display: inline-flex; align-items: center; gap: 8px; min-width: 40px; }
+.offer .name { font-weight: 600; }
+.offer .logo { width: 32px; height: 32px; border-radius: 8px; object-fit: contain; flex: none; }
+.offer.library .logo { width: 26px; height: 26px; border-radius: 6px; }
 .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--line); }
 .tag.q-UHD { background: #6b3cff; } .tag.q-FHD, .tag.q-QHD { background: #2d5fd1; }
 .tag.hdr { background: #8a5a00; } .tag.aud { background: #1d6b4f; }

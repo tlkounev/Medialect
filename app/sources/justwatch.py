@@ -59,6 +59,9 @@ async def list_providers(country: str) -> list[dict]:
     keys = await db.kv_get("jw.provider_keys", {})
     keys.update({p["short_name"]: provider_key(p["technical_name"] or p["name"]) for p in out})
     await db.kv_set("jw.provider_keys", keys)
+    icons = await db.kv_get("jw.provider_icons", {})
+    icons.update({provider_key(p["technical_name"] or p["name"]): p["icon"] for p in out if p["icon"]})
+    await db.kv_set("jw.provider_icons", icons)
     return sorted(out, key=lambda p: p["name"].lower())
 
 

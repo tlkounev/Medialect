@@ -67,6 +67,7 @@ async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[di
             continue
         ratings.setdefault(r["title_id"], []).append(
             {"source": r["source"], "display": r["display"], "value": r["value"], "votes": r["votes"], "url": r["url"]})
+    icons = await db.kv_get("jw.provider_icons", {})
     where: dict[int, dict] = {}
     for r in await db.fetchall(f"SELECT * FROM availability WHERE title_id IN ({ph})", title_ids):
         groups = where.setdefault(r["title_id"], {})
@@ -78,6 +79,11 @@ async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[di
             "url": r["url"], "expires_on": r["expires_on"], "added_at": r["added_at"],
             "sources": [r["source"]], "extra": json.loads(r["extra"] or "{}"),
         }
+        if r["kind"] == "library" and ":" in r["source"]:
+            # the server's own logo, through the backend (the internal address is not reachable from outside)
+            offer["icon"] = f"/api/poster/{r['source'].split(':', 1)[1]}?path=%2Fweb%2Ffavicon.ico"
+        else:
+            offer["icon"] = offer["extra"].get("icon") or icons.get(r["provider"])
         if link_ctx and r["kind"] == "library" and ":" in r["source"]:
             srv = link_ctx["servers"].get(r["source"].split(":", 1)[1])
             if srv:

@@ -169,7 +169,7 @@ _POSTER_PREFIXES = ("/Items/", "/photo/:/transcode")
 
 @app.get("/api/poster/{server_id}")
 async def api_poster(server_id: str, path: str):
-    if not path.startswith(_POSTER_PREFIXES) or ".." in path:
+    if not (path.startswith(_POSTER_PREFIXES) or path == "/web/favicon.ico") or ".." in path:
         raise HTTPException(400, "Nepovolená cesta.")
     s = await settings_mod.load()
     srv = next((x for x in s["servers"] if x["id"] == server_id), None)

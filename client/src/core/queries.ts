@@ -49,6 +49,8 @@ export async function hydrate(titleIds: number[]): Promise<any[]> {
     (ratings.get(r.title_id) || ratings.set(r.title_id, []).get(r.title_id)!)
       .push({ source: r.source, display: r.display, value: r.value, votes: r.votes, url: r.url });
   }
+  const icons = await env.db.kvGet<Record<string, string>>("jw.provider_icons", {});
+  const servers = new Map(((await settingsMod.load()).servers || []).map((s: any) => [s.id, s]));
   const where = new Map<number, Map<string, any>>();
   for (const r of await db.all(`SELECT * FROM availability WHERE title_id IN (${p})`, titleIds)) {
     const groups = where.get(r.title_id) || where.set(r.title_id, new Map()).get(r.title_id)!;
@@ -58,7 +60,15 @@ export async function hydrate(titleIds: number[]): Promise<any[]> {
       quality: r.quality, video: j(r.video), audio: j(r.audio), audio_langs: j(r.audio_langs),
       subtitle_langs: j(r.subtitle_langs), url: r.url, expires_on: r.expires_on, added_at: r.added_at,
       sources: [r.source], extra: JSON.parse(r.extra || "{}"),
-    };
+    } as any;
+    if (r.kind === "library") {
+      // the server's own logo, straight from the server (public address when there is one)
+      const srv: any = servers.get(String(r.source).split(":")[1]);
+      const base = srv ? String((srv.link_mode !== "internal" && srv.public_url) || srv.url || "").replace(/\/+$/, "") : "";
+      offer.icon = base ? `${base}/web/favicon.ico` : null;
+    } else {
+      offer.icon = offer.extra.icon || icons[r.provider] || null;
+    }
     const cur = groups.get(key);
     if (!cur) { groups.set(key, offer); continue; }
     const better = (SOURCE_PRIORITY[r.source] ?? 9) < Math.min(...cur.sources.map((s: string) => SOURCE_PRIORITY[s] ?? 9));
