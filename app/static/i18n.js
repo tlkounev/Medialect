@@ -1,11 +1,14 @@
 "use strict";
 /* UI translations. Texts live in /static/i18n/<code>.json; Czech is the complete fallback. */
 const UI_LANGS = [
-  ["cs", "Čeština"], ["sk", "Slovenčina"], ["en", "English"], ["de", "Deutsch"], ["pl", "Polski"],
-  ["hu", "Magyar"], ["fr", "Français"], ["es", "Español"], ["it", "Italiano"], ["pt", "Português"],
-  ["nl", "Nederlands"], ["sv", "Svenska"], ["da", "Dansk"], ["nb", "Norsk bokmål"], ["fi", "Suomi"],
-  ["uk", "Українська"], ["ro", "Română"], ["hr", "Hrvatski"], ["sl", "Slovenščina"], ["tr", "Türkçe"],
+  ["cs", "Čeština"], ["sk", "Slovenčina"], ["en", "English"], ["zh", "中文"], ["hi", "हिन्दी"],
+  ["es", "Español"], ["ar", "العربية"], ["fr", "Français"], ["pt", "Português"], ["ru", "Русский"],
+  ["id", "Bahasa Indonesia"], ["de", "Deutsch"], ["ja", "日本語"], ["vi", "Tiếng Việt"], ["tr", "Türkçe"],
+  ["ko", "한국어"], ["it", "Italiano"], ["pl", "Polski"], ["uk", "Українська"], ["nl", "Nederlands"],
+  ["ro", "Română"], ["hu", "Magyar"], ["sv", "Svenska"], ["da", "Dansk"], ["nb", "Norsk bokmål"],
+  ["fi", "Suomi"], ["hr", "Hrvatski"], ["sl", "Slovenščina"],
 ];
+const RTL_LANGS = ["ar"];
 const LANG_KEY = "medialect.lang";
 let uiLang = "cs", STR = {}, FALLBACK = {};
 
@@ -28,6 +31,7 @@ async function initI18n(version, code = pickLang()) {
   uiLang = code;
   STR = code === "cs" ? FALLBACK : await fetchLang(code, version);
   document.documentElement.lang = code;
+  document.documentElement.dir = RTL_LANGS.includes(code) ? "rtl" : "ltr";
   try { localStorage.setItem(LANG_KEY, code); } catch (_) { /* private mode */ }
 }
 
