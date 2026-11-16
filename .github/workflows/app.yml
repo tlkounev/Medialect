@@ -188,7 +188,7 @@ jobs:
             --out "out/Medialect_${{ needs.test.outputs.version }}_android.apk" aligned.apk
           "$BT/apksigner" verify --print-certs out/*.apk | head -n 3
           unzip -l out/*.apk | grep -E "lib/.*\.so" || true
-          "$BT/aapt2" dump badging out/*.apk | grep -E "leanback|touchscreen|banner|native-code|feature" || true
+          "$BT/aapt2" dump badging out/*.apk | grep -E "leanback|touchscreen|banner|native-code|feature|uses-permission" || true
           rm -f release.keystore
       - uses: actions/upload-artifact@v4
         with:
