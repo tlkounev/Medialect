@@ -106,6 +106,14 @@ def main():
         finally:
             con.close()
 
+    def sql_exec(q):
+        con = sqlite3.connect(DB_PATH)
+        try:
+            con.execute(q)
+            con.commit()
+        finally:
+            con.close()
+
     def run_sync(client, job=None):
         t0 = time.time()
         client.post("/api/sync", params={"job": job} if job else None)
@@ -256,6 +264,26 @@ def main():
         rt = {x["source"]: x["display"] for x in m["ratings"]}
         assert rt["imdb"] == "8.7" and rt["csfd"] == "91 %" and rt["rottentomatoes"] == "88 %", rt   # OMDb (newer) over JustWatch
         assert m["ids"]["csfd"] == "9499"
+
+        # the ČSFD id from the Emby plugin wins over one our own ČSFD search found (wrong film): replaced, rating refetched
+        mid = m["id"]
+        sql_exec(f"UPDATE title_ids SET value='1111' WHERE title_id={mid} AND kind='csfd'")
+        sql_exec(f"UPDATE ratings SET display='10 %' WHERE title_id={mid} AND source='csfd'")
+        run_sync(client, f"server:{emby_id}")
+        assert sql(f"SELECT value FROM title_ids WHERE title_id={mid} AND kind='csfd'") == [("9499",)]
+        # offers follow the user's service order (reordering does not start a sync)
+        def stream_order():
+            item = client.get("/api/catalog", params={"q": "matrix"}).json()["items"][0]
+            return [o["provider"] for o in item["where"] if o["kind"] != "library"]
+        client.get("/api/justwatch/providers")            # learns short name -> provider key
+        assert stream_order() == ["netflix", "oneplay"], stream_order()
+        client.put("/api/settings", json={"justwatch": {"providers": ["opl", "nfx"]}})
+        assert stream_order() == ["oneplay", "netflix"], stream_order()
+        assert not client.get("/api/sync/status").json()["running"]
+        client.put("/api/settings", json={"justwatch": {"providers": ["nfx", "opl"]}})
+        sql_exec("DELETE FROM kv WHERE key LIKE 'budget:csfd:%'")
+        run_sync(client, "ratings")
+        assert sql(f"SELECT display FROM ratings WHERE title_id={mid} AND source='csfd'") == [("91 %",)]
 
         # TMDB (by tmdb id or found via IMDb id), OMDb (RT + Metacritic), TVmaze (series)
         assert rt["tmdb"] == "7.9" and rt["metacritic"] == "73/100", rt

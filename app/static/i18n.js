@@ -57,5 +57,22 @@ function displayName(code, type) {
 }
 const langName = (code) => displayName(code, "language");
 const regionName = (code) => displayName(code, "region");
+
+/* Flags next to language and country names (emoji; Windows gets them from the bundled Twemoji font). */
+const LANG_FLAG = {
+  cs: "CZ", sk: "SK", en: "GB", de: "DE", pl: "PL", hu: "HU", fr: "FR", es: "ES", it: "IT", pt: "PT", nl: "NL",
+  sv: "SE", da: "DK", nb: "NO", no: "NO", nn: "NO", fi: "FI", uk: "UA", ru: "RU", ro: "RO", hr: "HR", sl: "SI",
+  sr: "RS", bs: "BA", mk: "MK", bg: "BG", el: "GR", tr: "TR", et: "EE", lv: "LV", lt: "LT", is: "IS", ga: "IE",
+  ja: "JP", ko: "KR", zh: "CN", ar: "SA", hi: "IN", ta: "IN", te: "IN", bn: "BD", ur: "PK", fa: "IR", he: "IL",
+  id: "ID", ms: "MY", th: "TH", vi: "VN", tl: "PH", fil: "PH", ca: "AD", eu: "ES", gl: "ES", sq: "AL", ka: "GE",
+  hy: "AM", az: "AZ", kk: "KZ", be: "BY", af: "ZA",
+};
+function flagEmoji(cc) {
+  if (!/^[A-Za-z]{2}$/.test(cc || "")) return "";
+  return String.fromCodePoint(...[...cc.toUpperCase()].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
+}
+const langFlag = (code) => flagEmoji(LANG_FLAG[(code || "").toLowerCase()]);
+const langLabel = (code) => `${langFlag(code)} ${langName(code)}`.trim();
+const regionLabel = (cc) => `${flagEmoji(cc)} ${regionName(cc)}`.trim();
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(uiLang); } catch (_) { return iso.slice(0, 10); } };
 const fmtNum = (n) => { try { return Number(n).toLocaleString(uiLang); } catch (_) { return String(n); } };

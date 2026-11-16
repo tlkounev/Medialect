@@ -51,6 +51,12 @@ export async function listProviders(country: string): Promise<ProviderInfo[]> {
     out.push({ short_name: p.shortName, name: p.clearName, technical_name: p.technicalName,
       icon: p.icon ? IMAGES + p.icon : "", monetization_types: mt });
   }
+  // short name (settings) -> provider key (catalogue), for ordering offers by the user's service order
+  if (env.db) {
+    const keys = await env.db.kvGet<Record<string, string>>("jw.provider_keys", {});
+    for (const p of out) keys[p.short_name] = providerKey(p.technical_name || p.name);
+    await env.db.kvSet("jw.provider_keys", keys);
+  }
   return out.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 }
 

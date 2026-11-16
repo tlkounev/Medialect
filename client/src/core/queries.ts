@@ -10,8 +10,16 @@ const j = (s: string | null): any[] => { try { return s ? JSON.parse(s) : []; } 
 const list = (v?: string | null) => (v || "").split(",").map((x) => x.trim()).filter(Boolean);
 const ph = (n: number) => Array(n).fill("?").join(",");
 
+/** Provider key -> position in the user's service order (settings), for sorting offers. */
+export async function providerRank(): Promise<Map<string, number>> {
+  const s = await env.db.kvGet<any>("settings", {});
+  const keys = await env.db.kvGet<Record<string, string>>("jw.provider_keys", {});
+  return new Map(((s?.justwatch?.providers || []) as string[]).map((sn, i) => [keys[sn] || sn, i]));
+}
+
 export async function hydrate(titleIds: number[]): Promise<any[]> {
   if (!titleIds.length) return [];
+  const order = await providerRank();
   const db = env.db, p = ph(titleIds.length);
   const titles = new Map((await db.all(`SELECT * FROM titles WHERE id IN (${p})`, titleIds)).map((r) => [r.id, r]));
   const ids = new Map<number, Record<string, string>>();
@@ -53,6 +61,7 @@ export async function hydrate(titleIds: number[]): Promise<any[]> {
     const rs = (ratings.get(tid) || []).sort((a, b) => rank(a.source) - rank(b.source));
     const offers = [...(where.get(tid)?.values() || [])].sort((a, b) =>
       Number(a.kind !== "library") - Number(b.kind !== "library") ||
+      (order.get(a.provider) ?? 999) - (order.get(b.provider) ?? 999) ||
       (a.provider_name || "").toLowerCase().localeCompare((b.provider_name || "").toLowerCase()));
     out.push({ id: tid, type: t.type, title: t.title, original_title: t.original_title, year: t.year, poster: t.poster,
       ids: ids.get(tid) || {}, ratings: rs, where: offers });

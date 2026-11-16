@@ -50,7 +50,7 @@ async function boot() {
 
 function buildLangPicker() {
   const sel = $("#uiLang");
-  sel.innerHTML = UI_LANGS.map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join("");
+  sel.innerHTML = UI_LANGS.map(([c, n]) => `<option value="${c}">${esc(`${langFlag(c)} ${n}`.trim())}</option>`).join("");
   sel.value = uiLang;
 }
 $("#uiLang").addEventListener("change", async (e) => {
@@ -153,8 +153,9 @@ function renderOffer(o) {
   for (const a of o.audio || []) tags.push(`<span class="tag ${/Atmos|DTS:X/.test(a) ? "aud" : ""}">${esc(a)}</span>`);
   const mon = { free: t("offer.free"), ads: t("offer.ads"), addon: t("offer.addon") }[o.monetization] || "";
   const info = [];
-  if (o.audio_langs?.length) info.push(`${t("offer.audio")}: ${o.audio_langs.join(", ")}`);
-  if (o.subtitle_langs?.length) info.push(`${t("offer.subs")}: ${o.subtitle_langs.slice(0, 8).join(", ")}${o.subtitle_langs.length > 8 ? "…" : ""}`);
+  const fl = (c) => `${langFlag(c)} ${c}`.trim();
+  if (o.audio_langs?.length) info.push(`${t("offer.audio")}: ${o.audio_langs.map(fl).join(", ")}`);
+  if (o.subtitle_langs?.length) info.push(`${t("offer.subs")}: ${o.subtitle_langs.slice(0, 8).map(fl).join(", ")}${o.subtitle_langs.length > 8 ? "…" : ""}`);
   if (o.added_at) info.push(t("offer.added", { d: fmtDate(o.added_at) }));
   if (o.expires_on) info.push(t("offer.until", { d: fmtDate(o.expires_on) }));
   return `<div class="offer ${o.kind}">
@@ -271,8 +272,8 @@ async function loadFacets() {
   msSet("cQuality", f.quality.map((q) => ({ value: q.value, label: QUALITY_LABEL[q.value] || q.value, count: q.titles })));
   msSet("cVideo", f.video.map((x) => ({ value: x.value, label: x.value, count: x.titles })));
   msSet("cAudio", f.audio.map((x) => ({ value: x.value, label: x.value, count: x.titles })));
-  const langs = (arr) => arr.map((x) => ({ value: x.value, label: langName(x.value), count: x.titles }))
-    .sort((a, b) => a.label.localeCompare(b.label, uiLang));
+  const langs = (arr) => arr.map((x) => ({ value: x.value, label: langLabel(x.value), name: langName(x.value), count: x.titles }))
+    .sort((a, b) => a.name.localeCompare(b.name, uiLang));
   msSet("cLang", langs(f.audio_langs));
   msSet("cSub", langs(f.subtitle_langs));
   const local = document.body.classList.contains("local");
@@ -310,6 +311,7 @@ async function loadCatalog() {
 $("#q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { cPage = 1; loadCatalog(); }, 250); });
 $("#cSort").addEventListener("change", () => { cPage = 1; saveFilters(); loadCatalog(); });
 $("#cReset").addEventListener("click", () => {
+  $("#q").value = "";
   for (const [id] of MULTI) { ms[id].sel.clear(); msRender(id); }
   $("#cSort").value = DEFAULT_SORT;
   cPage = 1; saveFilters(); loadCatalog();
@@ -372,21 +374,81 @@ function fillChoices() {
   const cur = current || {};
   const countries = [...new Set([...COUNTRIES, (cur.country || "CZ").toUpperCase()])];
   country.innerHTML = countries.map((c) => ({ c, n: regionName(c) })).sort((a, b) => a.n.localeCompare(b.n, uiLang))
-    .map(({ c, n }) => `<option value="${c}">${esc(n)} (${c})</option>`).join("");
+    .map(({ c, n }) => `<option value="${c}">${esc(regionLabel(c))}</option>`).join("");
   const langs = [...new Set([...TITLE_LANGS, cur.language || "cs"])];
   lang.innerHTML = langs.map((c) => ({ c, n: langName(c) })).sort((a, b) => a.n.localeCompare(b.n, uiLang))
-    .map(({ c, n }) => `<option value="${c}">${esc(n)} (${c})</option>`).join("");
+    .map(({ c }) => `<option value="${c}">${esc(langLabel(c))}</option>`).join("");
 }
 
+/* Service picker: tiles (icon, name below), a click selects/deselects, the chosen ones come first in
+   the user's order, which can be changed with ‹ › (remote/touch) or by dragging (mouse). The order
+   decides which service is listed first for each title in the catalogue. */
+function servicePicker(box, items, selected, onChange) {
+  let order = selected.filter((sn) => items.some((p) => p.short_name === sn));
+  const byName = (a, b) => a.name.localeCompare(b.name, uiLang);
+  const render = (focusSn, focusPart) => {
+    const chosen = order.map((sn) => items.find((p) => p.short_name === sn));
+    const others = items.filter((p) => !order.includes(p.short_name)).sort(byName);
+    box.innerHTML = [...chosen, ...others].map((p) => {
+      const pos = order.indexOf(p.short_name);
+      const on = pos >= 0;
+      return `<div class="svc${on ? " on" : " other"}" data-sn="${esc(p.short_name)}"${on ? ' draggable="true"' : ""}>
+        <button type="button" class="svc-main" aria-pressed="${on}" title="${esc(p.name)}">
+          ${p.icon ? `<img src="${esc(p.icon)}" alt="">` : `<span class="svc-noicon">${esc(p.name.slice(0, 2))}</span>`}
+          <span class="svc-name">${esc(p.name)}</span>${on ? `<span class="svc-pos">${pos + 1}</span>` : ""}
+        </button>
+        ${on ? `<div class="svc-move"><button type="button" data-move="-1" aria-label="‹" ${pos === 0 ? "disabled" : ""}>‹</button><button type="button" data-move="1" aria-label="›" ${pos === order.length - 1 ? "disabled" : ""}>›</button></div>` : ""}
+      </div>`;
+    }).join("");
+    if (focusSn) {
+      const tile = box.querySelector(`.svc[data-sn="${CSS.escape(focusSn)}"]`);
+      const target = tile && (focusPart ? tile.querySelector(`[data-move="${focusPart}"]:not([disabled])`) : null) || tile?.querySelector(".svc-main");
+      target?.focus({ preventScroll: false });
+    }
+  };
+  const changed = (sn, part) => { render(sn, part); onChange?.(order); };
+  box.onclick = (e) => {
+    const tile = e.target.closest(".svc");
+    if (!tile) return;
+    const sn = tile.dataset.sn;
+    const mv = e.target.closest("[data-move]");
+    if (mv) {
+      const i = order.indexOf(sn), j = i + Number(mv.dataset.move);
+      if (i < 0 || j < 0 || j >= order.length) return;
+      [order[i], order[j]] = [order[j], order[i]];
+      changed(sn, mv.dataset.move);
+    } else if (e.target.closest(".svc-main")) {
+      order = order.includes(sn) ? order.filter((x) => x !== sn) : [...order, sn];
+      changed(sn);
+    }
+  };
+  let dragged = null;
+  box.ondragstart = (e) => { dragged = e.target.closest(".svc.on")?.dataset.sn || null; e.dataTransfer?.setData("text/plain", dragged || ""); };
+  box.ondragover = (e) => { if (dragged && e.target.closest(".svc.on")) e.preventDefault(); };
+  box.ondrop = (e) => {
+    const target = e.target.closest(".svc.on")?.dataset.sn;
+    if (!dragged || !target || target === dragged) return;
+    e.preventDefault();
+    order = order.filter((x) => x !== dragged);
+    order.splice(order.indexOf(target), 0, dragged);
+    changed(dragged);
+    dragged = null;
+  };
+  render();
+  return { value: () => [...order] };
+}
+
+let jwPicker = null;
 async function loadJwProviders() {
   const box = $("#jwProviders");
+  jwPicker = null;
   box.innerHTML = `<span class="muted">${esc(t("set.loading"))}</span>`;
   try {
     const { items } = await api(`/api/justwatch/providers?country=${encodeURIComponent($("#setCountry").value)}`);
-    const sel = new Set(current.justwatch.providers || []);
-    box.innerHTML = items.map((p) => `<label class="${sel.has(p.short_name) ? "" : "other"}" title="${esc(p.monetization_types.join(", "))}"><input type="checkbox" value="${esc(p.short_name)}" ${sel.has(p.short_name) ? "checked" : ""}>${p.icon ? `<img src="${esc(p.icon)}" alt="">` : ""}${esc(p.name)}</label>`).join("");
+    const selected = current.justwatch.providers || [];
+    jwPicker = servicePicker(box, items, selected, () => markDirty(true));
     // services the user does not have stay hidden; one click shows the rest of the country's offer
-    const anyChosen = items.some((p) => sel.has(p.short_name));
+    const anyChosen = items.some((p) => selected.includes(p.short_name));
     $("#jwShowAll").checked = !anyChosen;
     $("#jwShowAll").closest("label").classList.toggle("hidden", !anyChosen);
     box.classList.toggle("all", !anyChosen);
@@ -422,8 +484,7 @@ $("#settingsForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const body = {};
   for (const el of $$("[name]", e.target)) setPath(body, el.name, el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value.trim());
-  const jw = $$("#jwProviders input:checked").map((i) => i.value);
-  if ($$("#jwProviders input").length) body.justwatch.providers = jw;
+  if (jwPicker) body.justwatch.providers = jwPicker.value();
   body.streaming_availability.catalogs = $$("#saCatalogs input:checked").map((i) => i.value);
   try {
     current = await api("/api/settings", { method: "PUT", body });
@@ -436,7 +497,7 @@ $("#settingsForm").addEventListener("submit", async (e) => {
 const LANG_COUNTRY = { cs: "CZ", sk: "SK", de: "DE", pl: "PL", hu: "HU", fr: "FR", es: "ES", it: "IT", pt: "PT", nl: "NL",
   sv: "SE", da: "DK", nb: "NO", fi: "FI", uk: "UA", ro: "RO", hr: "HR", sl: "SI", tr: "TR", en: "GB",
   zh: "TW", hi: "IN", ar: "AE", ja: "JP", ko: "KR", id: "ID" };
-let wizStepNo = 1, wizProvidersFor = null;
+let wizStepNo = 1, wizProvidersFor = null, wizPicker = null;
 function guessCountry() {
   for (const l of navigator.languages || [navigator.language]) {
     const r = (l || "").split("-")[1];
@@ -447,9 +508,9 @@ function guessCountry() {
 function startWizard() {
   const country = $("#wizCountry"), lang = $("#wizLanguage");
   country.innerHTML = COUNTRIES.map((c) => ({ c, n: regionName(c) })).sort((a, b) => a.n.localeCompare(b.n, uiLang))
-    .map(({ c, n }) => `<option value="${c}">${esc(n)}</option>`).join("");
+    .map(({ c }) => `<option value="${c}">${esc(regionLabel(c))}</option>`).join("");
   lang.innerHTML = TITLE_LANGS.map((c) => ({ c, n: langName(c) })).sort((a, b) => a.n.localeCompare(b.n, uiLang))
-    .map(({ c, n }) => `<option value="${c}">${esc(n)}</option>`).join("");
+    .map(({ c }) => `<option value="${c}">${esc(langLabel(c))}</option>`).join("");
   country.value = guessCountry();
   const l = uiLang === "nb" ? "no" : uiLang;
   lang.value = TITLE_LANGS.includes(l) ? l : "en";
@@ -471,7 +532,7 @@ async function wizLoadProviders() {
   box.innerHTML = `<span class="muted">${esc(t("set.loading"))}</span>`;
   try {
     const { items } = await api(`/api/justwatch/providers?country=${encodeURIComponent(c)}`);
-    box.innerHTML = items.map((p) => `<label><input type="checkbox" value="${esc(p.short_name)}">${p.icon ? `<img src="${esc(p.icon)}" alt="">` : ""}${esc(p.name)}</label>`).join("");
+    wizPicker = servicePicker(box, items, []);
     wizProvidersFor = c;
   } catch (e) { box.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
 }
@@ -483,7 +544,7 @@ $("#wizNext").addEventListener("click", async () => {
   const country = $("#wizCountry").value;
   const body = {
     country, language: $("#wizLanguage").value,
-    justwatch: { enabled: true, providers: $$("#wizProviders input:checked").map((i) => i.value) },
+    justwatch: { enabled: true, providers: wizPicker ? wizPicker.value() : [] },
     ratings: { imdb_dataset: $("#wizImdb").checked, tvmaze: $("#wizTvmaze").checked,
                csfd: ["CZ", "SK"].includes(country) && $("#wizCsfd").checked },
   };
