@@ -11,6 +11,8 @@ export interface TitleInfo {
   poster?: string | null;
   ids?: Record<string, string | number | null | undefined>;
   extra_names?: string[];
+  /** id kinds this source knows better than our own lookups (e.g. the ČSFD id an Emby plugin assigned) */
+  authoritative?: string[];
 }
 
 export interface Offer {
@@ -93,6 +95,15 @@ export async function upsertTitle(info: TitleInfo): Promise<number> {
       "poster=COALESCE(poster, ?), updated_at=? WHERE id=?", [info.original_title, info.year, info.poster, t, tid]);
   }
   for (const [kind, value] of Object.entries(ids)) {
+    if (info.authoritative?.includes(kind)) {
+      const old = (await db.all("SELECT value FROM title_ids WHERE title_id=? AND kind=?", [tid, kind])).map((r) => r.value);
+      if (!(old.length === 1 && old[0] === value)) {
+        await db.run("DELETE FROM title_ids WHERE title_id=? AND kind=? AND value!=?", [tid, kind, value]);
+        await db.run("INSERT OR REPLACE INTO title_ids(kind, value, title_id) VALUES(?,?,?)", [kind, value, tid]);
+        if (kind === "csfd") await db.run("DELETE FROM ratings WHERE title_id=? AND source='csfd'", [tid]);
+      }
+      continue;
+    }
     await db.run("INSERT OR IGNORE INTO title_ids(kind, value, title_id) VALUES(?,?,?)", [kind, value, tid]);
   }
   for (const n of namesOf(info)) await db.run("INSERT OR IGNORE INTO title_names(title_id, norm) VALUES(?,?)", [tid, n]);
