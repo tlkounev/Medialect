@@ -259,6 +259,7 @@ describe("app core", () => {
     const real = env.fetch;
     env.fetch = async (url, init) => {
       const u = new URL(url);
+      if (u.host === "10.0.0.1:8096") throw new Error("error sending request for url");
       if (u.host !== "emby.test") return real(url, init);
       const j = (d: unknown) => new Response(JSON.stringify(d), { status: 200, headers: { "content-type": "application/json" } });
       if ((init?.headers as any)?.["X-Emby-Token"] !== "k") return new Response("", { status: 401 });
@@ -272,6 +273,11 @@ describe("app core", () => {
         : [{ Id: "e1", SeriesId: "s1", DateCreated: "2026-11-11T19:19:13", MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 1920, Height: 1080 }] }] }];
       return j({ Items: items, TotalRecordCount: items.length });
     };
+    // unreachable address: the plain-language reason replaces "error sending request"
+    env.diagnose = async (u) => `${new URL(u).host} neodpovídá.`;
+    const down = await api("POST", "/api/servers/test", { type: "emby", url: "http://10.0.0.1:8096", token: "k" });
+    expect(down).toEqual({ ok: false, error: "10.0.0.1:8096 neodpovídá." });
+    env.diagnose = null;
     const bad = await api("POST", "/api/servers/test", { type: "emby", url: "http://emby.test", token: "x" });
     expect(bad.ok).toBe(false);
     const ok = await api("POST", "/api/servers/test", { type: "emby", url: "http://emby.test/", token: "k" });

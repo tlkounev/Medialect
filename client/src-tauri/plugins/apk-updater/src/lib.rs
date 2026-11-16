@@ -1,6 +1,8 @@
 //! Android-only helpers.
 //! - background: foreground service with a progress notification while a synchronisation runs.
 //! - sleep: a pause that is not throttled when the WebView is hidden.
+//! - probe: plain TCP connect to host:port, to tell the user why a media server cannot be reached
+//!   (the HTTP client only reports "error sending request").
 //! App updates are downloaded in the browser and installed by the system (no REQUEST_INSTALL_PACKAGES).
 use serde::Deserialize;
 use tauri::{
@@ -57,9 +59,40 @@ async fn sleep(ms: u64) -> Result<()> {
     Ok(())
 }
 
+/// "open" | "refused" | "timeout" | "dns" | "unreachable: <os error>"
+#[tauri::command]
+async fn probe(host: String, port: u16) -> Result<String> {
+    let res = tauri::async_runtime::spawn_blocking(move || {
+        use std::net::{TcpStream, ToSocketAddrs};
+        let addrs: Vec<_> = match (host.as_str(), port).to_socket_addrs() {
+            Ok(a) => a.collect(),
+            Err(_) => return "dns".to_string(),
+        };
+        if addrs.is_empty() {
+            return "dns".to_string();
+        }
+        let mut last = "timeout".to_string();
+        for addr in addrs {
+            match TcpStream::connect_timeout(&addr, std::time::Duration::from_secs(4)) {
+                Ok(_) => return "open".to_string(),
+                Err(e) => {
+                    last = match e.kind() {
+                        std::io::ErrorKind::ConnectionRefused => "refused".to_string(),
+                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock => "timeout".to_string(),
+                        _ => format!("unreachable: {e}"),
+                    }
+                }
+            }
+        }
+        last
+    })
+    .await;
+    Ok(res.unwrap_or_else(|_| "timeout".to_string()))
+}
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("apk-updater")
-        .invoke_handler(tauri::generate_handler![background, sleep])
+        .invoke_handler(tauri::generate_handler![background, sleep, probe])
         .setup(|app, api| {
             #[cfg(target_os = "android")]
             let updater = ApkUpdater(api.register_android_plugin("com.plugin.apk_updater", "ApkUpdaterPlugin")?);
