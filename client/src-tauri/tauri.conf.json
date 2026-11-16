@@ -11,9 +11,17 @@
   },
   "app": {
     "windows": [
-      { "title": "Medialect", "width": 1200, "height": 820, "minWidth": 360, "minHeight": 500 }
+      {
+        "title": "Medialect",
+        "width": 1200,
+        "height": 820,
+        "minWidth": 360,
+        "minHeight": 500
+      }
     ],
-    "security": { "csp": null }
+    "security": {
+      "csp": null
+    }
   },
   "bundle": {
     "active": true,
@@ -21,7 +29,32 @@
     "category": "Entertainment",
     "shortDescription": "Where to watch films and series",
     "longDescription": "Catalogue of films and series on the streaming services you have, with picture and sound quality, languages and ratings.",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
-    "linux": { "deb": { "section": "video" }, "rpm": { "release": "1" } }
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "linux": {
+      "deb": {
+        "section": "video"
+      },
+      "rpm": {
+        "release": "1"
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJCRTkwQjY5M0ZENUQ5QTIKUldTaTJkVS9hUXZwSzVsWlA0M3ZDWTJSSE5Dcms3WFVlaXJJY0NReU9CdXl3K3JCbDJadDE0bXEK",
+      "endpoints": [
+        "https://github.com/tlkounev/Medialect/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

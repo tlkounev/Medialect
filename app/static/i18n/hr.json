@@ -84,5 +84,7 @@
 "wiz.ratings": "Ocjene",
 "wiz.ratings.h": "Odakle uzimati ocjene. Ostale izvore (TMDB, OMDb, MDBList) dodaješ u Postavkama.",
 "set.jw.showAll": "Prikaži sve usluge u državi ({n})",
-"app.noHandler": "Poveznica se ne može otvoriti – na uređaju nema aplikacije usluge ni preglednika."
+"app.noHandler": "Poveznica se ne može otvoriti – na uređaju nema aplikacije usluge ni preglednika.",
+"app.updating": "Preuzimanje i instalacija verzije {v}…",
+"app.updateFailed": "Ažuriranje nije moguće instalirati: {e}"
 }

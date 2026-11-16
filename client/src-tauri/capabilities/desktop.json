@@ -1,0 +1,16 @@
+{
+  "identifier": "desktop-updates",
+  "description": "Self-update from GitHub releases on Windows and Linux",
+  "platforms": [
+    "linux",
+    "windows",
+    "macOS"
+  ],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "updater:default",
+    "process:allow-restart"
+  ]
+}

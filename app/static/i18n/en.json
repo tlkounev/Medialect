@@ -84,5 +84,7 @@
 "wiz.ratings": "Ratings",
 "wiz.ratings.h": "Where ratings come from. Add more sources (TMDB, OMDb, MDBList) in Settings.",
 "set.jw.showAll": "Show all services in the country ({n})",
-"app.noHandler": "The link can't be opened – the service's app or a browser is missing on this device."
+"app.noHandler": "The link can't be opened – the service's app or a browser is missing on this device.",
+"app.updating": "Downloading and installing version {v}…",
+"app.updateFailed": "The update could not be installed: {e}"
 }

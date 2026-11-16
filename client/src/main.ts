@@ -63,6 +63,8 @@ async function start(): Promise<void> {
   await loadScript("/static/i18n.js");
   await loadScript("/static/app.js");
   manager.start();
+  const { startAutoUpdates } = await import("./updates");
+  startAutoUpdates(toast);
   const { isTv, enableTvNavigation } = await import("./tv");
   if (isTv()) enableTvNavigation();
 }

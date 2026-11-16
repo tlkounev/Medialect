@@ -84,5 +84,7 @@
 "wiz.ratings": "Classificações",
 "wiz.ratings.h": "De onde vêm as classificações. Mais fontes (TMDB, OMDb, MDBList) adicionam-se nas Definições.",
 "set.jw.showAll": "Mostrar todos os serviços do país ({n})",
-"app.noHandler": "Não é possível abrir a ligação – falta a app do serviço ou um navegador no dispositivo."
+"app.noHandler": "Não é possível abrir a ligação – falta a app do serviço ou um navegador no dispositivo.",
+"app.updating": "A transferir e instalar a versão {v}…",
+"app.updateFailed": "Não foi possível instalar a atualização: {e}"
 }

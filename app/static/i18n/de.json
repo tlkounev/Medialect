@@ -84,5 +84,7 @@
 "wiz.ratings": "Bewertungen",
 "wiz.ratings.h": "Woher die Bewertungen kommen. Weitere Quellen (TMDB, OMDb, MDBList) fügst du in den Einstellungen hinzu.",
 "set.jw.showAll": "Alle Dienste im Land anzeigen ({n})",
-"app.noHandler": "Der Link lässt sich nicht öffnen – auf dem Gerät fehlt die App des Dienstes oder ein Browser."
+"app.noHandler": "Der Link lässt sich nicht öffnen – auf dem Gerät fehlt die App des Dienstes oder ein Browser.",
+"app.updating": "Neue Version {v} wird geladen und installiert…",
+"app.updateFailed": "Das Update konnte nicht installiert werden: {e}"
 }

@@ -84,5 +84,7 @@
 "wiz.ratings": "Bedømmelser",
 "wiz.ratings.h": "Hvor bedømmelserne kommer fra. Flere kilder (TMDB, OMDb, MDBList) tilføjes i Indstillinger.",
 "set.jw.showAll": "Vis alle tjenester i landet ({n})",
-"app.noHandler": "Linket kan ikke åbnes – tjenestens app eller en browser mangler på enheden."
+"app.noHandler": "Linket kan ikke åbnes – tjenestens app eller en browser mangler på enheden.",
+"app.updating": "Henter og installerer version {v}…",
+"app.updateFailed": "Opdateringen kunne ikke installeres: {e}"
 }
