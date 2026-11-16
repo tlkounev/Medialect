@@ -31,8 +31,10 @@
     <!-- app: a new version is available (the user decides; it can be installed later from the settings) -->
     <div id="updateBar" class="update-bar app-only hidden" role="status">
       <span></span>
-      <button type="button" id="updateNow" data-i18n="app.updateNow"></button>
-      <button type="button" id="updateLater" class="ghost" data-i18n="app.later"></button>
+      <div class="actions">
+        <button type="button" id="updateNow" data-i18n="app.updateNow"></button>
+        <button type="button" id="updateLater" class="ghost" data-i18n="app.later"></button>
+      </div>
     </div>
     <section id="tab-catalog">
       <div class="searchbar">
@@ -170,10 +172,12 @@
           <!-- app only: updates from GitHub -->
           <section class="settings-box app-only">
             <header class="box-head"><h2 data-i18n="upd.title">Aktualizace aplikace</h2></header>
-            <p id="updState" class="muted"></p>
-            <div class="row">
-              <button type="button" id="updInstall" class="hidden"></button>
-              <button type="button" id="updCheck" class="ghost" data-i18n="upd.check"></button>
+            <div class="box-body">
+              <p id="updState" class="muted"></p>
+              <div class="row">
+                <button type="button" id="updInstall" class="hidden"></button>
+                <button type="button" id="updCheck" class="ghost" data-i18n="upd.check"></button>
+              </div>
             </div>
           </section>
 

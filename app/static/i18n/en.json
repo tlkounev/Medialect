@@ -1,4 +1,6 @@
 {
+"app.download": "Downloading version {v} in the browser – open the file when it finishes to install it.",
+"job.catalog": "Catalogue",
 "upd.title": "App updates", "upd.check": "Check for updates",
 "upd.current": "You are on the latest version {v}.", "upd.unknown": "Could not check for a new version.",
 "app.updateAvailable": "New version {v} is available.", "app.updateNow": "Update", "app.later": "Later",

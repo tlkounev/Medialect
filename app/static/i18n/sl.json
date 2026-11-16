@@ -1,4 +1,6 @@
 {
+"app.download": "Različica {v} se prenaša v brskalniku – po prenosu odpri datoteko in jo namesti.",
+"job.catalog": "Katalog",
 "upd.title": "Posodobitve aplikacije", "upd.check": "Preveri posodobitve",
 "upd.current": "Uporabljaš najnovejšo različico {v}.", "upd.unknown": "Nove različice ni bilo mogoče preveriti.",
 "app.updateAvailable": "Na voljo je nova različica {v}.", "app.updateNow": "Posodobi", "app.later": "Pozneje",

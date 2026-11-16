@@ -1,4 +1,6 @@
 {
+"app.download": "Sťahujem verziu {v} v prehliadači – po stiahnutí súbor otvor a nainštaluj.",
+"job.catalog": "Katalóg",
 "upd.title": "Aktualizácie aplikácie", "upd.check": "Skontrolovať aktualizácie",
 "upd.current": "Používaš najnovšiu verziu {v}.", "upd.unknown": "Novú verziu sa nepodarilo zistiť.",
 "app.updateAvailable": "Je dostupná nová verzia {v}.", "app.updateNow": "Aktualizovať", "app.later": "Neskôr",

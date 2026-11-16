@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- the app installs its own updates downloaded from GitHub releases -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- no REQUEST_INSTALL_PACKAGES: updates are downloaded in the browser and installed by the system
+         (an app that installs APKs itself is treated as suspicious by Play Protect) -->
     <!-- a running synchronisation continues when the app is left (foreground service + notification) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />

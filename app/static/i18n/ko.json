@@ -1,4 +1,6 @@
 {
+"app.download": "브라우저에서 버전 {v}을(를) 내려받는 중입니다. 완료되면 파일을 열어 설치하세요.",
+"job.catalog": "카탈로그",
 "upd.title": "앱 업데이트", "upd.check": "업데이트 확인",
 "upd.current": "최신 버전 {v}을(를) 사용 중입니다.", "upd.unknown": "새 버전을 확인할 수 없습니다.",
 "app.updateAvailable": "새 버전 {v}을(를) 사용할 수 있습니다.", "app.updateNow": "업데이트", "app.later": "나중에",

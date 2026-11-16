@@ -325,7 +325,9 @@ $("#cNext").addEventListener("click", () => { cPage++; loadCatalog(); scrollTo(0
 /* ---------- synchronisation status ---------- */
 const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString(uiLang) : "–");
 const fmtDur = (sec) => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec / 60); return m ? `${m} min ${sec % 60} s` : `${sec} s`; };
-const jobLabel = (j) => (j.id === "ratings" ? t("job.ratings") : j.label);
+// plain words for everyone: the catalogue sources are "Catalogue", not JustWatch / Streaming Availability
+const jobLabel = (j) => (j.id === "ratings" ? t("job.ratings") : j.id === "justwatch" ? t("job.catalog")
+  : j.id === "sa" ? `${t("job.catalog")} (SA)` : j.label);
 async function loadStatus() {
   const [st, stats] = await Promise.all([api("/api/sync/status"), api("/api/stats")]);
   updateSyncBadge(st.jobs.filter((j) => j.running), st.jobs.filter((j) => j.queued).length);

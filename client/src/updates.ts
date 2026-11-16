@@ -1,7 +1,8 @@
 // Updates from GitHub releases: the app announces a new version, the user decides whether to install it.
 // A declined version is not offered again automatically; Settings → App updates can install it any time.
 // Windows + Linux AppImage: Tauri updater (signed latest.json in the release), then restart.
-// Android (phone, tablet, Google TV): the apk-updater plugin downloads the APK; Android asks for confirmation.
+// Android (phone, tablet, Google TV): the APK is downloaded in the browser and installed by the system.
+// The app itself never installs packages (no REQUEST_INSTALL_PACKAGES: Play Protect flags such apps).
 import { handle } from "./core/api";
 import { env } from "./core/env";
 
@@ -9,7 +10,7 @@ const CHECK_EVERY_MS = 6 * 3600 * 1000;
 const DECLINED_KEY = "medialect.update.declined";
 const isAndroid = () => /Android/i.test(navigator.userAgent);
 
-interface Update { version: string; install: () => Promise<void> }
+interface Update { version: string; android?: boolean; install: () => Promise<void> }
 
 let toast: (t: string) => void = () => {};
 let found: Update | null = null;
@@ -30,9 +31,9 @@ async function find(): Promise<Update | null> {
     if (st.state !== "update" || !st.latest) return null;
     const version = String(st.latest);
     const url = `https://github.com/${env.repo}/releases/download/app-v${version}/Medialect_${version}_android.apk`;
-    return { version, install: async () => {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("plugin:apk-updater|install", { url });
+    return { version, android: true, install: async () => {
+      const { openUrl } = await import("@tauri-apps/plugin-opener");
+      await openUrl(url);
     } };
   }
   const { check } = await import("@tauri-apps/plugin-updater");
@@ -48,7 +49,9 @@ async function find(): Promise<Update | null> {
 async function install(): Promise<void> {
   if (!found) return;
   $("#updateBar")?.classList.add("hidden");
-  toast(tr("app.updating", { v: found.version }, `Updating to ${found.version}…`));
+  toast(found.android
+    ? tr("app.download", { v: found.version }, `Downloading ${found.version} in the browser – open the file when it finishes to install it.`)
+    : tr("app.updating", { v: found.version }, `Updating to ${found.version}…`));
   try {
     await found.install();
   } catch (e) {

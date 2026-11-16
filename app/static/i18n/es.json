@@ -1,4 +1,6 @@
 {
+"app.download": "Descargando la versión {v} en el navegador; al terminar, abre el archivo para instalarla.",
+"job.catalog": "Catálogo",
 "upd.title": "Actualizaciones de la app", "upd.check": "Buscar actualizaciones",
 "upd.current": "Tienes la versión más reciente {v}.", "upd.unknown": "No se pudo comprobar si hay una nueva versión.",
 "app.updateAvailable": "Hay una nueva versión {v} disponible.", "app.updateNow": "Actualizar", "app.later": "Más tarde",

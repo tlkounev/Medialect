@@ -1,4 +1,6 @@
 {
+"app.download": "Versie {v} wordt in de browser gedownload – open het bestand daarna om te installeren.",
+"job.catalog": "Catalogus",
 "upd.title": "App-updates", "upd.check": "Controleren op updates",
 "upd.current": "Je gebruikt de nieuwste versie {v}.", "upd.unknown": "Kon niet controleren op een nieuwe versie.",
 "app.updateAvailable": "Nieuwe versie {v} is beschikbaar.", "app.updateNow": "Bijwerken", "app.later": "Later",

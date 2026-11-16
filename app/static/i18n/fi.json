@@ -1,4 +1,6 @@
 {
+"app.download": "Versiota {v} ladataan selaimessa – avaa tiedosto latauksen jälkeen asentaaksesi sen.",
+"job.catalog": "Luettelo",
 "upd.title": "Sovelluspäivitykset", "upd.check": "Tarkista päivitykset",
 "upd.current": "Käytössäsi on uusin versio {v}.", "upd.unknown": "Uutta versiota ei voitu tarkistaa.",
 "app.updateAvailable": "Uusi versio {v} on saatavilla.", "app.updateNow": "Päivitä", "app.later": "Myöhemmin",
