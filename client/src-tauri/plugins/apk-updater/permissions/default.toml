@@ -1,3 +1,3 @@
 [default]
-description = "Allows installing an app update"
-permissions = ["allow-install"]
+description = "Allows installing an app update and keeping a running synchronisation alive in the background"
+permissions = ["allow-install", "allow-background", "allow-sleep"]

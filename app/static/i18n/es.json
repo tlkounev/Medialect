@@ -1,4 +1,5 @@
 {
+"app.updateAvailable": "Hay una nueva versión {v} disponible.", "app.updateNow": "Actualizar", "app.later": "Más tarde",
 "sync.note": "Descargando datos: {p}. El catálogo se va completando.", "sync.noteFirst": "Primera descarga de datos: {p}. Puede tardar decenas de minutos; el catálogo se va completando.",
 "cat.loading": "Los datos aún se están descargando, los títulos aparecerán pronto.", "cat.dataBy": "Datos de disponibilidad:",
 "nav.catalog": "Catálogo", "nav.admin": "Administración", "logout": "Cerrar sesión", "lang.choose": "Idioma de la interfaz",

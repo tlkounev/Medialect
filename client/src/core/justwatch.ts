@@ -11,7 +11,7 @@ export const GRAPHQL_URL = "https://apis.justwatch.com/graphql";
 const IMAGES = "https://images.justwatch.com";
 const DETAILS = "https://justwatch.com";
 const SOURCE = "justwatch";
-export const tuning = { PAGE: 50, CAP: 1999 };
+export const tuning = { PAGE: 50, CAP: 1999, RETRY_S: [3, 10, 20, 40] };
 const KEEP: Record<string, string> = { FLATRATE: "flatrate", FREE: "free", ADS: "ads", FAST: "free" };
 
 function windows(): [number, number][] {
@@ -24,7 +24,9 @@ function windows(): [number, number][] {
 
 async function gql(body: unknown): Promise<any> {
   let last: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  // mobile networks drop connections (cell handover, Wi-Fi <-> 5G, idle sockets): retry with growing pauses
+  const pauses = tuning.RETRY_S;
+  for (let attempt = 0; attempt <= pauses.length; attempt++) {
     try {
       const r = await http(GRAPHQL_URL, { json: body, headers: { Accept: "application/json" } });
       if (r.status === 429 || r.status >= 500) throw new SourceError(`JustWatch HTTP ${r.status}`);
@@ -33,7 +35,7 @@ async function gql(body: unknown): Promise<any> {
       return r.data.data;
     } catch (e) {
       last = e;
-      if (attempt < 2) await env.sleep(5000 * (attempt + 1));
+      if (attempt < pauses.length) await env.sleep(pauses[attempt] * 1000);
     }
   }
   throw last instanceof SourceError ? last : new SourceError(String(last));
@@ -139,7 +141,7 @@ export async function sync(ctx: SyncContext): Promise<void> {
   const names = new Map((await listProviders(ctx.settings.country)).map((p) => [p.short_name, p.name]));
   const selected = new Map(cfg.providers.map((sn) => [sn, names.get(sn) || sn]));
   const seen = new Set<string>();
-  let idx = 0;
+  let idx = 0, failures = 0;
   const slots = selected.size * 2; // every service × (films, series) is one equal share of the progress
   for (const [provider, pname] of selected) {
     idx++;
@@ -151,7 +153,18 @@ export async function sync(ctx: SyncContext): Promise<void> {
       while (queue.length) {
         const [lo, hi, w] = queue.shift()!;
         ctx.progress(`${pname} (${idx}/${selected.size}): ${otype === "MOVIE" ? "filmy" : "seriály"} ${lo}–${hi}`, base + done / slots);
-        const [entries, capped] = await fetchWindow(ctx, provider, otype, lo, hi, delayMs);
+        let entries: any[], capped: boolean;
+        try {
+          [entries, capped] = await fetchWindow(ctx, provider, otype, lo, hi, delayMs);
+          failures = 0;
+        } catch (e) {
+          // one unreachable window must not throw away the whole run; give up only when the network is gone
+          if (!(e instanceof SourceError) || ++failures >= 3) throw e;
+          ctx.partial = true;
+          ctx.note(`${pname} ${otype === "MOVIE" ? "filmy" : "seriály"} ${lo}–${hi}: ${e.message}`);
+          done += w;
+          continue;
+        }
         if (capped && hi > lo) {
           const mid = Math.floor((lo + hi) / 2);
           queue.unshift([lo, mid, w / 2], [mid + 1, hi, w / 2]);

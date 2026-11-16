@@ -2,7 +2,7 @@
 name = "tauri-plugin-apk-updater"
 version = "0.1.0"
 authors = ["tlkounev"]
-description = "Medialect: installs app updates (APK from GitHub releases) on Android"
+description = "Medialect Android helpers: APK self-updates, background synchronisation service"
 edition = "2021"
 links = "tauri-plugin-apk-updater"
 
@@ -11,6 +11,7 @@ tauri = { version = "2" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+tokio = { version = "1", features = ["time"] }
 
 [build-dependencies]
 tauri-plugin = { version = "2", features = ["build"] }

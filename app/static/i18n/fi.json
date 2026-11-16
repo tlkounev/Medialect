@@ -1,4 +1,5 @@
 {
+"app.updateAvailable": "Uusi versio {v} on saatavilla.", "app.updateNow": "Päivitä", "app.later": "Myöhemmin",
 "sync.note": "Ladataan tietoja: {p}. Luettelo täydentyy vähitellen.", "sync.noteFirst": "Ensimmäinen tietojen lataus: {p}. Se voi kestää kymmeniä minuutteja; luettelo täydentyy vähitellen.",
 "cat.loading": "Tietoja ladataan vielä, nimikkeet ilmestyvät pian.", "cat.dataBy": "Saatavuustiedot:",
 "nav.catalog": "Luettelo", "nav.admin": "Hallinta", "logout": "Kirjaudu ulos", "lang.choose": "Käyttöliittymän kieli",

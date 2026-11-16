@@ -54,6 +54,7 @@ async function start(): Promise<void> {
   }
   await env.db.open();
   installFetchShim();
+  (await import("./background")).initBackground();   // before anything can start a sync
   document.addEventListener("click", (e) => {
     const a = (e.target as Element)?.closest?.("a[href]") as HTMLAnchorElement | null;
     if (!a || !/^https?:/.test(a.href) || new URL(a.href).origin === location.origin) return;

@@ -29,6 +29,7 @@ export class SyncManager {
     const ctx = new SyncContext(id, await settingsMod.load());
     this.running.set(id, ctx);
     this.queued.delete(id);
+    env.onActivity();
     const runId = (await env.db.run("INSERT INTO sync_runs(source, started_at, status) VALUES(?,?,?)", [id, ctx.started, "running"])).lastId;
     let status = "ok", message: string | null = null;
     try {
@@ -41,6 +42,7 @@ export class SyncManager {
       if (!(e instanceof SourceError)) console.error(e);
     } finally {
       this.running.delete(id);
+      env.onActivity();
       await env.db.run("UPDATE sync_runs SET finished_at=?, status=?, message=?, items=? WHERE id=?",
         [now(), status, message, ctx.items, runId]);
     }

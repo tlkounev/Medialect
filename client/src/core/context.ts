@@ -1,5 +1,6 @@
 // State of one running synchronisation job (port of SyncContext).
 import { now } from "./db";
+import { env } from "./env";
 import type { Settings } from "./settings";
 
 export class SyncContext {
@@ -16,6 +17,7 @@ export class SyncContext {
   /** fraction (0–1) = estimated share of the job already done; undefined keeps the last value. */
   progress(phase: string, fraction?: number) {
     this.phase = phase;
+    env.onActivity();
     if (fraction !== undefined) {
       const [lo, hi] = this.span;
       this.percent = Math.max(0, Math.min(99, Math.floor((lo + fraction * (hi - lo)) * 100)));
