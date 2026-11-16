@@ -62,6 +62,8 @@ $("#uiLang").addEventListener("change", async (e) => {
   facetsLoaded = false;   // option labels are translated: rebuild them, keep the choice
   const tab = $$("header nav button").find((b) => b.classList.contains("active"))?.dataset.tab || "catalog";
   openTab(tab);
+  pollProgress();
+  loadDataBy();
 });
 
 /* ---------- admin login ---------- */
@@ -115,13 +117,14 @@ setInterval(() => loadVersion(), 5 * 60 * 1000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadVersion(true); });
 
 /* ---------- tabs ---------- */
-let statusTimer = null, adminSub = "settings";
+let statusTimer = null, adminSub = "settings", lastBadge = [[], 0];
 function openTab(name) {
   if (!$(`#tab-${name}`)) name = "catalog";
   $$("header nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
   $$("main > section").forEach((s) => s.classList.toggle("hidden", s.id !== `tab-${name}`));
   history.replaceState(null, "", `#${name}`);
   clearInterval(statusTimer);
+  updateSyncBadge(...lastBadge);
   if (name === "catalog") loadFacets().catch(() => {}).then(loadCatalog);
   if (name === "admin") {
     if (isAdmin) openAdmin(); else $("#authPass").focus();
@@ -344,7 +347,7 @@ async function loadStatus() {
       const detail = p ? `<b>${esc(p.phase || "…")}</b>${p.percent != null ? ` · <b>${p.percent} %</b>` : ""} · ${esc(t("sync.runningFor", { d: fmtDur(now - p.started_at) }))}${bar}` : `<pre>${esc(l.message || "")}</pre>`;
       return `<tr><td>${esc(jobLabel(j))}</td>
         <td class="st-${status || ""}">${esc(status ? t(`st.${status}`) : t("st.never"))}</td>
-        <td>${fmtTime(started)}</td><td>${items ?? ""}</td>
+        <td data-label="${esc(t("col.start"))}">${fmtTime(started)}</td><td data-label="${esc(t("col.items"))}">${items ?? ""}</td>
         <td>${detail}</td>
         <td><button class="ghost" data-job="${esc(j.id)}" ${j.running ? "disabled" : ""}>${esc(t("sync.run"))}</button></td></tr>`;
     }).join("");
@@ -353,10 +356,12 @@ async function loadStatus() {
 }
 
 /* header badge (admin): visible on every tab while something synchronises */
-const pctText = (j) => (j.progress?.percent != null ? ` ${j.progress.percent} %` : "");
+const pctText = (j) => (j.progress?.percent != null ? ` ${j.progress.percent}\u00a0%` : "");
 function updateSyncBadge(running, queued) {
+  lastBadge = [running, queued];
   const badge = $("#syncBadge");
-  badge.classList.toggle("hidden", !isAdmin || !running.length);
+  // the catalogue shows the same in its notice; the badge is for the other tabs
+  badge.classList.toggle("hidden", !isAdmin || !running.length || !$("#tab-catalog").classList.contains("hidden"));
   if (running.length) {
     badge.textContent = `⟳ ${running.map((j) => `${jobLabel(j)}${pctText(j)}`).join(" · ")}${queued ? ` (${t("sync.queued", { n: queued })})` : ""}`;
     badge.title = running.map((j) => j.progress?.phase || "").filter(Boolean).join("\n");
@@ -364,7 +369,10 @@ function updateSyncBadge(running, queued) {
 }
 
 /* catalogue notice for everyone: what is being downloaded and how far it got */
-let syncRunning = false, progressTimer = null;
+let syncRunning = false, progressTimer = null, progressTicks = 0;
+// nobody is reading or steering the list right now: it can be redrawn without the page jumping under the user
+const catalogIdle = () => !$("#tab-catalog").classList.contains("hidden") && cPage === 1 && scrollY < 300
+  && !$("#catalog").contains(document.activeElement) && document.activeElement !== $("#q") && $$(".ms-panel").every((p) => p.classList.contains("hidden"));
 function updateSyncNote(st) {
   const note = $("#syncNote");
   note.classList.toggle("hidden", !st.running.length);
@@ -383,8 +391,13 @@ async function pollProgress() {
     syncRunning = st.running.length > 0;
     updateSyncNote(st);
     updateSyncBadge(st.running, st.queued);
-    // the catalogue fills while the first download runs; reload it when it is (nearly) empty or a run ends
-    if ((syncRunning && !catalogTotal) || (was && !syncRunning)) { loadCatalog(); loadDataBy(); }
+    // the catalogue and its filters fill while data is downloaded: redraw when it is empty, when a run ends,
+    // and every ~20 s during the first download as long as the viewer is not in the middle of the list
+    const tick = syncRunning && st.first && ++progressTicks % 5 === 0 && catalogIdle();
+    if ((syncRunning && !catalogTotal) || (was && !syncRunning) || tick) {
+      loadFacets().catch(() => {}).then(loadCatalog);
+      loadDataBy();
+    }
   } catch (_) { /* ignore */ }
   progressTimer = setTimeout(pollProgress, syncRunning ? 4000 : 20000);
 }
@@ -493,7 +506,10 @@ async function loadJwProviders() {
     $("#jwShowAll").closest("label").classList.toggle("hidden", !anyChosen);
     box.classList.toggle("all", !anyChosen);
     $("#jwShowAll").nextElementSibling.textContent = t("set.jw.showAll", { n: items.length });
-  } catch (e) { box.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  } catch (e) {
+    box.innerHTML = `<span class="err">${esc(e.message)}</span>`;
+    $("#jwShowAll").closest("label").classList.add("hidden");
+  }
 }
 
 function markDirty(dirty) {
@@ -609,6 +625,11 @@ function fillServer(node, srv) {
     if (el.type === "checkbox") el.checked = v ?? true;
     else if (v !== undefined) el.value = v;
     else if (el.dataset.k === "link_mode") el.value = "auto";
+  }
+  if (document.body.classList.contains("local")) {
+    const mode = $("[data-k=link_mode]", node);
+    $("option[value=auto]", mode)?.remove();
+    if (srv.link_mode !== "internal") mode.value = "public";
   }
   node.classList.toggle("unsaved", !srv.id);
 }

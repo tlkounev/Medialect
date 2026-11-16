@@ -149,7 +149,7 @@ class Plex:
                 tid = await store.upsert_title(store.TitleInfo(
                     type=ttype, title=meta.get("title") or "?", original_title=meta.get("originalTitle"),
                     year=meta.get("year"), poster=self.poster(meta),
-                    ids=_ids_from_guids(meta.get("Guid"), ttype),
+                    ids=_ids_from_guids(meta.get("Guid"), ttype), library=True,
                 ))
                 await store.upsert_offer(tid, store.Offer(
                     source=self.source, provider=provider, provider_name=name, kind="library",

@@ -104,7 +104,7 @@ async function embySync(srv: any, ctx: SyncContext): Promise<void> {
 
   const emit = async (item: any, ttype: "movie" | "show", summary: Summary, added?: string) => {
     const tid = await store.upsertTitle({ type: ttype, title: item.Name || "?", original_title: item.OriginalTitle,
-      year: item.ProductionYear, poster: poster(item), ids: embyIds(item.ProviderIds, ttype), authoritative: ["csfd"] });
+      year: item.ProductionYear, poster: poster(item), ids: embyIds(item.ProviderIds, ttype), authoritative: ["csfd"], library: true });
     const dates = [item.DateCreated, added].filter(Boolean).sort();
     await store.upsertOffer(tid, { source, provider, provider_name: name, kind: "library", monetization: "library",
       url: link(item.Id), extra: { item_id: item.Id, server_id: serverId, server_type: flavor },
@@ -226,7 +226,7 @@ async function plexSync(srv: any, ctx: SyncContext): Promise<void> {
 
   const emit = async (meta: any, ttype: "movie" | "show", summary: Summary, added?: number) => {
     const tid = await store.upsertTitle({ type: ttype, title: meta.title || "?", original_title: meta.originalTitle,
-      year: meta.year, poster: poster(meta), ids: plexIds(meta.Guid, ttype) });
+      year: meta.year, poster: poster(meta), ids: plexIds(meta.Guid, ttype), library: true });
     await store.upsertOffer(tid, { source, provider, provider_name: name, kind: "library", monetization: "library",
       url: link(meta.ratingKey), extra: { rating_key: meta.ratingKey, machine_id: machineId, server_type: "plex" },
       added_at: iso(Math.max(meta.addedAt || 0, added || 0) || undefined), ...summary }, ctx.started);

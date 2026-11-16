@@ -127,7 +127,7 @@ class EmbyLike:
                 tid = await store.upsert_title(store.TitleInfo(
                     type=ttype, title=item.get("Name") or "?", original_title=item.get("OriginalTitle"),
                     year=item.get("ProductionYear"), poster=self.poster(item),
-                    ids=_ids(item.get("ProviderIds"), ttype), authoritative=("csfd",),
+                    ids=_ids(item.get("ProviderIds"), ttype), authoritative=("csfd",), library=True,
                 ))
                 await store.upsert_offer(tid, store.Offer(
                     source=self.source, provider=provider, provider_name=name, kind="library",

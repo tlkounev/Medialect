@@ -51,11 +51,12 @@ export function masked(s: Settings): Settings {
 }
 
 const LINK_MODES = ["auto", "public", "internal"];
-const CONNECTION_KEYS = ["type", "url", "token", "enabled"];
+// links and posters are stored when the library is read, so the address settings count as well
+const CONNECTION_KEYS = ["type", "url", "token", "enabled", "public_url", "link_mode"];
 
 function cleanServer(srv: any, old?: any): any {
   const out = { ...srv };
-  if (!out.id) out.id = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+  if (!out.id) out.id = Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, "0")).join("");
   if (out.token === MASK) out.token = old?.token || "";
   out.url = String(out.url || "").trim().replace(/\/+$/, "");
   out.public_url = String(out.public_url || "").trim().replace(/\/+$/, "");

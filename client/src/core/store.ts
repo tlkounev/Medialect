@@ -13,6 +13,8 @@ export interface TitleInfo {
   extra_names?: string[];
   /** id kinds this source knows better than our own lookups (e.g. the ČSFD id an Emby plugin assigned) */
   authoritative?: string[];
+  /** the user's own library: its IMDb/TMDB/TVDB ids win over a catalogue entry that gave them to another work */
+  library?: boolean;
 }
 
 export interface Offer {
@@ -103,6 +105,16 @@ export async function upsertTitle(info: TitleInfo): Promise<number> {
         if (kind === "csfd") await db.run("DELETE FROM ratings WHERE title_id=? AND source='csfd'", [tid]);
       }
       continue;
+    }
+    if (info.library && STRONG_KINDS.includes(kind)) {
+      // never from another library title: two servers that disagree must not take it from each other on every run
+      const owner = await db.get("SELECT i.title_id FROM title_ids i WHERE i.kind=? AND i.value=? AND NOT EXISTS " +
+        "(SELECT 1 FROM availability a WHERE a.title_id=i.title_id AND a.kind='library')", [kind, value]);
+      if (owner && owner.title_id !== tid) {
+        await db.run("UPDATE title_ids SET title_id=? WHERE kind=? AND value=?", [tid, kind, value]);
+        await db.run("DELETE FROM ratings WHERE title_id=?", [owner.title_id]);
+        continue;
+      }
     }
     await db.run("INSERT OR IGNORE INTO title_ids(kind, value, title_id) VALUES(?,?,?)", [kind, value, tid]);
   }
