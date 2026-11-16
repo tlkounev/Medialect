@@ -1,6 +1,6 @@
 // Media servers: Emby, Jellyfin and Plex (port of app/sources/emby.py and app/sources/plex.py).
 import type { SyncContext } from "./context";
-import { http, SourceError } from "./env";
+import { env, http, SourceError } from "./env";
 import { audioTags, bestQuality, langs, mergeTags, qualityFromDims, qualityFromLabel, videoTags } from "./quality";
 import * as store from "./store";
 
@@ -26,7 +26,14 @@ function viewBase(srv: any): string {
 }
 
 async function get(base: string, path: string, headers: Record<string, string>, params?: Record<string, unknown>) {
-  const r = await http(base + path, { headers, params, timeoutMs: 120000 });
+  let r;
+  try {
+    r = await http(base + path, { headers, params, timeoutMs: 120000 });
+  } catch (e) {
+    // the HTTP client only says "error sending request": find out what is wrong with the address
+    const why = e instanceof SourceError && env.diagnose ? await env.diagnose(base).catch(() => null) : null;
+    throw why ? new SourceError(why) : e;
+  }
   if (r.status === 401 || r.status === 403) throw new SourceError(`${new URL(base).host}: neplatný API klíč / token (HTTP ${r.status}).`);
   if (!r.ok) throw new SourceError(`${new URL(base).host}: HTTP ${r.status}`);
   return r.data;

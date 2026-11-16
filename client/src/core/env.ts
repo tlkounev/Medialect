@@ -12,6 +12,8 @@ export const env = {
   sleep: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
   /** called whenever a sync job starts, reports progress or ends (Android: background notification) */
   onActivity: () => {},
+  /** why a host:port cannot be reached, in words (app: TCP probe); null = no explanation available */
+  diagnose: null as null | ((url: string) => Promise<string | null>),
 };
 
 export class SourceError extends Error {}

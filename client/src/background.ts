@@ -57,4 +57,18 @@ export function initBackground(): void {
   env.onActivity = () => { pump(); };
   // timers of a hidden WebView are throttled (up to once a minute); native pauses are not
   env.sleep = (ms: number) => invoke("plugin:apk-updater|sleep", { ms }) as Promise<void>;
+  env.diagnose = diagnose;
+}
+
+/** Plain-language reason why a media server address cannot be reached (TCP probe in the native plugin). */
+export async function diagnose(url: string): Promise<string | null> {
+  const u = new URL(url);
+  const port = Number(u.port) || (u.protocol === "https:" ? 443 : 80);
+  const where = `${u.hostname}:${port}`;
+  const r = await invoke<string>("plugin:apk-updater|probe", { host: u.hostname, port });
+  if (r === "refused") return `${where}: na této adrese nic neposlouchá (spojení odmítnuto). Zkontroluj IP adresu a port serveru.`;
+  if (r === "timeout") return `${where} neodpovídá. Je adresa správná a je telefon připojený k domácí Wi-Fi? Mimo domov funguje jen veřejná adresa (https://…).`;
+  if (r === "dns") return `${u.hostname}: jméno se nepodařilo najít (DNS). Zkontroluj adresu.`;
+  if (r === "open") return `${where}: port je otevřený, ale server neodpověděl. Nemá být adresa https:// místo http:// (nebo naopak)?`;
+  return `${where}: síť je nedostupná (${r.replace(/^unreachable: /, "")}).`;
 }
