@@ -5,6 +5,7 @@ import * as queries from "./queries";
 import * as settingsMod from "./settings";
 import { listProviders } from "./justwatch";
 import { manager } from "./sync";
+import { testServer } from "./servers";
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
@@ -40,6 +41,15 @@ async function versionStatus(force: boolean) {
 export async function handle(method: string, path: string, q: URLSearchParams, body: any): Promise<unknown> {
   const db = env.db;
   const route = `${method} ${path}`;
+  const del = route.match(/^DELETE \/api\/servers\/([^/]+)$/);
+  if (del) {
+    const id = decodeURIComponent(del[1]);
+    const removed = await settingsMod.deleteServer(id);
+    if (!removed) throw new ApiError(404, "Server nenalezen.");
+    await db.run("DELETE FROM availability WHERE source=?", [`${removed.type}:${id}`]);
+    await db.run("DELETE FROM sync_runs WHERE source=?", [`server:${id}`]);
+    return { ok: true };
+  }
   switch (route) {
     case "GET /api/auth/state":
       return { configured: true, logged_in: true, version: env.version, local: true };
@@ -66,7 +76,24 @@ export async function handle(method: string, path: string, q: URLSearchParams, b
       const changed = [...(saved.justwatch.providers || [])].sort().join() !== [...(before.justwatch.providers || [])].sort().join()
         || saved.country !== before.country || !before.justwatch.enabled;
       if (saved.justwatch.enabled && saved.justwatch.providers.length && changed) manager.trigger("justwatch");
+      await manager.triggerNewServers();
       return settingsMod.masked(saved);
+    }
+    case "POST /api/servers": {
+      let srv, changed;
+      try { [srv, changed] = await settingsMod.saveServer(body || {}); }
+      catch (e) { throw new ApiError(400, (e as Error).message); }
+      if (changed && srv.enabled !== false) manager.trigger(`server:${srv.id}`);
+      return settingsMod.masked({ servers: [srv] } as any).servers[0];
+    }
+    case "POST /api/servers/test": {
+      const srv = { ...(body || {}) };
+      if (srv.token === settingsMod.MASK) {
+        srv.token = ((await settingsMod.load()).servers || []).find((x: any) => x.id === srv.id)?.token || "";
+      }
+      srv.id ||= "test";
+      try { return { ok: true, info: await testServer(srv) }; }
+      catch (e) { return { ok: false, error: (e as Error).message || String(e) }; }
     }
     case "GET /api/justwatch/providers": {
       const s = await settingsMod.load();

@@ -6,6 +6,7 @@ import * as settingsMod from "./settings";
 import * as justwatch from "./justwatch";
 import * as ratings from "./ratings";
 import * as store from "./store";
+import { serverSync } from "./servers";
 
 type JobFn = (ctx: SyncContext) => Promise<void>;
 
@@ -19,6 +20,9 @@ export class SyncManager {
   async jobs(): Promise<[string, string, JobFn][]> {
     const s = await settingsMod.load();
     const out: [string, string, JobFn][] = [];
+    for (const srv of s.servers || []) {
+      if (srv.enabled !== false && srv.url) out.push([`server:${srv.id}`, srv.name || srv.type, serverSync(srv)]);
+    }
     if (s.justwatch.enabled && s.justwatch.providers.length) out.push(["justwatch", "JustWatch", justwatch.sync]);
     out.push(["ratings", "Hodnocení", ratings.sync]);
     return out;
@@ -71,6 +75,14 @@ export class SyncManager {
     } finally {
       this.queued.clear();
       this.fullRunning = false;
+    }
+  }
+
+  /** Start servers that have never been synchronised (e.g. just added in the settings). */
+  async triggerNewServers(): Promise<void> {
+    for (const [id] of await this.jobs()) {
+      if (id.startsWith("server:") && !this.running.has(id)
+          && !(await env.db.get("SELECT 1 AS x FROM sync_runs WHERE source=? LIMIT 1", [id]))) this.trigger(id);
     }
   }
 

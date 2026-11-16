@@ -25,6 +25,10 @@ for (const feature of ["android.software.leanback", "android.hardware.touchscree
 }
 must(/android\.hardware\.touchscreen" android:required="false"/.test(m), "touchscreen not required");
 if (!m.includes("android:banner=")) m = m.replace(/<application\b/, '<application android:banner="@drawable/banner"');
+// media servers on the home network are often plain http (posters are loaded by the WebView)
+// (the Tauri template sets it from a build placeholder that is false in release builds)
+m = m.replace(/android:usesCleartextTraffic="[^"]*"/, 'android:usesCleartextTraffic="true"');
+if (!m.includes("android:usesCleartextTraffic=")) m = m.replace(/<application\b/, '<application android:usesCleartextTraffic="true"');
 if (!m.includes("LEANBACK_LAUNCHER")) {
   const launcher = /(\s*)<category android:name="android\.intent\.category\.LAUNCHER"\s*\/>/;
   must(launcher.test(m), "LAUNCHER category");

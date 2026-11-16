@@ -7,6 +7,16 @@ export function bestQuality(...qs: (string | null | undefined)[]): string | null
   return ok.length ? ok.reduce((a, b) => (QUALITY_ORDER[b] > QUALITY_ORDER[a] ? b : a)) : null;
 }
 
+export function qualityFromDims(width?: number | null, height?: number | null): string | null {
+  const w = width || 0, h = height || 0;
+  if (!w && !h) return null;
+  if (w >= 3200 || h >= 1800) return "UHD";
+  if (w >= 2200 || h >= 1300) return "QHD";
+  if (w >= 1800 || h >= 1000) return "FHD";
+  if (w >= 1200 || h >= 700) return "HD";
+  return "SD";
+}
+
 /** JustWatch (SD/HD/_4K), Streaming Availability (sd/hd/qhd/uhd), Plex (sd/480/720/1080/4k). */
 export function qualityFromLabel(label: string | null | undefined): string | null {
   if (!label) return null;

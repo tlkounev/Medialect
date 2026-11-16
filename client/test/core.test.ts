@@ -205,7 +205,43 @@ describe("app core", () => {
     expect(await env.db.get("SELECT 1 AS x FROM titles WHERE id=?", [reality])).toBeFalsy();
   });
 
-  it("server-only endpoints answer 404", async () => {
-    await expect(api("POST", "/api/servers", {})).rejects.toMatchObject({ status: 404 });
+  it("media servers: Emby library is added, tested, synchronised and removed", async () => {
+    const real = env.fetch;
+    env.fetch = async (url, init) => {
+      const u = new URL(url);
+      if (u.host !== "emby.test") return real(url, init);
+      const j = (d: unknown) => new Response(JSON.stringify(d), { status: 200, headers: { "content-type": "application/json" } });
+      if ((init?.headers as any)?.["X-Emby-Token"] !== "k") return new Response("", { status: 401 });
+      if (u.pathname === "/System/Info") return j({ Id: "srv1", ServerName: "Doma", Version: "4.9" });
+      if (u.pathname === "/Users") return j([{ Id: "u1", Policy: { IsAdministrator: true } }]);
+      const type = u.searchParams.get("IncludeItemTypes");
+      const items = type === "Movie" ? [{ Id: "m1", Name: "Matrix", ProductionYear: 1999, ImageTags: { Primary: "t" },
+          ProviderIds: { Imdb: "tt0133093", Csfd: "9499-matrix" },
+          MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 3840, Height: 2160 }, { Type: "Audio", Language: "ces", Channels: 6 }] }] }]
+        : type === "Series" ? [{ Id: "s1", Name: "Zrádci", ProductionYear: 2024, ProviderIds: { Imdb: "tt33321873" } }]
+        : [{ Id: "e1", SeriesId: "s1", DateCreated: "2026-11-11T19:19:13", MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 1920, Height: 1080 }] }] }];
+      return j({ Items: items, TotalRecordCount: items.length });
+    };
+    const bad = await api("POST", "/api/servers/test", { type: "emby", url: "http://emby.test", token: "x" });
+    expect(bad.ok).toBe(false);
+    const ok = await api("POST", "/api/servers/test", { type: "emby", url: "http://emby.test/", token: "k" });
+    expect(ok.info.name).toBe("Doma");
+    const srv = await api("POST", "/api/servers", { type: "emby", url: "http://emby.test/", public_url: "https://emby.example", token: "k", name: "Doma" });
+    expect(srv.token).toBe("••••••••");
+    for (let i = 0; i < 100 && !(await env.db.get("SELECT 1 AS x FROM sync_runs WHERE source=? AND finished_at IS NOT NULL", [`server:${srv.id}`])); i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    const m = (await api("GET", "/api/catalog?q=matrix")).items[0];
+    const lib = m.where.find((w: any) => w.kind === "library");
+    expect(lib.quality).toBe("UHD");
+    expect(lib.url).toBe("https://emby.example/web/index.html#!/item?id=m1&serverId=srv1");
+    expect(m.ids.csfd).toBe("9499");
+    expect(m.poster).toBe("https://emby.example/Items/m1/Images/Primary?maxHeight=360&tag=t");
+    const z = (await api("GET", "/api/catalog?q=zradci")).items[0];
+    expect(z.where[0].quality).toBe("FHD");
+    expect((await api("GET", "/api/settings")).servers[0].token).toBe("••••••••");
+    await api("DELETE", `/api/servers/${srv.id}`);
+    expect((await api("GET", "/api/catalog?q=zradci")).items.length).toBe(0);
+    env.fetch = real;
   });
 });
