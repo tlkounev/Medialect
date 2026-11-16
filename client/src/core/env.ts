@@ -14,6 +14,8 @@ export const env = {
   onActivity: () => {},
   /** why a host:port cannot be reached, in words (app: TCP probe); null = no explanation available */
   diagnose: null as null | ((url: string) => Promise<string | null>),
+  /** Android 17: may the app reach the home network? ask=true shows the system prompt when needed */
+  localNetwork: null as null | ((ask: boolean) => Promise<boolean>),
 };
 
 export class SourceError extends Error {}

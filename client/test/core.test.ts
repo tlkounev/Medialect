@@ -278,6 +278,13 @@ describe("app core", () => {
     const down = await api("POST", "/api/servers/test", { type: "emby", url: "http://10.0.0.1:8096", token: "k" });
     expect(down).toEqual({ ok: false, error: "10.0.0.1:8096 neodpovídá." });
     env.diagnose = null;
+    // Android 17 without the home-network permission: the prompt is shown on test, the error says what to allow
+    const asked: boolean[] = [];
+    env.localNetwork = async (ask) => { asked.push(ask); return false; };
+    const denied = await api("POST", "/api/servers/test", { type: "emby", url: "http://10.0.0.1:8096", token: "k" });
+    expect(asked[0]).toBe(true);
+    expect(denied.error).toContain("Zařízení v okolí");
+    env.localNetwork = null;
     const bad = await api("POST", "/api/servers/test", { type: "emby", url: "http://emby.test", token: "x" });
     expect(bad.ok).toBe(false);
     const ok = await api("POST", "/api/servers/test", { type: "emby", url: "http://emby.test/", token: "k" });
