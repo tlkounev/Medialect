@@ -7,6 +7,11 @@ on:
   pull_request:
     paths: ["client/**", "app/static/**", ".github/workflows/app.yml"]
   workflow_dispatch:
+    inputs:
+      desktop:
+        description: "Postavit i Windows a Linux"
+        type: boolean
+        default: false
 
 permissions:
   contents: write   # app-v0.1.x tag + GitHub release with the installers
@@ -61,8 +66,10 @@ jobs:
         env:
           LIVE: "1"
 
+  # Windows/Linux only on demand (Actions → Run workflow → "Postavit i Windows a Linux"); Android + Docker are the focus now
   desktop:
     needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.desktop
     strategy:
       fail-fast: false
       matrix:
@@ -197,8 +204,11 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     needs: [test, desktop, android]
+    if: >-
+      always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+      && needs.test.result == 'success' && needs.android.result == 'success'
+      && (needs.desktop.result == 'success' || needs.desktop.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -231,5 +241,7 @@ jobs:
           else
             echo "::warning::No updater signatures – latest.json not published."
           fi
-          gh release create "app-v$V" dist/* --target "$GITHUB_SHA" --title "Medialect app $V" --latest \
+          # "latest" stays on the newest release with Windows/Linux files: the desktop updater reads releases/latest
+          if [ -f dist/latest.json ]; then LATEST=--latest; else LATEST=--latest=false; fi
+          gh release create "app-v$V" dist/* --target "$GITHUB_SHA" --title "Medialect app $V" $LATEST \
             --notes "Instalační soubory aplikace Medialect $V: Android (.apk), Windows (.exe / .msi), Linux (.AppImage / .deb / .rpm). Nainstalovaná aplikace se aktualizuje sama."
