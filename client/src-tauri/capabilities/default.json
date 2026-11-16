@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Local database, HTTP to the catalogue and rating sources, opening links in other apps",
+  "description": "Local database, HTTP to the catalogue and rating sources and to the user's own media servers (any address), opening links in other apps",
   "windows": [
     "main"
   ],
@@ -38,6 +38,12 @@
         },
         {
           "url": "https://github.com/*"
+        },
+        {
+          "url": "http://*:*"
+        },
+        {
+          "url": "https://*:*"
         }
       ]
     },

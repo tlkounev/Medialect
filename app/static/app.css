@@ -143,7 +143,22 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 .ms-list label span { flex: 1; }
 .ms-list small { color: var(--muted); font-size: 12px; }
 .ms-clear { width: 100%; margin-top: 4px; font-size: 13px; }
-@media (max-width: 640px) { #jobs { display: block; overflow-x: auto; } .ms-btn { max-width: 44vw; } .ms-panel { max-width: 88vw; } }
+@media (max-width: 640px) {
+  .ms-btn { max-width: 44vw; } .ms-panel { max-width: 88vw; }
+  /* sync table as cards: a six-column table does not fit a phone */
+  #jobs, #jobs tbody { display: block; }
+  #jobs tr:first-child { display: none; }
+  #jobs tr { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 14px 0; border-bottom: 1px solid var(--line); align-items: center; }
+  #jobs td { padding: 0; border: 0; font-size: 15px; }
+  #jobs td:nth-child(1) { font-weight: 600; font-size: 16px; }
+  #jobs td:nth-child(2) { text-align: end; }
+  #jobs td:nth-child(3), #jobs td:nth-child(4) { color: var(--muted); font-size: 13px; }
+  #jobs td:nth-child(4) { text-align: end; }
+  #jobs td[data-label]:not(:empty)::before { content: attr(data-label) ": "; }
+  #jobs td:nth-child(5) { grid-column: 1 / -1; }
+  #jobs td:nth-child(6) { grid-column: 1 / -1; }
+  #jobs td .bar { max-width: none; }
+}
 
 /* first-run wizard and the "only my services" list */
 .wizard .wiz-body { padding: 8px 18px 18px; display: flex; flex-direction: column; gap: 12px; }

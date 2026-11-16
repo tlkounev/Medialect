@@ -35,6 +35,15 @@ describe("quality helpers (same results as the Python server)", () => {
   });
 });
 
+describe("app permissions", () => {
+  it("HTTP is allowed to any host and port (the user's own media servers)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const cap = JSON.parse(readFileSync(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"));
+    const urls = cap.permissions.find((p: any) => p.identifier === "http:default").allow.map((a: any) => a.url);
+    expect(urls).toEqual(expect.arrayContaining(["http://*:*", "https://*:*"]));
+  });
+});
+
 describe("sync progress", () => {
   it("maps step fractions to a percentage", () => {
     const c = new SyncContext("x", {} as any);
@@ -200,6 +209,13 @@ describe("app core", () => {
     const close = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2021, ids: { tmdb_tv: "97547", imdb: "tt10720694" } });
     expect(new Set([drama, reality, bridge]).size).toBe(3);
     expect(close).toBe(drama);
+    // catalogue first, library second: the library's id wins and the wrongly derived rating goes
+    const jw = await st.upsertTitle({ type: "show", title: "Hra", year: 2019, ids: { jw: "tsY1", imdb: "tt9000001", tmdb_tv: "555" } });
+    await st.setRating(jw, "imdb", 83, "8.3");
+    const lib = await st.upsertTitle({ type: "show", title: "Hra", year: 2025, library: true, ids: { imdb: "tt9000001", tmdb_tv: "777" } });
+    expect(lib).not.toBe(jw);
+    expect((await env.db.get("SELECT title_id FROM title_ids WHERE kind='imdb' AND value='tt9000001'"))!.title_id).toBe(lib);
+    expect(await env.db.get("SELECT 1 AS x FROM ratings WHERE title_id=?", [jw])).toBeFalsy();
     await env.db.run("INSERT INTO title_ids(kind, value, title_id) VALUES('tmdb_tv', '999999', ?)", [reality]);
     expect(await st.repairMixedTitles()).toBe(1);
     expect(await env.db.get("SELECT 1 AS x FROM titles WHERE id=?", [reality])).toBeFalsy();
@@ -240,6 +256,15 @@ describe("app core", () => {
     const z = (await api("GET", "/api/catalog?q=zradci")).items[0];
     expect(z.where[0].quality).toBe("FHD");
     expect((await api("GET", "/api/settings")).servers[0].token).toBe("••••••••");
+    // changing only the address used for links reads the library again (links and posters are stored)
+    const runs = async () => (await env.db.get("SELECT COUNT(*) AS n FROM sync_runs WHERE source=?", [`server:${srv.id}`]))!.n;
+    const before = await runs();
+    await api("POST", "/api/servers", { ...srv, link_mode: "internal" });
+    for (let i = 0; i < 100 && (await runs()) === before; i++) await new Promise((r) => setTimeout(r, 10));
+    for (let i = 0; i < 100 && manager.running.size; i++) await new Promise((r) => setTimeout(r, 10));
+    const m2 = (await api("GET", "/api/catalog?q=matrix")).items[0];
+    expect(m2.where.find((w: any) => w.kind === "library").url).toBe("http://emby.test/web/index.html#!/item?id=m1&serverId=srv1");
+    expect(srv.id).toMatch(/^[0-9a-f]{8}$/);
     await api("DELETE", `/api/servers/${srv.id}`);
     expect((await api("GET", "/api/catalog?q=zradci")).items.length).toBe(0);
     env.fetch = real;

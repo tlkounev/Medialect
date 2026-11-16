@@ -49,14 +49,17 @@ async function find(): Promise<Update | null> {
 async function install(): Promise<void> {
   if (!found) return;
   $("#updateBar")?.classList.add("hidden");
-  toast(found.android
-    ? tr("app.download", { v: found.version }, `Downloading ${found.version} in the browser – open the file when it finishes to install it.`)
-    : tr("app.updating", { v: found.version }, `Updating to ${found.version}…`));
+  if (!found.android) toast(tr("app.updating", { v: found.version }, `Updating to ${found.version}…`));
   try {
     await found.install();
+    if (found.android) {
+      toast(tr("app.download", { v: found.version }, `Downloading ${found.version} in the browser – open the file when it finishes to install it.`));
+    }
   } catch (e) {
+    // Android without a browser (many TVs): nothing can open the download, the APK has to be installed by hand;
     // desktop .deb/.rpm installs are updated by the package manager
-    toast(tr("app.updateFailed", { e: String(e) }, `Update failed: ${e}`));
+    toast(found.android ? tr("app.noHandler", {}, "No app can open this link.")
+      : tr("app.updateFailed", { e: String(e) }, `Update failed: ${e}`));
   }
 }
 

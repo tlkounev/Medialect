@@ -265,6 +265,19 @@ def main():
         assert close == drama                                                # same work, ids complement
         sql_exec(f"INSERT INTO title_ids(kind, value, title_id) VALUES('tmdb_tv', '999999', {reality})")
         assert client.portal.call(st.repair_mixed_titles) == 1
+        # catalogue first, library second (the usual order of a new installation): the library's id wins
+        async def library_wins():
+            jw = await st.upsert_title(st.TitleInfo(type="show", title="Hra", year=2019,
+                                                    ids={"jw": "tsY1", "imdb": "tt9000001", "tmdb_tv": "555"}))
+            await st.set_rating(jw, "imdb", 83, "8.3")
+            lib = await st.upsert_title(st.TitleInfo(type="show", title="Hra", year=2025, library=True,
+                                                     ids={"imdb": "tt9000001", "tmdb_tv": "777"}))
+            return jw, lib
+        jw_t, lib_t = client.portal.call(library_wins)
+        assert jw_t != lib_t
+        assert sql("SELECT title_id FROM title_ids WHERE kind='imdb' AND value='tt9000001'") == [(lib_t,)]
+        assert not sql(f"SELECT 1 FROM ratings WHERE title_id={jw_t}")   # that rating belonged to the other work
+        assert client.portal.call(st.repair_mixed_titles) == 0
         # switched-off rating sources are hidden (kept stored)
         from app.queries import rating_visible
         off = rating_visible({"imdb_dataset": False, "justwatch_scores": False, "csfd": False, "tvmaze": False})

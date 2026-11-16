@@ -23,6 +23,9 @@ class TitleInfo:
     # id kinds this source knows better than our own lookups (e.g. the ČSFD id an Emby plugin assigned):
     # a different stored value is replaced and the rating derived from it is fetched again
     authoritative: tuple[str, ...] = ()
+    # the user's own library (Emby, Jellyfin, Plex): its IMDb/TMDB/TVDB ids are trusted over a streaming
+    # catalogue entry that attached the same id to a different work, whichever of the two was read first
+    library: bool = False
 
 
 # a source's own entry id always means the same title
@@ -135,6 +138,20 @@ async def upsert_title(info: TitleInfo) -> int:
                     if kind == "csfd":
                         await conn.execute("DELETE FROM ratings WHERE title_id=? AND source='csfd'", (tid,))
                 continue
+            if info.library and kind in STRONG_KINDS:
+                # never from another library title: two servers that disagree must not take it from each other
+                # on every run
+                async with conn.execute(
+                        "SELECT i.title_id FROM title_ids i WHERE i.kind=? AND i.value=? AND NOT EXISTS "
+                        "(SELECT 1 FROM availability a WHERE a.title_id=i.title_id AND a.kind='library')",
+                        (kind, value)) as cur:
+                    owner = await cur.fetchone()
+                if owner and owner[0] != tid:
+                    # _find_title refused that title as a different work: the id belongs here, and the ratings
+                    # the other title got through it are wrong (they are fetched again from the ids it keeps)
+                    await conn.execute("UPDATE title_ids SET title_id=? WHERE kind=? AND value=?", (tid, kind, value))
+                    await conn.execute("DELETE FROM ratings WHERE title_id=?", (owner[0],))
+                    continue
             await conn.execute("INSERT OR IGNORE INTO title_ids(kind, value, title_id) VALUES(?,?,?)", (kind, value, tid))
         for n in {norm(x) for x in (info.title, info.original_title, *info.extra_names) if x}:
             if n:
