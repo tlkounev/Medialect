@@ -263,6 +263,17 @@ async def sync_status():
             "budgets": {n: await db.budget_used(n) for n in ("sa", "csfd", "mdblist", "omdb")}}
 
 
+@app.get("/api/sync/progress")
+async def sync_progress():
+    """Public, minimal: what is being downloaded right now (catalogue notice for every visitor)."""
+    jobs = await manager.status()
+    return {"running": [{"id": j["id"], "label": j["label"], "running": True,
+                         "progress": {"phase": j["progress"]["phase"], "percent": j["progress"]["percent"]}}
+                        for j in jobs if j["running"]],
+            "queued": sum(1 for j in jobs if j["queued"]),
+            "first": not await db.kv_get("sync.last_full", 0)}
+
+
 @app.post("/api/sync", dependencies=authed)
 async def sync_now(job: str | None = None):
     manager.trigger(job)

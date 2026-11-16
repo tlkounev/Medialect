@@ -1,4 +1,6 @@
 {
+"sync.note": "Prenašanje podatkov: {p}. Katalog se sproti dopolnjuje.", "sync.noteFirst": "Prvi prenos podatkov: {p}. Lahko traja več deset minut; katalog se sproti dopolnjuje.",
+"cat.loading": "Podatki se še prenašajo, naslovi se bodo kmalu prikazali.", "cat.dataBy": "Podatki o razpoložljivosti:",
 "nav.catalog": "Katalog", "nav.admin": "Skrbništvo", "logout": "Odjava", "lang.choose": "Jezik vmesnika",
 "sync.badgeTitle": "Sinhronizacija – podrobnosti v skrbništvu",
 "search.ph": "Išči film ali serijo…",

@@ -129,7 +129,8 @@ export async function stats() {
   const t = await env.db.get("SELECT COUNT(*) AS n FROM titles t WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)");
   const o = await env.db.get("SELECT COUNT(*) AS n FROM availability");
   const r = await env.db.get("SELECT COUNT(*) AS n FROM ratings WHERE display IS NOT NULL");
-  return { titles: t!.n, offers: o!.n, ratings: r!.n };
+  const src = await env.db.all("SELECT DISTINCT source FROM availability");
+  return { titles: t!.n, offers: o!.n, ratings: r!.n, sources: src.map((x) => x.source as string).sort() };
 }
 
 export async function facets() {

@@ -38,7 +38,7 @@ async def _imdb_dataset_file(ctx: SyncContext) -> str:
     path = os.path.join(DATA_DIR, "imdb-title.ratings.tsv.gz")
     if os.path.exists(path) and time.time() - os.path.getmtime(path) < IMDB_DATASET_MAX_AGE_S:
         return path
-    ctx.progress("IMDb: stahuji dataset")
+    ctx.progress("IMDb: stahuji dataset", 0)
     tmp = path + ".part"
     async with http_client(timeout=300) as c:
         async with c.stream("GET", IMDB_RATINGS_URL) as r:
@@ -62,7 +62,7 @@ async def imdb_dataset(ctx: SyncContext) -> None:
     if not wanted:
         return
     path = await _imdb_dataset_file(ctx)
-    ctx.progress(f"IMDb: přiřazuji hodnocení ({len(wanted)} titulů)")
+    ctx.progress(f"IMDb: přiřazuji hodnocení ({len(wanted)} titulů)", 0.5)
 
     def parse() -> list[tuple[str, float, int]]:
         found = []
@@ -176,7 +176,7 @@ async def csfd(ctx: SyncContext) -> None:
     errors = 0
     async with http_client(headers={"User-Agent": CSFD_UA, "Accept-Language": "cs,en;q=0.5"}) as c:
         for i, row in enumerate(rows, 1):
-            ctx.progress(f"ČSFD: {i}/{len(rows)}" + (f" (denní limit {budget})" if budget else ""))
+            ctx.progress(f"ČSFD: {i}/{len(rows)}" + (f" (denní limit {budget})" if budget else ""), i / max(1, len(rows)))
             if not await db.budget_take("csfd", budget):
                 ctx.partial = True
                 ctx.note(f"ČSFD: denní limit {budget} titulů vyčerpán, pokračuje se zítra.")
@@ -251,7 +251,7 @@ async def mdblist(ctx: SyncContext) -> None:
     budget = int(cfg.get("mdblist_daily_budget", 900))
     async with http_client() as c:
         for i, row in enumerate(rows, 1):
-            ctx.progress(f"MDBList: {i}/{len(rows)}")
+            ctx.progress(f"MDBList: {i}/{len(rows)}", i / max(1, len(rows)))
             if not await db.budget_take("mdblist", budget):
                 ctx.partial = True
                 ctx.note("MDBList: denní limit vyčerpán.")
@@ -321,7 +321,7 @@ async def tmdb(ctx: SyncContext) -> None:
     headers, auth = _tmdb_auth(key)
     async with http_client(headers=headers) as c:
         for i, row in enumerate(rows, 1):
-            ctx.progress(f"TMDB: {i}/{len(rows)}")
+            ctx.progress(f"TMDB: {i}/{len(rows)}", i / max(1, len(rows)))
             kind = "movie" if row["type"] == "movie" else "tv"
             tmdb_id = row["tmdb_movie"] if kind == "movie" else row["tmdb_tv"]
             if not tmdb_id and row["imdb"]:
@@ -361,7 +361,7 @@ async def tvmaze(ctx: SyncContext) -> None:
     rows = await _due("tvmaze", float(cfg.get("refresh_days", 14)), ("imdb", "tvdb"), ttype="show")
     async with http_client() as c:
         for i, row in enumerate(rows, 1):
-            ctx.progress(f"TVmaze: {i}/{len(rows)}")
+            ctx.progress(f"TVmaze: {i}/{len(rows)}", i / max(1, len(rows)))
             show = None
             for param, value in (("imdb", row["imdb"]), ("thetvdb", row["tvdb"])):
                 if not value:
@@ -394,7 +394,7 @@ async def omdb(ctx: SyncContext) -> None:
     budget = int(cfg.get("omdb_daily_budget", 950))
     async with http_client() as c:
         for i, row in enumerate(rows, 1):
-            ctx.progress(f"OMDb: {i}/{len(rows)}")
+            ctx.progress(f"OMDb: {i}/{len(rows)}", i / max(1, len(rows)))
             if not await db.budget_take("omdb", budget):
                 ctx.partial = True
                 ctx.note(f"OMDb: denní limit {budget} dotazů vyčerpán, pokračuje se zítra.")
@@ -425,14 +425,26 @@ async def sync(ctx: SyncContext) -> None:
         # v1.0.0–1.0.3 stored ČSFD's anti-bot page as "not found / no rating": forget those results
         await db.execute("DELETE FROM ratings WHERE source='csfd' AND value IS NULL")
         await db.kv_set("migrate.csfd_reset_v2", True)
+    guarded = [(name, fn) for name, fn, on in (
+        ("TMDB", tmdb, cfg.get("tmdb_api_key")), ("TVmaze", tvmaze, cfg.get("tvmaze", True)),
+        ("OMDb", omdb, cfg.get("omdb_api_key"))) if on]
+    n = (bool(cfg.get("imdb_dataset", True)) + bool(cfg.get("mdblist_api_key")) + len(guarded)
+         + bool(cfg.get("csfd", True)) * (1 + bool(cfg.get("imdb_dataset", True))))
+    k = 0
+
+    def next_step() -> None:
+        nonlocal k
+        ctx.step(k, max(1, n))
+        k += 1
+
     if cfg.get("imdb_dataset", True):
+        next_step()
         await imdb_dataset(ctx)
     if cfg.get("mdblist_api_key"):
+        next_step()
         await mdblist(ctx)
-    for name, fn, on in (("TMDB", tmdb, cfg.get("tmdb_api_key")), ("TVmaze", tvmaze, cfg.get("tvmaze", True)),
-                         ("OMDb", omdb, cfg.get("omdb_api_key"))):
-        if not on:
-            continue
+    for name, fn in guarded:
+        next_step()
         try:
             await fn(ctx)
         except SourceError as e:            # one broken source must not stop the others
@@ -442,7 +454,9 @@ async def sync(ctx: SyncContext) -> None:
             ctx.partial = True
             ctx.note(f"{name}: {type(e).__name__}: {e}")
     if cfg.get("csfd", True):
+        next_step()
         await csfd(ctx)
         if cfg.get("imdb_dataset", True):
+            next_step()
             await imdb_dataset(ctx)   # IMDb ids found on ČSFD pages
 

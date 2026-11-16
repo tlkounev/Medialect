@@ -1,4 +1,6 @@
 {
+"sync.note": "Se descarcă datele: {p}. Catalogul se completează treptat.", "sync.noteFirst": "Prima descărcare a datelor: {p}. Poate dura zeci de minute; catalogul se completează treptat.",
+"cat.loading": "Datele încă se descarcă, titlurile vor apărea în curând.", "cat.dataBy": "Date de disponibilitate:",
 "nav.catalog": "Catalog", "nav.admin": "Administrare", "logout": "Deconectare", "lang.choose": "Limba interfeței",
 "sync.badgeTitle": "Sincronizare – detalii în administrare",
 "search.ph": "Caută un film sau un serial…",

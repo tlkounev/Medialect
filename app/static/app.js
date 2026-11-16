@@ -45,7 +45,8 @@ async function boot() {
   let start = location.hash.slice(1) || "catalog";
   if (st.local) { try { if ((await api("/api/onboarding")).pending) start = "admin"; } catch (_) { /* ignore */ } }
   openTab(start);
-  if (st.logged_in) pollBadge();
+  pollProgress();
+  loadDataBy();
 }
 
 function buildLangPicker() {
@@ -90,7 +91,7 @@ $("#authForm").addEventListener("submit", async (e) => {
     $("#authPass").value = $("#authPass2").value = "";
     authMode = "login";
     setAdmin(true);
-    pollBadge();
+    pollProgress();
   } catch (err) { $("#authErr").textContent = err.message; }
 });
 $("#logout").addEventListener("click", async () => {
@@ -287,6 +288,7 @@ async function loadFacets() {
     facetsLoaded = true;
   }
 }
+let catalogTotal = null;
 async function loadCatalog() {
   const seq = ++catalogSeq;
   const q = $("#q").value.trim();
@@ -302,7 +304,8 @@ async function loadCatalog() {
     if (data.total > data.page_size) info += ` · ${t("cat.page", { p: data.page, n: pages })}`;
     if (sort === "added") info += ` · ${t("cat.addedNote")}`;
     $("#cInfo").textContent = info;
-    $("#catalog").innerHTML = data.items.length ? data.items.map(renderTitle).join("") : `<p class="muted">${esc(t("cat.none"))}</p>`;
+    catalogTotal = data.total;
+    $("#catalog").innerHTML = data.items.length ? data.items.map(renderTitle).join("") : `<p class="muted">${esc(t(syncRunning ? "cat.loading" : "cat.none"))}</p>`;
     $("#cPrev").disabled = cPage <= 1;
     $("#cNext").disabled = cPage >= pages;
     $(".pager").classList.toggle("hidden", pages <= 1);
@@ -325,7 +328,8 @@ const fmtDur = (sec) => { sec = Math.max(0, Math.round(sec)); const m = Math.flo
 const jobLabel = (j) => (j.id === "ratings" ? t("job.ratings") : j.label);
 async function loadStatus() {
   const [st, stats] = await Promise.all([api("/api/sync/status"), api("/api/stats")]);
-  updateSyncBadge(st);
+  updateSyncBadge(st.jobs.filter((j) => j.running), st.jobs.filter((j) => j.queued).length);
+  if (st.running && !syncRunning) pollProgress();   // a run just started: switch the notice to fast polling
   $("#stats").textContent = t("sync.stats", { t: fmtNum(stats.titles), o: fmtNum(stats.offers), r: fmtNum(stats.ratings), d: fmtTime(st.last_full) });
   const now = Date.now() / 1000;
   $("#jobs").innerHTML = `<tr><th>${t("col.source")}</th><th>${t("col.status")}</th><th>${t("col.start")}</th><th>${t("col.items")}</th><th>${t("col.detail")}</th><th></th></tr>` +
@@ -334,7 +338,8 @@ async function loadStatus() {
       const status = j.running ? "running" : j.queued ? "queued" : l.status;
       const started = p ? p.started_at : l.started_at;
       const items = p ? p.items : l.items;
-      const detail = p ? `<b>${esc(p.phase || "…")}</b> · ${esc(t("sync.runningFor", { d: fmtDur(now - p.started_at) }))}` : `<pre>${esc(l.message || "")}</pre>`;
+      const bar = p && p.percent != null ? `<div class="bar"><i style="width:${p.percent}%"></i></div>` : "";
+      const detail = p ? `<b>${esc(p.phase || "…")}</b>${p.percent != null ? ` · <b>${p.percent} %</b>` : ""} · ${esc(t("sync.runningFor", { d: fmtDur(now - p.started_at) }))}${bar}` : `<pre>${esc(l.message || "")}</pre>`;
       return `<tr><td>${esc(jobLabel(j))}</td>
         <td class="st-${status || ""}">${esc(status ? t(`st.${status}`) : t("st.never"))}</td>
         <td>${fmtTime(started)}</td><td>${items ?? ""}</td>
@@ -345,22 +350,55 @@ async function loadStatus() {
   $("#budgets").textContent = t("sync.budgets", { sa: st.budgets.sa, csfd: st.budgets.csfd, mdb: st.budgets.mdblist, omdb: st.budgets.omdb });
 }
 
-/* header badge: visible on every tab while something synchronises */
-function updateSyncBadge(st) {
-  const running = st.jobs.filter((j) => j.running);
+/* header badge (admin): visible on every tab while something synchronises */
+const pctText = (j) => (j.progress?.percent != null ? ` ${j.progress.percent} %` : "");
+function updateSyncBadge(running, queued) {
   const badge = $("#syncBadge");
-  badge.classList.toggle("hidden", !running.length);
+  badge.classList.toggle("hidden", !isAdmin || !running.length);
   if (running.length) {
-    const queued = st.jobs.filter((j) => j.queued).length;
-    badge.textContent = `⟳ ${running.map((j) => j.progress?.phase || jobLabel(j)).join(" · ")}${queued ? ` (${t("sync.queued", { n: queued })})` : ""}`;
+    badge.textContent = `⟳ ${running.map((j) => `${jobLabel(j)}${pctText(j)}`).join(" · ")}${queued ? ` (${t("sync.queued", { n: queued })})` : ""}`;
+    badge.title = running.map((j) => j.progress?.phase || "").filter(Boolean).join("\n");
   }
 }
-async function pollBadge() {
-  if (isAdmin) {
-    try { updateSyncBadge(await api("/api/sync/status")); } catch (_) { /* ignore */ }
-  }
+
+/* catalogue notice for everyone: what is being downloaded and how far it got */
+let syncRunning = false, progressTimer = null;
+function updateSyncNote(st) {
+  const note = $("#syncNote");
+  note.classList.toggle("hidden", !st.running.length);
+  if (!st.running.length) return;
+  const parts = st.running.map((j) => `${jobLabel(j)}${pctText(j)}`).join(" · ");
+  note.querySelector("span").textContent = t(st.first ? "sync.noteFirst" : "sync.note", { p: parts });
+  const known = st.running.map((j) => j.progress?.percent).filter((p) => p != null);
+  note.querySelector(".bar").classList.toggle("hidden", !known.length);
+  if (known.length) note.querySelector(".bar i").style.width = `${Math.round(known.reduce((a, b) => a + b, 0) / known.length)}%`;
 }
-setInterval(pollBadge, 10000);
+async function pollProgress() {
+  clearTimeout(progressTimer);
+  try {
+    const st = await api("/api/sync/progress");
+    const was = syncRunning;
+    syncRunning = st.running.length > 0;
+    updateSyncNote(st);
+    updateSyncBadge(st.running, st.queued);
+    // the catalogue fills while the first download runs; reload it when it is (nearly) empty or a run ends
+    if ((syncRunning && !catalogTotal) || (was && !syncRunning)) { loadCatalog(); loadDataBy(); }
+  } catch (_) { /* ignore */ }
+  progressTimer = setTimeout(pollProgress, syncRunning ? 4000 : 20000);
+}
+
+/* data attribution under the catalogue (required by Streaming Availability API's terms) */
+const DATA_BY = {
+  justwatch: '<a href="https://www.justwatch.com" target="_blank" rel="noopener">JustWatch</a>',
+  sa: 'Streaming availability information is provided by <a href="https://www.movieofthenight.com/about/api" target="_blank" rel="noopener">Streaming Availability API by Movie of the Night</a>',
+};
+async function loadDataBy() {
+  try {
+    const st = await api("/api/stats");
+    const parts = (st.sources || []).map((s) => DATA_BY[s]).filter(Boolean);
+    $("#dataBy").innerHTML = parts.length ? `${esc(t("cat.dataBy"))} ${parts.join(" · ")}` : "";
+  } catch (_) { /* ignore */ }
+}
 $("#syncBadge").addEventListener("click", () => { adminSub = "sync"; openTab("admin"); });
 $("#syncAll").addEventListener("click", async () => { await api("/api/sync", { method: "POST" }); setTimeout(loadStatus, 500); });
 

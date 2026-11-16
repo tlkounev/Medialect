@@ -130,18 +130,23 @@ async def sync(ctx: SyncContext) -> None:
 
     seen: set[str] = set()
     total = len(selected)
+    slots = total * 2  # every provider × (films, series) is one equal share of the progress
     for idx, (provider, pname) in enumerate(selected.items(), 1):
-        for otype in ("MOVIE", "SHOW"):
-            queue = _windows()
+        for t_idx, otype in enumerate(("MOVIE", "SHOW")):
+            base = ((idx - 1) * 2 + t_idx) / slots
+            wins = _windows()
+            queue = [(lo, hi, 1 / len(wins)) for lo, hi in wins]
+            done = 0.0
             while queue:
-                lo, hi = queue.pop(0)
+                lo, hi, w = queue.pop(0)
                 kind = "filmy" if otype == "MOVIE" else "seriály"
-                ctx.progress(f"{pname} ({idx}/{total}): {kind} {lo}–{hi}")
+                ctx.progress(f"{pname} ({idx}/{total}): {kind} {lo}–{hi}", base + done / slots)
                 entries, capped = await _fetch_window(ctx, provider, otype, lo, hi, delay)
                 if capped and hi > lo:
                     mid = (lo + hi) // 2
-                    queue[:0] = [(lo, mid), (mid + 1, hi)]
+                    queue[:0] = [(lo, mid, w / 2), (mid + 1, hi, w / 2)]
                     continue
+                done += w
                 if capped:
                     ctx.partial = True
                     ctx.note(f"{pname} {otype} {lo}: víc než {CAP} titulů, část chybí.")

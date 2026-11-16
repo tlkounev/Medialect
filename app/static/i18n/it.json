@@ -1,4 +1,6 @@
 {
+"sync.note": "Download dei dati: {p}. Il catalogo si riempie man mano.", "sync.noteFirst": "Primo download dei dati: {p}. Può richiedere decine di minuti; il catalogo si riempie man mano.",
+"cat.loading": "I dati sono ancora in download, i titoli appariranno a breve.", "cat.dataBy": "Dati di disponibilità:",
 "nav.catalog": "Catalogo", "nav.admin": "Amministrazione", "logout": "Esci", "lang.choose": "Lingua dell’interfaccia",
 "sync.badgeTitle": "Sincronizzazione – dettagli in amministrazione",
 "search.ph": "Cerca un film o una serie…",

@@ -1,4 +1,6 @@
 {
+"sync.note": "Preuzimanje podataka: {p}. Katalog se postupno popunjava.", "sync.noteFirst": "Prvo preuzimanje podataka: {p}. Može trajati desetke minuta; katalog se postupno popunjava.",
+"cat.loading": "Podaci se još preuzimaju, naslovi će se uskoro pojaviti.", "cat.dataBy": "Podaci o dostupnosti:",
 "nav.catalog": "Katalog", "nav.admin": "Administracija", "logout": "Odjava", "lang.choose": "Jezik sučelja",
 "sync.badgeTitle": "Sinkronizacija – pojedinosti u administraciji",
 "search.ph": "Traži film ili seriju…",

@@ -1,4 +1,6 @@
 {
+"sync.note": "Pobieranie danych: {p}. Katalog uzupełnia się na bieżąco.", "sync.noteFirst": "Pierwsze pobieranie danych: {p}. Może potrwać kilkadziesiąt minut; katalog uzupełnia się na bieżąco.",
+"cat.loading": "Dane wciąż się pobierają, tytuły wkrótce się pojawią.", "cat.dataBy": "Dane o dostępności:",
 "nav.catalog": "Katalog", "nav.admin": "Administracja", "logout": "Wyloguj", "lang.choose": "Język interfejsu",
 "sync.badgeTitle": "Synchronizacja – szczegóły w administracji",
 "search.ph": "Szukaj filmu lub serialu…",

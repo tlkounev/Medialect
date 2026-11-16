@@ -35,6 +35,17 @@ describe("quality helpers (same results as the Python server)", () => {
   });
 });
 
+describe("sync progress", () => {
+  it("maps step fractions to a percentage", () => {
+    const c = new SyncContext("x", {} as any);
+    c.progress("a", 0.5); expect(c.percent).toBe(50);
+    c.step(1, 4); expect(c.percent).toBe(25);
+    c.progress("b", 0.5); expect(c.percent).toBe(37);
+    c.progress("c"); expect(c.percent).toBe(37);
+    c.step(3, 4); c.progress("d", 1); expect(c.percent).toBe(99);
+  });
+});
+
 describe("app core", () => {
   let fake: Fake;
   beforeEach(async () => {
@@ -82,6 +93,8 @@ describe("app core", () => {
     // window splitting: every one of the 12 films from 2015–2017 arrived despite CAP=5
     const stats = await api("GET", "/api/stats");
     expect(stats.titles).toBe(15);
+    expect(stats.sources).toContain("justwatch");
+    expect((await api("GET", "/api/sync/progress")).running).toEqual([]);
     const popular = fake.jwBodies.filter((b) => b.operationName === "GetPopularTitles");
     expect(popular[0].variables.popularTitlesFilter).toMatchObject({ packages: ["nfx"], objectTypes: ["MOVIE"] });
     expect(popular.some((b) => b.variables.popularTitlesFilter.releaseYear.min === 2015 && b.variables.popularTitlesFilter.releaseYear.max === 2016)).toBe(true);

@@ -74,12 +74,12 @@ export class SyncManager {
   }
 
   async status() {
-    const out = [];
+    const out: { id: string; label: string; running: boolean; queued: boolean; progress: { phase: string; items: number; started_at: number; percent: number | null } | null; last: unknown }[] = [];
     for (const [id, label] of await this.jobs()) {
       const row = await env.db.get("SELECT * FROM sync_runs WHERE source=? ORDER BY started_at DESC LIMIT 1", [id]);
       const ctx = this.running.get(id);
       out.push({ id, label, running: !!ctx, queued: this.queued.has(id),
-        progress: ctx ? { phase: ctx.phase, items: ctx.items, started_at: ctx.started } : null, last: row || null });
+        progress: ctx ? { phase: ctx.phase, items: ctx.items, started_at: ctx.started, percent: ctx.percent } : null, last: row || null });
     }
     return out;
   }

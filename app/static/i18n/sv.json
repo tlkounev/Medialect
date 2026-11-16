@@ -1,4 +1,6 @@
 {
+"sync.note": "Hämtar data: {p}. Katalogen fylls på efter hand.", "sync.noteFirst": "Första datahämtningen: {p}. Det kan ta tiotals minuter; katalogen fylls på efter hand.",
+"cat.loading": "Data hämtas fortfarande, titlarna dyker upp snart.", "cat.dataBy": "Tillgänglighetsdata:",
 "nav.catalog": "Katalog", "nav.admin": "Administration", "logout": "Logga ut", "lang.choose": "Gränssnittets språk",
 "sync.badgeTitle": "Synkronisering – detaljer under administration",
 "search.ph": "Sök film eller serie…",

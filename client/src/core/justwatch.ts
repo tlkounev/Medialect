@@ -140,19 +140,24 @@ export async function sync(ctx: SyncContext): Promise<void> {
   const selected = new Map(cfg.providers.map((sn) => [sn, names.get(sn) || sn]));
   const seen = new Set<string>();
   let idx = 0;
+  const slots = selected.size * 2; // every service × (films, series) is one equal share of the progress
   for (const [provider, pname] of selected) {
     idx++;
-    for (const otype of ["MOVIE", "SHOW"]) {
-      const queue = windows();
+    for (const [tIdx, otype] of ["MOVIE", "SHOW"].entries()) {
+      const base = ((idx - 1) * 2 + tIdx) / slots;
+      const wins = windows();
+      const queue: [number, number, number][] = wins.map(([lo, hi]) => [lo, hi, 1 / wins.length]);
+      let done = 0;
       while (queue.length) {
-        const [lo, hi] = queue.shift()!;
-        ctx.progress(`${pname} (${idx}/${selected.size}): ${otype === "MOVIE" ? "filmy" : "seriály"} ${lo}–${hi}`);
+        const [lo, hi, w] = queue.shift()!;
+        ctx.progress(`${pname} (${idx}/${selected.size}): ${otype === "MOVIE" ? "filmy" : "seriály"} ${lo}–${hi}`, base + done / slots);
         const [entries, capped] = await fetchWindow(ctx, provider, otype, lo, hi, delayMs);
         if (capped && hi > lo) {
           const mid = Math.floor((lo + hi) / 2);
-          queue.unshift([lo, mid], [mid + 1, hi]);
+          queue.unshift([lo, mid, w / 2], [mid + 1, hi, w / 2]);
           continue;
         }
+        done += w;
         if (capped) { ctx.partial = true; ctx.note(`${pname} ${otype} ${lo}: víc než ${tuning.CAP} titulů, část chybí.`); }
         for (const e of entries) {
           if (seen.has(e.id)) continue;

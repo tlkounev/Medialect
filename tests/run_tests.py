@@ -176,6 +176,22 @@ def main():
         for path in ("/api/settings", "/api/sync/status", "/api/auth/token", "/api/justwatch/providers"):
             assert client.get(path).status_code == 401, path
         assert client.post("/api/sync").status_code == 401
+        # sync progress is public (catalogue notice) and minimal
+        pr = client.get("/api/sync/progress").json()
+        assert pr == {"running": [], "queued": 0, "first": True}, pr
+        from app.sources.base import SyncContext
+        c = SyncContext("x", {})
+        c.progress("a", 0.5)
+        assert c.percent == 50
+        c.step(1, 4)
+        assert c.percent == 25
+        c.progress("b", 0.5)
+        assert c.percent == 37
+        c.progress("c")
+        assert c.percent == 37 and c.phase == "c"
+        c.step(3, 4)
+        c.progress("d", 1.0)
+        assert c.percent == 99   # 100 % only when the job is really finished
         assert client.put("/api/settings", json={}).status_code == 401
         assert client.get("/api/auth/state").json()["configured"] is False
         assert client.post("/api/auth/setup", json={"password": "short"}).status_code == 400
@@ -231,6 +247,8 @@ def main():
             print(f"  {jid:22} {last['status']:8} items={last['items']}  {(last['message'] or '')[:90]!r}")
         assert all(l["status"] == "ok" for k, l in status.items() if k != "ratings"), status
         assert status["ratings"]["status"] in ("ok", "partial")  # ČSFD budget deliberately small
+        assert client.get("/api/sync/progress").json()["first"] is False
+        assert "justwatch" in client.get("/api/stats").json()["sources"]
 
         # JustWatch window splitting: 2010-2014 window had 2500 titles -> must be split, nothing lost
         n = sql("SELECT COUNT(DISTINCT title_id) FROM availability WHERE source='justwatch' AND provider='netflix'")[0][0]

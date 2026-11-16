@@ -1,4 +1,6 @@
 {
+"sync.note": "Veriler indiriliyor: {p}. Katalog giderek doluyor.", "sync.noteFirst": "İlk veri indirme: {p}. Onlarca dakika sürebilir; katalog giderek doluyor.",
+"cat.loading": "Veriler hâlâ indiriliyor, yapımlar yakında görünecek.", "cat.dataBy": "Erişilebilirlik verileri:",
 "nav.catalog": "Katalog", "nav.admin": "Yönetim", "logout": "Çıkış yap", "lang.choose": "Arayüz dili",
 "sync.badgeTitle": "Senkronizasyon – ayrıntılar yönetimde",
 "search.ph": "Film veya dizi ara…",

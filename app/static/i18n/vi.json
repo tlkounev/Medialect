@@ -1,4 +1,6 @@
 {
+"sync.note": "Đang tải dữ liệu: {p}. Danh mục sẽ được bổ sung dần.", "sync.noteFirst": "Lần tải dữ liệu đầu tiên: {p}. Có thể mất vài chục phút; danh mục sẽ được bổ sung dần.",
+"cat.loading": "Dữ liệu vẫn đang tải, các tựa phim sẽ sớm xuất hiện.", "cat.dataBy": "Dữ liệu khả dụng:",
 "nav.catalog": "Danh mục", "nav.admin": "Quản trị", "logout": "Đăng xuất", "lang.choose": "Ngôn ngữ giao diện",
 "sync.badgeTitle": "Đồng bộ – chi tiết trong Quản trị",
 "search.ph": "Tìm phim lẻ hoặc phim bộ…",

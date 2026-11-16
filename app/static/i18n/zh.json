@@ -1,4 +1,6 @@
 {
+"sync.note": "正在下载数据：{p}。目录会逐步补充。", "sync.noteFirst": "首次下载数据：{p}。可能需要几十分钟，目录会逐步补充。",
+"cat.loading": "数据仍在下载中，影片很快就会出现。", "cat.dataBy": "可用性数据：",
 "nav.catalog": "目录", "nav.admin": "管理", "logout": "退出登录", "lang.choose": "界面语言",
 "sync.badgeTitle": "同步 – 详情见管理页面",
 "search.ph": "搜索电影或剧集…",

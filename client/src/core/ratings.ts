@@ -26,12 +26,12 @@ export async function imdbDataset(ctx: SyncContext, force = false): Promise<void
   // the dataset is a few MB, so it is downloaded at most once a day; until the next download,
   // newly added titles keep the IMDb score JustWatch provided
   if (!force && now() - last < IMDB_MAX_AGE_S) return;
-  ctx.progress("IMDb: stahuji dataset");
+  ctx.progress("IMDb: stahuji dataset", 0);
   let r: Response;
   try { r = await env.fetch(urls.IMDB_RATINGS, { headers: { "User-Agent": userAgent() } }); }
   catch (e) { throw new SourceError(`IMDb: ${(e as Error).message}`); }
   if (!r.ok || !r.body) throw new SourceError(`IMDb dataset HTTP ${r.status}`);
-  ctx.progress(`IMDb: přiřazuji hodnocení (${wanted.size} titulů)`);
+  ctx.progress(`IMDb: přiřazuji hodnocení (${wanted.size} titulů)`, 0.5);
   const reader = r.body.pipeThrough(new DecompressionStream("gzip")).pipeThrough(new TextDecoderStream()).getReader();
   let buf = "", found = 0, header = true;
   const t = now();
@@ -90,7 +90,7 @@ export async function tmdb(ctx: SyncContext): Promise<void> {
   const headers: Record<string, string> = key.startsWith("eyJ") ? { Authorization: `Bearer ${key}` } : {};
   const auth: Record<string, string> = key.startsWith("eyJ") ? {} : { api_key: key };
   for (const [i, row] of rows.entries()) {
-    ctx.progress(`TMDB: ${i + 1}/${rows.length}`);
+    ctx.progress(`TMDB: ${i + 1}/${rows.length}`, (i + 1) / rows.length);
     const kind = row.type === "movie" ? "movie" : "tv";
     let id = kind === "movie" ? row.tmdb_movie : row.tmdb_tv;
     if (!id && row.imdb) {
@@ -117,7 +117,7 @@ export async function tmdb(ctx: SyncContext): Promise<void> {
 export async function tvmaze(ctx: SyncContext): Promise<void> {
   const rows = await due("tvmaze", Number(ctx.settings.ratings.refresh_days), ["imdb", "tvdb"], "show");
   for (const [i, row] of rows.entries()) {
-    ctx.progress(`TVmaze: ${i + 1}/${rows.length}`);
+    ctx.progress(`TVmaze: ${i + 1}/${rows.length}`, (i + 1) / rows.length);
     let show: any = null;
     for (const [param, value] of [["imdb", row.imdb], ["thetvdb", row.tvdb]]) {
       if (!value) continue;
@@ -139,7 +139,7 @@ export async function omdb(ctx: SyncContext): Promise<void> {
   const rows = await due("omdb", Number(cfg.refresh_days), ["imdb"]);
   const budget = Number(cfg.omdb_daily_budget);
   for (const [i, row] of rows.entries()) {
-    ctx.progress(`OMDb: ${i + 1}/${rows.length}`);
+    ctx.progress(`OMDb: ${i + 1}/${rows.length}`, (i + 1) / rows.length);
     if (!(await env.db.budgetTake("omdb", budget))) {
       ctx.partial = true; ctx.note(`OMDb: denní limit ${budget} dotazů vyčerpán, pokračuje se zítra.`); return;
     }
@@ -181,7 +181,7 @@ export async function mdblist(ctx: SyncContext): Promise<void> {
       ORDER BY r.updated_at IS NOT NULL, r.updated_at`, [refresh]);
   const budget = Number(cfg.mdblist_daily_budget);
   for (const [i, row] of rows.entries()) {
-    ctx.progress(`MDBList: ${i + 1}/${rows.length}`);
+    ctx.progress(`MDBList: ${i + 1}/${rows.length}`, (i + 1) / rows.length);
     if (!(await env.db.budgetTake("mdblist", budget))) { ctx.partial = true; ctx.note("MDBList: denní limit vyčerpán."); return; }
     const r = await http(`${urls.MDBLIST}/imdb/${row.type === "movie" ? "movie" : "show"}/${row.imdb}`, { params: { apikey: key } });
     if (r.status === 429) { ctx.partial = true; ctx.note("MDBList: limit API (429)."); return; }
@@ -264,7 +264,7 @@ export async function csfd(ctx: SyncContext): Promise<void> {
   const budget = Number(cfg.csfd_daily_budget);
   let errors = 0;
   for (const [i, row] of rows.entries()) {
-    ctx.progress(`ČSFD: ${i + 1}/${rows.length}`);
+    ctx.progress(`ČSFD: ${i + 1}/${rows.length}`, (i + 1) / rows.length);
     if (!(await env.db.budgetTake("csfd", budget))) { ctx.partial = true; ctx.note(`ČSFD: denní limit ${budget} titulů vyčerpán.`); return; }
     try {
       let cid: string | null = row.csfd_id;
@@ -301,8 +301,9 @@ export async function sync(ctx: SyncContext): Promise<void> {
     ["TMDB", tmdb, cfg.tmdb_api_key], ["TVmaze", tvmaze, cfg.tvmaze], ["OMDb", omdb, cfg.omdb_api_key],
     ["ČSFD", csfd, cfg.csfd],
   ];
-  for (const [name, fn, on] of steps) {
-    if (!on) continue;
+  const enabled = steps.filter(([, , on]) => on);
+  for (const [k, [name, fn]] of enabled.entries()) {
+    ctx.step(k, enabled.length);
     try { await fn(ctx); }
     catch (e) { ctx.partial = true; ctx.note(e instanceof SourceError ? e.message : `${name}: ${(e as Error)?.message || e}`); }
   }

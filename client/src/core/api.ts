@@ -75,6 +75,13 @@ export async function handle(method: string, path: string, q: URLSearchParams, b
     case "GET /api/sync/status":
       return { jobs: await manager.status(), last_full: await db.kvGet("sync.last_full", 0), running: manager.running.size > 0,
         budgets: Object.fromEntries(await Promise.all(["sa", "csfd", "mdblist", "omdb"].map(async (n) => [n, await db.budgetUsed(n)]))) };
+    case "GET /api/sync/progress":
+    {
+      const jobs = await manager.status();
+      return { running: jobs.filter((j) => j.running).map((j) => ({ id: j.id, label: j.label, running: true,
+        progress: { phase: j.progress!.phase, percent: j.progress!.percent } })),
+      queued: jobs.filter((j) => j.queued).length, first: !(await db.kvGet("sync.last_full", 0)) };
+    }
     case "POST /api/sync":
       manager.trigger(q.get("job"));
       return { ok: true };
