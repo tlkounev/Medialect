@@ -1,4 +1,5 @@
 {
+"app.download": "Stahuji verzi {v} v prohlížeči – po stažení soubor otevři a nainstaluj.",
 "job.catalog": "Katalog",
 "upd.title": "Aktualizace aplikace", "upd.check": "Zkontrolovat aktualizace",
 "upd.current": "Používáš nejnovější verzi {v}.", "upd.unknown": "Novou verzi se nepodařilo zjistit.",

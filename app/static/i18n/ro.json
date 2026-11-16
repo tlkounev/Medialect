@@ -1,4 +1,5 @@
 {
+"app.download": "Se descarcă versiunea {v} în browser – la final deschide fișierul pentru instalare.",
 "job.catalog": "Catalog",
 "upd.title": "Actualizări aplicație", "upd.check": "Caută actualizări",
 "upd.current": "Folosești cea mai nouă versiune {v}.", "upd.unknown": "Nu s-a putut verifica o versiune nouă.",

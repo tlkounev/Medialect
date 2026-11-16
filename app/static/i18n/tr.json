@@ -1,4 +1,5 @@
 {
+"app.download": "{v} sürümü tarayıcıda indiriliyor – bitince dosyayı açıp yükleyin.",
 "job.catalog": "Katalog",
 "upd.title": "Uygulama güncellemeleri", "upd.check": "Güncellemeleri denetle",
 "upd.current": "En son sürümü ({v}) kullanıyorsunuz.", "upd.unknown": "Yeni sürüm denetlenemedi.",

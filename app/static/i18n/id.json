@@ -1,4 +1,5 @@
 {
+"app.download": "Mengunduh versi {v} di browser – buka file setelah selesai untuk memasangnya.",
 "job.catalog": "Katalog",
 "upd.title": "Pembaruan aplikasi", "upd.check": "Periksa pembaruan",
 "upd.current": "Anda menggunakan versi terbaru {v}.", "upd.unknown": "Tidak dapat memeriksa versi baru.",

@@ -1,4 +1,5 @@
 {
+"app.download": "Versjon {v} lastes ned i nettleseren – åpne filen etterpå for å installere den.",
 "job.catalog": "Katalog",
 "upd.title": "Appoppdateringer", "upd.check": "Se etter oppdateringer",
 "upd.current": "Du har nyeste versjon {v}.", "upd.unknown": "Kunne ikke se etter ny versjon.",

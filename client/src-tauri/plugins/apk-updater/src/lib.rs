@@ -1,9 +1,7 @@
 //! Android-only helpers.
-//! - install: downloads a newer APK and hands it to the system PackageInstaller.
 //! - background: foreground service with a progress notification while a synchronisation runs.
 //! - sleep: a pause that is not throttled when the WebView is hidden.
-//! On Android 12+ the update installs without a prompt once the app may install apps
-//! (it is updating itself); older systems show the usual confirmation.
+//! App updates are downloaded in the browser and installed by the system (no REQUEST_INSTALL_PACKAGES).
 use serde::Deserialize;
 use tauri::{
     plugin::{Builder, TauriPlugin},
@@ -12,12 +10,6 @@ use tauri::{
 
 mod error;
 pub use error::{Error, Result};
-
-#[derive(Debug, Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InstallRequest {
-    pub url: String,
-}
 
 #[derive(Debug, Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -40,18 +32,6 @@ pub struct ApkUpdater<R: Runtime>(tauri::plugin::PluginHandle<R>);
 pub struct ApkUpdater<R: Runtime>(std::marker::PhantomData<fn() -> R>);
 
 impl<R: Runtime> ApkUpdater<R> {
-    pub fn install(&self, req: InstallRequest) -> Result<()> {
-        #[cfg(mobile)]
-        {
-            self.0.run_mobile_plugin::<()>("install", req).map_err(Into::into)
-        }
-        #[cfg(not(mobile))]
-        {
-            let _ = req;
-            Err(Error::Unsupported)
-        }
-    }
-
     pub fn background(&self, req: BackgroundRequest) -> Result<()> {
         #[cfg(mobile)]
         {
@@ -63,11 +43,6 @@ impl<R: Runtime> ApkUpdater<R> {
             Err(Error::Unsupported)
         }
     }
-}
-
-#[tauri::command]
-async fn install<R: Runtime>(app: tauri::AppHandle<R>, url: String) -> Result<()> {
-    app.state::<ApkUpdater<R>>().install(InstallRequest { url })
 }
 
 #[tauri::command]
@@ -84,7 +59,7 @@ async fn sleep(ms: u64) -> Result<()> {
 
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("apk-updater")
-        .invoke_handler(tauri::generate_handler![install, background, sleep])
+        .invoke_handler(tauri::generate_handler![background, sleep])
         .setup(|app, api| {
             #[cfg(target_os = "android")]
             let updater = ApkUpdater(api.register_android_plugin("com.plugin.apk_updater", "ApkUpdaterPlugin")?);
