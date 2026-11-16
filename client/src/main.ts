@@ -53,6 +53,9 @@ async function start(): Promise<void> {
     env.db = new Db(serialized(await browserDriver()));
   }
   await env.db.open();
+  // the app was closed or killed during a synchronisation: that run is over (JustWatch continues where it stopped)
+  await env.db.run("UPDATE sync_runs SET status='error', message=?, finished_at=? WHERE status='running'",
+    ["Přerušeno zavřením aplikace", Date.now() / 1000]);
   installFetchShim();
   (await import("./background")).initBackground();   // before anything can start a sync
   document.addEventListener("click", (e) => {

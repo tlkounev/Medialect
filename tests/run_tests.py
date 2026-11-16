@@ -291,6 +291,38 @@ def main():
         assert n == 2502, n
         assert any(c[2] == 2010 and c[3] == 2012 for c in JW_CALLS), "window was not split"
 
+        # services in the user's order (priority), newest titles first
+        order = [c[0] for c in JW_CALLS]
+        prov_order = list(dict.fromkeys(order))
+        assert prov_order == json.loads(sql("SELECT value FROM kv WHERE key='settings'")[0][0])["justwatch"]["providers"], prov_order
+        assert JW_CALLS[0][2] > 2025, JW_CALLS[0]
+
+        # an interrupted run continues where it stopped
+        justwatch.RETRY_SCALE = 0
+        real_popular, calls = justwatch.jw.popular, {"n": 0}
+        def flaky(*a):
+            calls["n"] += 1
+            if calls["n"] > 6:
+                raise ConnectionError("error sending request for url")
+            return real_popular(*a)
+        justwatch.jw.popular = flaky
+        JW_CALLS.clear()
+        st_run = run_sync(client, "justwatch")
+        jw_last = next(j for j in st_run["jobs"] if j["id"] == "justwatch")["last"]
+        assert jw_last["status"] == "error" and "naváže" in jw_last["message"], jw_last
+        assert sql("SELECT 1 FROM kv WHERE key='jw.resume'")
+        first = list(JW_CALLS)
+        justwatch.jw.popular = real_popular
+        JW_CALLS.clear()
+        st_run = run_sync(client, "justwatch")
+        jw_last = next(j for j in st_run["jobs"] if j["id"] == "justwatch")["last"]
+        assert jw_last["status"] == "ok" and "Navazuji" in jw_last["message"], jw_last
+        repeated = [c for c in first if c in JW_CALLS]
+        assert len(repeated) <= 1, repeated          # only the request that was running when it broke
+        assert not sql("SELECT 1 FROM kv WHERE key='jw.resume'")
+        n = sql("SELECT COUNT(DISTINCT title_id) FROM availability WHERE source='justwatch' AND provider='netflix'")[0][0]
+        assert n == 2502, n
+
         # SA cursor walk
         cursors = [c.get("cursor") for c in mock_servers.SA_CALLS if c["show_type"] == "movie"]
         assert cursors and cursors == [None, "c2"] * (len(cursors) // 2), cursors  # each walk: page 1, then cursor

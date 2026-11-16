@@ -138,9 +138,22 @@ class SyncManager:
                 last = await db.kv_get("sync.last_full", 0)
                 if time.time() - last >= interval and not self._full_lock.locked():
                     await self.run()
+                elif await self._jw_unfinished(s):
+                    self.trigger("justwatch")
             except Exception:  # noqa: BLE001
                 log.error("scheduler: %s", traceback.format_exc())
             await asyncio.sleep(60)
+
+    RESUME_AFTER_S = 10 * 60
+
+    async def _jw_unfinished(self, s: dict) -> bool:
+        """An interrupted JustWatch run is continued on its own 10 minutes after it stopped."""
+        if self._full_lock.locked() or "justwatch" in self.running or not s["justwatch"].get("enabled") \
+                or not s["justwatch"].get("providers") or not await justwatch.resume_pending():
+            return False
+        row = await db.fetchone(
+            "SELECT finished_at FROM sync_runs WHERE source='justwatch' ORDER BY started_at DESC LIMIT 1")
+        return bool(row and row["finished_at"] and time.time() - row["finished_at"] >= self.RESUME_AFTER_S)
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._loop())
