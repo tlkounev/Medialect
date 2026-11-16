@@ -201,6 +201,40 @@ describe("app core", () => {
     expect((await api("GET", "/api/catalog?q=matrix")).items.length).toBe(0);   // 1999 window failed
   });
 
+  it("JustWatch: services in the user's order, newest first, an interrupted run continues where it stopped", async () => {
+    const s = await settingsMod.load();
+    s.justwatch.enabled = true; s.justwatch.providers = ["opl", "nfx"]; s.justwatch.request_delay_s = 0;   // not alphabetical
+    const popular = () => fake.jwBodies.filter((b) => b.operationName === "GetPopularTitles");
+    const key = (b: any) => `${b.variables.popularTitlesFilter.packages[0]}|${b.variables.popularTitlesFilter.objectTypes[0]}|` +
+      `${b.variables.popularTitlesFilter.releaseYear.min}|${b.variables.popularTitlesFilter.releaseYear.max}|${b.variables.offset}`;
+
+    // first run: the network goes away after 10 requests
+    const real = env.fetch;
+    let n = 0;
+    env.fetch = async (url, init) => {
+      const b = init?.body ? JSON.parse(String(init.body)) : null;
+      if (b?.operationName === "GetPopularTitles" && ++n > 10) throw new Error("error sending request for url");
+      return real(url, init);
+    };
+    await expect(justwatch.sync(new SyncContext("justwatch", s))).rejects.toThrow(/příště naváže/);
+    const first = popular().slice(0, 10);
+    expect(first[0].variables.popularTitlesFilter.packages[0]).toBe("opl");          // priority, not alphabet
+    expect(first[0].variables.popularTitlesFilter.releaseYear.min).toBe(new Date().getFullYear() + 2);   // newest first
+    const okKeys = new Set(first.map(key));
+
+    // second run: continues, nothing finished is fetched again, the checkpoint is gone at the end
+    env.fetch = real;
+    const before = popular().length;
+    const ctx = new SyncContext("justwatch", s);
+    await justwatch.sync(ctx);
+    expect(ctx.notes.join()).toContain("Navazuji");
+    const second = popular().slice(before);
+    const finishedFirst = [...okKeys].filter((k) => !second.some((b) => key(b) === k));
+    expect(finishedFirst.length).toBeGreaterThanOrEqual(8);   // the window being fetched when it broke is repeated
+    expect(await env.db.kvGet("jw.resume", null)).toBeNull();
+    expect((await api("GET", "/api/catalog?q=matrix")).items.length).toBe(1);
+  });
+
   it("keeps two works of the same name apart and repairs old mixes", async () => {
     const st = await import("../src/core/store");
     const drama = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2020, ids: { jw: "tsX1", tmdb_tv: "97547" } });

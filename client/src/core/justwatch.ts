@@ -1,6 +1,7 @@
 // JustWatch (unofficial GraphQL), port of app/sources/justwatch.py.
-// JustWatch returns at most 1999 titles per query, so each provider's catalogue is walked in
-// release-year windows per object type; a window that hits the cap is split in half.
+// Services in the user's order (priority), newest titles first. JustWatch returns at most 1999 titles per
+// query, so each catalogue is walked in release-year windows per object type; a window that hits the cap is
+// split in half. Finished windows are recorded, so an interrupted run continues where it stopped.
 import { env, http, SourceError } from "./env";
 import { POPULAR_QUERY, PROVIDERS_QUERY } from "./jw_queries";
 import { justwatchTech, langs, providerKey, qualityFromLabel } from "./quality";
@@ -14,12 +15,24 @@ const SOURCE = "justwatch";
 export const tuning = { PAGE: 50, CAP: 1999, RETRY_S: [3, 10, 20, 40] };
 const KEEP: Record<string, string> = { FLATRATE: "flatrate", FREE: "free", ADS: "ads", FAST: "free" };
 
+const RESUME_KEY = "jw.resume";
+const RESUME_MAX_AGE_S = 48 * 3600;      // an older unfinished run starts again (its data would be stale)
+const MAX_FAILED_WINDOWS = 3;            // this many unreachable windows in a row: the network is gone, stop
+
+interface ResumeState { scope: string; started: number; done: string[]; split: string[] }
+
+/** Newest first: the titles people look for arrive first. */
 function windows(): [number, number][] {
   const year = new Date().getFullYear();
-  const w: [number, number][] = [[1900, 1969], [1970, 1989], [1990, 1999], [2000, 2009], [2010, 2014], [2015, 2018],
-    [2019, 2021], [2022, 2023]];
-  for (let y = 2024; y <= year + 2; y++) w.push([y, y]);
-  return w;
+  const w: [number, number][] = [];
+  for (let y = year + 2; y >= 2024; y--) w.push([y, y]);
+  return w.concat([[2022, 2023], [2019, 2021], [2015, 2018], [2010, 2014], [2000, 2009], [1990, 1999], [1970, 1989], [1900, 1969]]);
+}
+
+/** The checkpoint of an unfinished run, if it can still be continued. */
+export async function resumePending(): Promise<ResumeState | null> {
+  const s = await env.db.kvGet<ResumeState | null>(RESUME_KEY, null);
+  return s && Date.now() / 1000 - s.started <= RESUME_MAX_AGE_S ? s : null;
 }
 
 async function gql(body: unknown): Promise<any> {
@@ -140,10 +153,23 @@ export async function sync(ctx: SyncContext): Promise<void> {
   const delayMs = Math.max(0, Number(cfg.request_delay_s ?? 0.5)) * 1000;
   const names = new Map((await listProviders(ctx.settings.country)).map((p) => [p.short_name, p.name]));
   const selected = new Map(cfg.providers.map((sn) => [sn, names.get(sn) || sn]));
+  // continue an interrupted run of the same country and language; done windows are not fetched again
+  const scope = `${ctx.settings.country}|${ctx.settings.language}`;
+  let state = await resumePending();
+  if (state && state.scope === scope) ctx.note(`Navazuji na přerušené stahování (${state.done.length} hotových částí).`);
+  else { state = { scope, started: ctx.started, done: [], split: [] }; await env.db.kvSet(RESUME_KEY, state); }
+  const st = state;
+  const doneKeys = new Set(st.done), splitKeys = new Set(st.split);
+  const mark = async (kind: "done" | "split", key: string) => {
+    (kind === "done" ? doneKeys : splitKeys).add(key);
+    st[kind].push(key);
+    await env.db.kvSet(RESUME_KEY, st);
+  };
+
   const seen = new Set<string>();
-  let idx = 0, failures = 0;
+  let idx = 0, failures = 0, failed = 0;
   const slots = selected.size * 2; // every service × (films, series) is one equal share of the progress
-  for (const [provider, pname] of selected) {
+  for (const [provider, pname] of selected) {   // the user's order = priority
     idx++;
     for (const [tIdx, otype] of ["MOVIE", "SHOW"].entries()) {
       const base = ((idx - 1) * 2 + tIdx) / slots;
@@ -152,22 +178,34 @@ export async function sync(ctx: SyncContext): Promise<void> {
       let done = 0;
       while (queue.length) {
         const [lo, hi, w] = queue.shift()!;
-        ctx.progress(`${pname} (${idx}/${selected.size}): ${otype === "MOVIE" ? "filmy" : "seriály"} ${lo}–${hi}`, base + done / slots);
+        const key = `${provider}|${otype}|${lo}|${hi}`;
+        if (doneKeys.has(key)) { done += w; continue; }
+        if (splitKeys.has(key)) {
+          const mid = Math.floor((lo + hi) / 2);
+          queue.unshift([mid + 1, hi, w / 2], [lo, mid, w / 2]);
+          continue;
+        }
+        const kind = otype === "MOVIE" ? "filmy" : "seriály";
+        ctx.progress(`${pname} (${idx}/${selected.size}): ${kind} ${lo}–${hi}`, base + done / slots);
         let entries: any[], capped: boolean;
         try {
           [entries, capped] = await fetchWindow(ctx, provider, otype, lo, hi, delayMs);
           failures = 0;
         } catch (e) {
-          // one unreachable window must not throw away the whole run; give up only when the network is gone
-          if (!(e instanceof SourceError) || ++failures >= 3) throw e;
+          // one unreachable window does not throw the run away: it stays unfinished and the next run
+          // (started automatically) fetches only what is missing
+          if (!(e instanceof SourceError)) throw e;
+          failed++;
+          if (++failures >= MAX_FAILED_WINDOWS) throw new SourceError(`${e.message} – stahování přerušeno, příště naváže.`);
           ctx.partial = true;
-          ctx.note(`${pname} ${otype === "MOVIE" ? "filmy" : "seriály"} ${lo}–${hi}: ${e.message}`);
+          ctx.note(`${pname} ${kind} ${lo}–${hi}: ${e.message}`);
           done += w;
           continue;
         }
         if (capped && hi > lo) {
           const mid = Math.floor((lo + hi) / 2);
-          queue.unshift([lo, mid, w / 2], [mid + 1, hi, w / 2]);
+          queue.unshift([mid + 1, hi, w / 2], [lo, mid, w / 2]);
+          await mark("split", key);
           continue;
         }
         done += w;
@@ -177,9 +215,13 @@ export async function sync(ctx: SyncContext): Promise<void> {
           seen.add(e.id);
           await storeEntry(ctx, e, selected);
         }
+        await mark("done", key);
       }
     }
     ctx.note(`${pname}: hotovo (${seen.size} titulů celkem).`);
   }
-  if (!ctx.partial) ctx.note(`Odstraněno ${await store.removeStale(SOURCE, ctx.started)} neaktuálních nabídek.`);
+  if (failed) { ctx.note(`Nestaženo ${failed} částí, doplní se automaticky.`); return; }
+  await env.db.run("DELETE FROM kv WHERE key=?", [RESUME_KEY]);
+  // offers not seen since the run began (including its interrupted part) have left the service
+  if (!ctx.partial) ctx.note(`Odstraněno ${await store.removeStale(SOURCE, st.started)} neaktuálních nabídek.`);
 }

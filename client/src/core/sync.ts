@@ -101,6 +101,14 @@ export class SyncManager {
     return out;
   }
 
+  /** An interrupted JustWatch run is continued on its own 10 minutes after it stopped. */
+  private async jwUnfinished(s: settingsMod.Settings): Promise<boolean> {
+    if (this.fullRunning || this.running.has("justwatch") || !s.justwatch.enabled || !s.justwatch.providers.length) return false;
+    if (!(await justwatch.resumePending())) return false;
+    const row = await env.db.get("SELECT finished_at FROM sync_runs WHERE source='justwatch' ORDER BY started_at DESC LIMIT 1");
+    return !!row?.finished_at && now() - row.finished_at >= 600;
+  }
+
   /** While the app is open: run a full sync when the interval has passed (checked every minute). */
   start(): void {
     const tick = async () => {
@@ -108,6 +116,7 @@ export class SyncManager {
         const s = await settingsMod.load();
         const last = await env.db.kvGet<number>("sync.last_full", 0);
         if (now() - last >= Math.max(1, Number(s.sync_interval_hours)) * 3600 && !this.fullRunning) await this.run();
+        else if (await this.jwUnfinished(s)) this.trigger("justwatch");
       } catch (e) { console.error("scheduler", e); }
     };
     setTimeout(tick, 3000);
