@@ -1,4 +1,6 @@
 {
+"upd.title": "Appuppdateringar", "upd.check": "Sök efter uppdateringar",
+"upd.current": "Du har den senaste versionen {v}.", "upd.unknown": "Det gick inte att söka efter en ny version.",
 "app.updateAvailable": "Ny version {v} finns tillgänglig.", "app.updateNow": "Uppdatera", "app.later": "Senare",
 "sync.note": "Hämtar data: {p}. Katalogen fylls på efter hand.", "sync.noteFirst": "Första datahämtningen: {p}. Det kan ta tiotals minuter; katalogen fylls på efter hand.",
 "cat.loading": "Data hämtas fortfarande, titlarna dyker upp snart.", "cat.dataBy": "Tillgänglighetsdata:",

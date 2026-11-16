@@ -1,4 +1,6 @@
 {
+"upd.title": "Mises à jour de l'application", "upd.check": "Rechercher des mises à jour",
+"upd.current": "Vous utilisez la dernière version {v}.", "upd.unknown": "Impossible de vérifier la présence d'une nouvelle version.",
 "app.updateAvailable": "Une nouvelle version {v} est disponible.", "app.updateNow": "Mettre à jour", "app.later": "Plus tard",
 "sync.note": "Téléchargement des données : {p}. Le catalogue se remplit au fur et à mesure.", "sync.noteFirst": "Premier téléchargement des données : {p}. Cela peut prendre des dizaines de minutes ; le catalogue se remplit au fur et à mesure.",
 "cat.loading": "Les données sont encore en cours de téléchargement, les titres apparaîtront bientôt.", "cat.dataBy": "Données de disponibilité :",

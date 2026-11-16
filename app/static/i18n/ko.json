@@ -1,4 +1,6 @@
 {
+"upd.title": "앱 업데이트", "upd.check": "업데이트 확인",
+"upd.current": "최신 버전 {v}을(를) 사용 중입니다.", "upd.unknown": "새 버전을 확인할 수 없습니다.",
 "app.updateAvailable": "새 버전 {v}을(를) 사용할 수 있습니다.", "app.updateNow": "업데이트", "app.later": "나중에",
 "sync.note": "데이터 다운로드 중: {p}. 카탈로그가 점차 채워집니다.", "sync.noteFirst": "첫 데이터 다운로드: {p}. 수십 분이 걸릴 수 있으며 카탈로그가 점차 채워집니다.",
 "cat.loading": "데이터를 아직 다운로드 중입니다. 곧 작품이 표시됩니다.", "cat.dataBy": "시청 가능 정보:",

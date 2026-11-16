@@ -1,4 +1,6 @@
 {
+"upd.title": "Actualizări aplicație", "upd.check": "Caută actualizări",
+"upd.current": "Folosești cea mai nouă versiune {v}.", "upd.unknown": "Nu s-a putut verifica o versiune nouă.",
 "app.updateAvailable": "Este disponibilă versiunea nouă {v}.", "app.updateNow": "Actualizează", "app.later": "Mai târziu",
 "sync.note": "Se descarcă datele: {p}. Catalogul se completează treptat.", "sync.noteFirst": "Prima descărcare a datelor: {p}. Poate dura zeci de minute; catalogul se completează treptat.",
 "cat.loading": "Datele încă se descarcă, titlurile vor apărea în curând.", "cat.dataBy": "Date de disponibilitate:",

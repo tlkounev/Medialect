@@ -1,4 +1,6 @@
 {
+"upd.title": "アプリの更新", "upd.check": "更新を確認",
+"upd.current": "最新バージョン {v} を使用しています。", "upd.unknown": "新しいバージョンを確認できませんでした。",
 "app.updateAvailable": "新しいバージョン {v} があります。", "app.updateNow": "更新", "app.later": "後で",
 "sync.note": "データをダウンロード中: {p}。カタログは順次追加されます。", "sync.noteFirst": "初回データダウンロード: {p}。数十分かかる場合があります。カタログは順次追加されます。",
 "cat.loading": "データをダウンロード中です。まもなく作品が表示されます。", "cat.dataBy": "配信状況データ:",

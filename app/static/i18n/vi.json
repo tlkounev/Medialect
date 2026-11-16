@@ -1,4 +1,6 @@
 {
+"upd.title": "Cập nhật ứng dụng", "upd.check": "Kiểm tra cập nhật",
+"upd.current": "Bạn đang dùng phiên bản mới nhất {v}.", "upd.unknown": "Không thể kiểm tra phiên bản mới.",
 "app.updateAvailable": "Đã có phiên bản mới {v}.", "app.updateNow": "Cập nhật", "app.later": "Để sau",
 "sync.note": "Đang tải dữ liệu: {p}. Danh mục sẽ được bổ sung dần.", "sync.noteFirst": "Lần tải dữ liệu đầu tiên: {p}. Có thể mất vài chục phút; danh mục sẽ được bổ sung dần.",
 "cat.loading": "Dữ liệu vẫn đang tải, các tựa phim sẽ sớm xuất hiện.", "cat.dataBy": "Dữ liệu khả dụng:",

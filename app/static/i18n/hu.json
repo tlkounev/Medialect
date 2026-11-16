@@ -1,4 +1,6 @@
 {
+"upd.title": "Alkalmazásfrissítések", "upd.check": "Frissítések keresése",
+"upd.current": "A legújabb verziót ({v}) használod.", "upd.unknown": "Nem sikerült új verziót keresni.",
 "app.updateAvailable": "Elérhető az új {v} verzió.", "app.updateNow": "Frissítés", "app.later": "Később",
 "sync.note": "Adatok letöltése: {p}. A katalógus folyamatosan bővül.", "sync.noteFirst": "Első adatletöltés: {p}. Akár több tíz percig is tarthat; a katalógus folyamatosan bővül.",
 "cat.loading": "Az adatok még töltődnek, a címek hamarosan megjelennek.", "cat.dataBy": "Elérhetőségi adatok:",

@@ -1,4 +1,6 @@
 {
+"upd.title": "Ažuriranja aplikacije", "upd.check": "Provjeri ažuriranja",
+"upd.current": "Koristiš najnoviju verziju {v}.", "upd.unknown": "Nije moguće provjeriti novu verziju.",
 "app.updateAvailable": "Dostupna je nova verzija {v}.", "app.updateNow": "Ažuriraj", "app.later": "Kasnije",
 "sync.note": "Preuzimanje podataka: {p}. Katalog se postupno popunjava.", "sync.noteFirst": "Prvo preuzimanje podataka: {p}. Može trajati desetke minuta; katalog se postupno popunjava.",
 "cat.loading": "Podaci se još preuzimaju, naslovi će se uskoro pojaviti.", "cat.dataBy": "Podaci o dostupnosti:",

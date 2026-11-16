@@ -1,88 +1,106 @@
 // Updates from GitHub releases: the app announces a new version, the user decides whether to install it.
+// A declined version is not offered again automatically; Settings → App updates can install it any time.
 // Windows + Linux AppImage: Tauri updater (signed latest.json in the release), then restart.
-// Android (phone, tablet, Google TV): the apk-updater plugin downloads the APK and installs it.
+// Android (phone, tablet, Google TV): the apk-updater plugin downloads the APK; Android asks for confirmation.
 import { handle } from "./core/api";
 import { env } from "./core/env";
 
 const CHECK_EVERY_MS = 6 * 3600 * 1000;
-let busy = false;
-const tried = new Set<string>();      // versions already offered in this run (do not nag after "Later")
+const DECLINED_KEY = "medialect.update.declined";
+const isAndroid = () => /Android/i.test(navigator.userAgent);
+
+interface Update { version: string; install: () => Promise<void> }
+
+let toast: (t: string) => void = () => {};
+let found: Update | null = null;
+let checking = false;
 
 const tr = (key: string, vars: Record<string, unknown>, fallback: string) => {
   const t = (window as any).t;
   return typeof t === "function" ? t(key, vars) : fallback;
 };
+const $ = (sel: string) => document.querySelector(sel) as HTMLElement | null;
+const declined = () => { try { return localStorage.getItem(DECLINED_KEY); } catch { return null; } };
+const decline = (v: string) => { try { localStorage.setItem(DECLINED_KEY, v); } catch { /* ignore */ } };
 
-/** Bottom bar "New version X is available [Update] [Later]"; resolves true when the user wants it. */
-function offer(version: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    document.querySelector(".update-bar")?.remove();
-    const bar = document.createElement("div");
-    bar.className = "update-bar";
-    bar.setAttribute("role", "dialog");
-    const text = document.createElement("span");
-    text.textContent = tr("app.updateAvailable", { v: version }, `New version ${version} is available.`);
-    const yes = document.createElement("button");
-    yes.textContent = tr("app.updateNow", {}, "Update");
-    const no = document.createElement("button");
-    no.className = "ghost";
-    no.textContent = tr("app.later", {}, "Later");
-    yes.onclick = () => { bar.remove(); resolve(true); };
-    no.onclick = () => { bar.remove(); resolve(false); };
-    bar.append(text, yes, no);
-    document.body.appendChild(bar);
-  });
-}
-
-function say(key: string, vars: Record<string, unknown>, fallback: string, toast: (t: string) => void): void {
-  const t = (window as any).t;
-  toast(typeof t === "function" ? t(key, vars) : fallback);
-}
-
-async function android(toast: (t: string) => void): Promise<void> {
-  const st: any = await handle("GET", "/api/version", new URLSearchParams("refresh=1"), undefined);
-  if (st.state !== "update" || !st.latest || tried.has(st.latest)) return;
-  tried.add(st.latest);
-  if (!(await offer(st.latest))) return;
-  const url = `https://github.com/${env.repo}/releases/download/app-v${st.latest}/Medialect_${st.latest}_android.apk`;
-  say("app.updating", { v: st.latest }, `Updating to ${st.latest}…`, toast);
-  const { invoke } = await import("@tauri-apps/api/core");
-  try {
-    await invoke("plugin:apk-updater|install", { url });
-  } catch (e) {
-    say("app.updateFailed", { e: String(e) }, `Update failed: ${e}`, toast);
+async function find(): Promise<Update | null> {
+  if (isAndroid()) {
+    const st: any = await handle("GET", "/api/version", new URLSearchParams("refresh=1"), undefined);
+    if (st.error) throw new Error(st.error);
+    if (st.state !== "update" || !st.latest) return null;
+    const version = String(st.latest);
+    const url = `https://github.com/${env.repo}/releases/download/app-v${version}/Medialect_${version}_android.apk`;
+    return { version, install: async () => {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("plugin:apk-updater|install", { url });
+    } };
   }
-}
-
-async function desktop(toast: (t: string) => void): Promise<void> {
   const { check } = await import("@tauri-apps/plugin-updater");
   const update = await check({ timeout: 30000 });
-  if (!update || tried.has(update.version)) return;
-  tried.add(update.version);
-  if (!(await offer(update.version))) return;
-  say("app.updating", { v: update.version }, `Updating to ${update.version}…`, toast);
-  try {
+  if (!update) return null;
+  return { version: update.version, install: async () => {
     await update.downloadAndInstall();
     const { relaunch } = await import("@tauri-apps/plugin-process");
     await relaunch();
+  } };
+}
+
+async function install(): Promise<void> {
+  if (!found) return;
+  $("#updateBar")?.classList.add("hidden");
+  toast(tr("app.updating", { v: found.version }, `Updating to ${found.version}…`));
+  try {
+    await found.install();
   } catch (e) {
-    // e.g. installed from .deb/.rpm: those are updated by the package manager, the version badge shows the new release
-    console.warn("update", e);
+    // desktop .deb/.rpm installs are updated by the package manager
+    toast(tr("app.updateFailed", { e: String(e) }, `Update failed: ${e}`));
   }
 }
 
-export function startAutoUpdates(toast: (t: string) => void): void {
+/** Settings → App updates: current state and the install button. */
+function renderSettings(error = false): void {
+  const state = $("#updState"), btn = $("#updInstall");
+  if (!state || !btn) return;
+  if (found) {
+    state.textContent = tr("app.updateAvailable", { v: found.version }, `New version ${found.version} is available.`);
+    btn.textContent = `${tr("app.updateNow", {}, "Update")} → ${found.version}`;
+  } else {
+    state.textContent = error ? tr("upd.unknown", {}, "Could not check for a new version.")
+      : tr("upd.current", { v: env.version }, `You are on the latest version ${env.version}.`);
+  }
+  btn.classList.toggle("hidden", !found);
+}
+
+async function run(manual: boolean): Promise<void> {
+  if (checking) return;
+  checking = true;
+  let error = false;
+  try {
+    found = await find();
+  } catch (e) {
+    console.warn("update check", e);
+    error = true;
+  } finally { checking = false; }
+  renderSettings(error);
+  const bar = $("#updateBar");
+  if (found && bar && (manual || declined() !== found.version)) {
+    bar.querySelector("span")!.textContent =
+      tr("app.updateAvailable", { v: found.version }, `New version ${found.version} is available.`);
+    bar.classList.remove("hidden");
+  }
+}
+
+export function startAutoUpdates(showToast: (t: string) => void): void {
   if (!(window as any).__TAURI_INTERNALS__) return;
-  const run = async () => {
-    if (busy) return;
-    busy = true;
-    try {
-      if (/Android/i.test(navigator.userAgent)) await android(toast);
-      else await desktop(toast);
-    } catch (e) {
-      console.warn("update check", e);
-    } finally { busy = false; }
-  };
-  setTimeout(run, 15000);
-  setInterval(run, CHECK_EVERY_MS);
+  toast = showToast;
+  $("#updateNow")?.addEventListener("click", () => { install(); });
+  $("#updateLater")?.addEventListener("click", () => {
+    if (found) decline(found.version);
+    $("#updateBar")?.classList.add("hidden");
+  });
+  $("#updInstall")?.addEventListener("click", () => { install(); });
+  $("#updCheck")?.addEventListener("click", () => { run(true); });
+  renderSettings();
+  setTimeout(() => run(false), 15000);
+  setInterval(() => run(false), CHECK_EVERY_MS);
 }
