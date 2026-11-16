@@ -83,5 +83,6 @@
 "wiz.providers.h": "Označi storitve, do katerih imaš dostop. Ostale se v katalogu ne bodo prikazale; to lahko kadar koli spremeniš v Nastavitvah.",
 "wiz.ratings": "Ocene",
 "wiz.ratings.h": "Od kod jemati ocene. Druge vire (TMDB, OMDb, MDBList) dodaš v Nastavitvah.",
-"set.jw.showAll": "Prikaži vse storitve v državi ({n})"
+"set.jw.showAll": "Prikaži vse storitve v državi ({n})",
+"app.noHandler": "Povezave ni mogoče odpreti – v napravi ni aplikacije storitve ali brskalnika."
 }

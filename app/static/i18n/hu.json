@@ -83,5 +83,6 @@
 "wiz.providers.h": "Jelöld be azokat, amelyekhez hozzáférsz. A többi nem jelenik meg a katalógusban; ez bármikor módosítható a Beállításokban.",
 "wiz.ratings": "Értékelések",
 "wiz.ratings.h": "Honnan jöjjenek az értékelések. További források (TMDB, OMDb, MDBList) a Beállításokban adhatók hozzá.",
-"set.jw.showAll": "Az ország összes szolgáltatása ({n})"
+"set.jw.showAll": "Az ország összes szolgáltatása ({n})",
+"app.noHandler": "A link nem nyitható meg – hiányzik a szolgáltatás alkalmazása vagy a böngésző."
 }

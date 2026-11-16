@@ -83,5 +83,6 @@
 "wiz.providers.h": "Hake die Dienste an, auf die du Zugriff hast. Die anderen erscheinen nicht im Katalog; das lässt sich jederzeit in den Einstellungen ändern.",
 "wiz.ratings": "Bewertungen",
 "wiz.ratings.h": "Woher die Bewertungen kommen. Weitere Quellen (TMDB, OMDb, MDBList) fügst du in den Einstellungen hinzu.",
-"set.jw.showAll": "Alle Dienste im Land anzeigen ({n})"
+"set.jw.showAll": "Alle Dienste im Land anzeigen ({n})",
+"app.noHandler": "Der Link lässt sich nicht öffnen – auf dem Gerät fehlt die App des Dienstes oder ein Browser."
 }

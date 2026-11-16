@@ -83,5 +83,6 @@
 "wiz.providers.h": "Markera tjänsterna du har tillgång till. De andra visas inte i katalogen; det kan ändras när som helst i Inställningar.",
 "wiz.ratings": "Betyg",
 "wiz.ratings.h": "Varifrån betygen kommer. Fler källor (TMDB, OMDb, MDBList) lägger du till i Inställningar.",
-"set.jw.showAll": "Visa alla tjänster i landet ({n})"
+"set.jw.showAll": "Visa alla tjänster i landet ({n})",
+"app.noHandler": "Länken kan inte öppnas – tjänstens app eller en webbläsare saknas på enheten."
 }

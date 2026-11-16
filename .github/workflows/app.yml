@@ -143,18 +143,18 @@ jobs:
           echo "NDK: $NDK"
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android
+          targets: aarch64-linux-android,armv7-linux-androideabi
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: client/src-tauri
       - run: npm ci
       - run: npx tauri android init --ci
-      - name: App icon
-        run: cp -r src-tauri/icons/android/* src-tauri/gen/android/app/src/main/res/
+      - name: Google TV / Android TV support, icons
+        run: node scripts/android-tv.mjs
       - name: Build APK
         env:
           APP_VERSION: ${{ needs.test.outputs.version }}
-        run: npx tauri android build --apk --target aarch64 --config "{\"version\":\"$APP_VERSION\"}"
+        run: npx tauri android build --apk --target aarch64 armv7 --config "{\"version\":\"$APP_VERSION\"}"
       - name: Sign APK
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -177,6 +177,8 @@ jobs:
           "$BT/apksigner" sign --ks release.keystore --ks-pass "pass:$PASS" --key-pass "pass:$PASS" \
             --out "out/Medialect_${{ needs.test.outputs.version }}_android.apk" aligned.apk
           "$BT/apksigner" verify --print-certs out/*.apk | head -n 3
+          unzip -l out/*.apk | grep -E "lib/.*\.so" || true
+          "$BT/aapt2" dump badging out/*.apk | grep -E "leanback|touchscreen|banner|native-code" || true
           rm -f release.keystore
       - uses: actions/upload-artifact@v4
         with:

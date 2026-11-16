@@ -83,5 +83,6 @@
 "wiz.providers.h": "Assinala os serviços a que tens acesso. Os outros não aparecem no catálogo; podes mudar isto nas Definições.",
 "wiz.ratings": "Classificações",
 "wiz.ratings.h": "De onde vêm as classificações. Mais fontes (TMDB, OMDb, MDBList) adicionam-se nas Definições.",
-"set.jw.showAll": "Mostrar todos os serviços do país ({n})"
+"set.jw.showAll": "Mostrar todos os serviços do país ({n})",
+"app.noHandler": "Não é possível abrir a ligação – falta a app do serviço ou um navegador no dispositivo."
 }

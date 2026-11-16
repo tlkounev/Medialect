@@ -83,5 +83,6 @@
 "wiz.providers.h": "Seleziona i servizi a cui hai accesso. Gli altri non compariranno nel catalogo; puoi cambiarlo nelle Impostazioni.",
 "wiz.ratings": "Voti",
 "wiz.ratings.h": "Da dove arrivano i voti. Altre fonti (TMDB, OMDb, MDBList) si aggiungono nelle Impostazioni.",
-"set.jw.showAll": "Mostra tutti i servizi del paese ({n})"
+"set.jw.showAll": "Mostra tutti i servizi del paese ({n})",
+"app.noHandler": "Impossibile aprire il link: sul dispositivo manca l’app del servizio o un browser."
 }

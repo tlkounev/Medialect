@@ -83,5 +83,6 @@
 "wiz.providers.h": "Zaznacz serwisy, do których masz dostęp. Pozostałe nie pojawią się w katalogu; możesz to zmienić w Ustawieniach.",
 "wiz.ratings": "Oceny",
 "wiz.ratings.h": "Skąd brać oceny. Kolejne źródła (TMDB, OMDb, MDBList) dodasz w Ustawieniach.",
-"set.jw.showAll": "Pokaż wszystkie serwisy w kraju ({n})"
+"set.jw.showAll": "Pokaż wszystkie serwisy w kraju ({n})",
+"app.noHandler": "Nie można otworzyć linku – na urządzeniu brakuje aplikacji serwisu lub przeglądarki."
 }
