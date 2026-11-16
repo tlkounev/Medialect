@@ -44,12 +44,30 @@ function cleanIds(info: TitleInfo): Record<string, string> {
 const namesOf = (info: TitleInfo) =>
   [...new Set([info.title, info.original_title, ...(info.extra_names || [])].filter(Boolean).map((n) => norm(n)))].filter(Boolean);
 
+const OWN_KINDS = ["jw", "sa"];
+// ids that name exactly one work: a title never holds two different values of one of these kinds
+const STRONG_KINDS = ["imdb", "tmdb_movie", "tmdb_tv", "tvdb"];
+const yearsClash = (a?: number | null, b?: number | null) => !!(a && b && Math.abs(a - b) > 2);
+
+/** Would merging these ids into the title give it two different values of one strong kind? */
+async function conflicts(tid: number, ids: Record<string, string>): Promise<boolean> {
+  const existing = new Map<string, Set<string>>();
+  for (const r of await env.db.all("SELECT kind, value FROM title_ids WHERE title_id=?", [tid])) {
+    if (!existing.has(r.kind)) existing.set(r.kind, new Set());
+    existing.get(r.kind)!.add(r.value);
+  }
+  return Object.entries(ids).some(([k, v]) => STRONG_KINDS.includes(k) && existing.has(k) && !existing.get(k)!.has(v));
+}
+
 async function findTitle(info: TitleInfo, ids: Record<string, string>): Promise<number | null> {
   const db = env.db;
-  // 1) exact external id match
-  for (const [kind, value] of Object.entries(ids)) {
-    const row = await db.get("SELECT title_id FROM title_ids WHERE kind=? AND value=?", [kind, value]);
-    if (row) return row.title_id;
+  // 1) exact external id match (own entry ids first); an id shared by works years apart is a data error
+  for (const [kind, value] of Object.entries(ids).sort(([a], [b]) => Number(!OWN_KINDS.includes(a)) - Number(!OWN_KINDS.includes(b)))) {
+    const row = await db.get("SELECT i.title_id, t.year FROM title_ids i JOIN titles t ON t.id=i.title_id WHERE i.kind=? AND i.value=?", [kind, value]);
+    if (!row) continue;
+    if (OWN_KINDS.includes(kind)) return row.title_id;
+    // one shared id is not enough when the rest disagrees: two works of the same name must stay apart
+    if (!yearsClash(row.year, info.year) && !(await conflicts(row.title_id, ids))) return row.title_id;
   }
   // 2) name + year + type, but never merge across conflicting ids
   const names = namesOf(info);
@@ -58,13 +76,7 @@ async function findTitle(info: TitleInfo, ids: Record<string, string>): Promise<
     `SELECT DISTINCT t.id FROM titles t JOIN title_names n ON n.title_id=t.id
      WHERE t.type=? AND t.year BETWEEN ? AND ? AND n.norm IN (${names.map(() => "?").join(",")}) ORDER BY ABS(t.year-?)`,
     [info.type, info.year - 1, info.year + 1, ...names, info.year]);
-  for (const { id } of cands) {
-    const existing: Record<string, string> = {};
-    for (const r of await db.all("SELECT kind, value FROM title_ids WHERE title_id=?", [id])) existing[r.kind] = r.value;
-    const conflict = Object.entries(ids).some(([k, v]) =>
-      ["imdb", "tmdb_movie", "tmdb_tv", "tvdb"].includes(k) && k in existing && existing[k] !== v);
-    if (!conflict) return id;
-  }
+  for (const { id } of cands) if (!(await conflicts(id, ids))) return id;
   return null;
 }
 
@@ -119,4 +131,15 @@ export async function setRating(titleId: number, source: string, value: number |
 
 export async function addTitleId(titleId: number, kind: string, value: string): Promise<void> {
   await env.db.run("INSERT OR IGNORE INTO title_ids(kind, value, title_id) VALUES(?,?,?)", [kind, String(value), titleId]);
+}
+
+/** Titles holding two values of one strong id kind mix two works: drop them, the full sync recreates them. */
+export async function repairMixedTitles(): Promise<number> {
+  const rows = await env.db.all(
+    `SELECT DISTINCT title_id FROM title_ids WHERE kind IN (${STRONG_KINDS.map(() => "?").join(",")}) GROUP BY title_id, kind HAVING COUNT(*) > 1`,
+    STRONG_KINDS);
+  for (const { title_id } of rows)
+    for (const [table, col] of [["availability", "title_id"], ["ratings", "title_id"], ["title_ids", "title_id"], ["title_names", "title_id"], ["titles", "id"]])
+      await env.db.run(`DELETE FROM ${table} WHERE ${col}=?`, [title_id]);
+  return rows.length;
 }

@@ -5,6 +5,7 @@ import { SyncContext } from "./context";
 import * as settingsMod from "./settings";
 import * as justwatch from "./justwatch";
 import * as ratings from "./ratings";
+import * as store from "./store";
 
 type JobFn = (ctx: SyncContext) => Promise<void>;
 
@@ -59,6 +60,8 @@ export class SyncManager {
     if (this.fullRunning) return;
     this.fullRunning = true;
     try {
+      const fixed = await store.repairMixedTitles();
+      if (fixed) console.info(`repair: ${fixed} titles mixing two works dropped, the full sync recreates them`);
       const jobs = await this.jobs();
       for (const [id] of jobs) if (!this.running.has(id)) this.queued.add(id);
       for (const [id, , fn] of jobs) if (!this.running.has(id)) await this.runJob(id, fn);

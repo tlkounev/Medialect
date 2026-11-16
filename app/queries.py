@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from . import settings as settings_mod
 from .db import db
 from .links import server_link
 from .quality import QUALITY_ORDER, best_quality, merge_tags, norm
@@ -29,6 +30,25 @@ async def provider_rank() -> dict[str, int]:
     return {keys.get(sn, sn): i for i, sn in enumerate(order)}
 
 
+def rating_visible(cfg: dict):
+    """Ratings stay stored when their source is switched off (ČSFD is slow to fetch again), they are only
+    hidden: a rating source is shown when at least one enabled setting supplies it."""
+    jw, mdb, omdb = cfg.get("justwatch_scores", True), bool(cfg.get("mdblist_api_key")), bool(cfg.get("omdb_api_key"))
+    on = {
+        "imdb": cfg.get("imdb_dataset", True) or jw or mdb or omdb,
+        "csfd": cfg.get("csfd", False),
+        "tmdb": bool(cfg.get("tmdb_api_key")) or jw or mdb,
+        "tvmaze": cfg.get("tvmaze", True),
+        "rottentomatoes": jw or mdb or omdb,
+        "metacritic": mdb or omdb,
+    }
+    return lambda source: bool(on.get(source, mdb))
+
+
+async def _visible() -> Any:
+    return rating_visible((await settings_mod.load())["ratings"])
+
+
 async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[dict[str, Any]]:
     """link_ctx = {"servers": {id: server}, "lan": bool} rebuilds library links for the viewer."""
     if not title_ids:
@@ -40,8 +60,11 @@ async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[di
     for r in await db.fetchall(f"SELECT * FROM title_ids WHERE title_id IN ({ph})", title_ids):
         ids.setdefault(r["title_id"], {})[r["kind"]] = r["value"]
     ratings: dict[int, list] = {}
+    visible = await _visible()
     for r in await db.fetchall(
             f"SELECT * FROM ratings WHERE title_id IN ({ph}) AND display IS NOT NULL", title_ids):
+        if not visible(r["source"]):
+            continue
         ratings.setdefault(r["title_id"], []).append(
             {"source": r["source"], "display": r["display"], "value": r["value"], "votes": r["votes"], "url": r["url"]})
     where: dict[int, dict] = {}
@@ -214,8 +237,10 @@ async def facets() -> dict:
             f"SELECT j.value AS v, COUNT(DISTINCT a.title_id) AS n FROM availability a, json_each(a.{col}) j "
             "WHERE j.value IS NOT NULL AND j.value != '' GROUP BY j.value ORDER BY n DESC")
         return [{"value": r["v"], "titles": r["n"]} for r in rows]
-    ratings = await db.fetchall(
+    visible = await _visible()
+    ratings = [r for r in await db.fetchall(
         "SELECT source, COUNT(*) AS n FROM ratings WHERE display IS NOT NULL GROUP BY source ORDER BY n DESC")
+        if visible(r["source"])]
     q = await db.fetchall("SELECT quality AS v, COUNT(DISTINCT title_id) AS n FROM availability "
                           "WHERE quality IS NOT NULL GROUP BY quality")
     added = await db.fetchone("SELECT COUNT(DISTINCT title_id) AS n FROM availability WHERE added_at IS NOT NULL")

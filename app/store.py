@@ -25,6 +25,26 @@ class TitleInfo:
     authoritative: tuple[str, ...] = ()
 
 
+# a source's own entry id always means the same title
+OWN_KINDS = ("jw", "sa")
+# ids that name exactly one work: a title never holds two different values of one of these kinds
+STRONG_KINDS = ("imdb", "tmdb_movie", "tmdb_tv", "tvdb")
+YEAR_TOLERANCE = 2
+
+
+def _years_clash(a: int | None, b: int | None) -> bool:
+    return bool(a and b and abs(a - b) > YEAR_TOLERANCE)
+
+
+async def _conflicts(conn, tid: int, ids: dict[str, str]) -> bool:
+    """Would merging these ids into the title give it two different values of one strong kind?"""
+    async with conn.execute("SELECT kind, value FROM title_ids WHERE title_id=?", (tid,)) as cur:
+        existing: dict[str, set[str]] = {}
+        for k, v in await cur.fetchall():
+            existing.setdefault(k, set()).add(v)
+    return any(k in existing and v not in existing[k] for k, v in ids.items() if k in STRONG_KINDS)
+
+
 @dataclass
 class Offer:
     source: str
@@ -56,11 +76,17 @@ def _clean_ids(info: TitleInfo) -> dict[str, str]:
 
 
 async def _find_title(conn, info: TitleInfo, ids: dict[str, str]) -> int | None:
-    # 1) exact external id match
-    for kind, value in ids.items():
-        async with conn.execute("SELECT title_id FROM title_ids WHERE kind=? AND value=?", (kind, value)) as cur:
+    # 1) exact external id match (own entry ids first); an id shared by works years apart is a data error
+    for kind, value in sorted(ids.items(), key=lambda kv: kv[0] not in OWN_KINDS):
+        async with conn.execute("SELECT i.title_id, t.year FROM title_ids i JOIN titles t ON t.id=i.title_id "
+                                "WHERE i.kind=? AND i.value=?", (kind, value)) as cur:
             row = await cur.fetchone()
-        if row:
+        if not row:
+            continue
+        if kind in OWN_KINDS:
+            return row[0]
+        # one shared id is not enough when the rest disagrees: two works of the same name must stay apart
+        if not _years_clash(row[1], info.year) and not await _conflicts(conn, row[0], ids):
             return row[0]
     # 2) name + year + type, but never merge across conflicting ids
     names = {norm(n) for n in (info.title, info.original_title, *info.extra_names) if n}
@@ -75,10 +101,7 @@ async def _find_title(conn, info: TitleInfo, ids: dict[str, str]) -> int | None:
     async with conn.execute(q, (info.type, info.year - 1, info.year + 1, *names, info.year)) as cur:
         candidates = [r[0] for r in await cur.fetchall()]
     for tid in candidates:
-        async with conn.execute("SELECT kind, value FROM title_ids WHERE title_id=?", (tid,)) as cur:
-            existing = {r[0]: r[1] for r in await cur.fetchall()}
-        conflict = any(k in existing and existing[k] != v for k, v in ids.items() if k in ("imdb", "tmdb_movie", "tmdb_tv", "tvdb"))
-        if not conflict:
+        if not await _conflicts(conn, tid, ids):
             return tid
     return None
 
@@ -168,3 +191,23 @@ async def set_rating(title_id: int, source: str, value: float | None, display: s
 
 async def add_title_id(title_id: int, kind: str, value: str) -> None:
     await db.execute("INSERT OR IGNORE INTO title_ids(kind, value, title_id) VALUES(?,?,?)", (kind, str(value), title_id))
+
+
+async def repair_mixed_titles() -> int:
+    """Titles that hold two values of one strong id kind mix two works (merged before v1.0.17).
+
+    They are dropped completely; the full synchronisation that follows creates them again, correctly
+    separated. Returns how many titles were dropped."""
+    rows = await db.fetchall(
+        f"SELECT DISTINCT title_id FROM title_ids WHERE kind IN ({','.join('?' * len(STRONG_KINDS))}) "
+        "GROUP BY title_id, kind HAVING COUNT(*) > 1", STRONG_KINDS)
+    ids = [r[0] for r in rows]
+    if not ids:
+        return 0
+    async with db.lock:
+        for tid in ids:
+            for table, col in (("availability", "title_id"), ("ratings", "title_id"), ("title_ids", "title_id"),
+                               ("title_names", "title_id"), ("titles", "id")):
+                await db.conn.execute(f"DELETE FROM {table} WHERE {col}=?", (tid,))
+        await db.conn.commit()
+    return len(ids)

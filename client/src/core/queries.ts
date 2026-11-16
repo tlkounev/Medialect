@@ -1,6 +1,22 @@
 // Read side: catalogue browsing, facets, title hydration (port of app/queries.py).
 import { env } from "./env";
 import { QUALITY_ORDER, bestQuality, mergeTags, norm } from "./quality";
+import * as settingsMod from "./settings";
+
+/** Ratings stay stored when their source is switched off, they are only hidden (same rule as the server). */
+export function ratingVisible(cfg: any): (source: string) => boolean {
+  const jw = cfg.justwatch_scores ?? true, mdb = !!cfg.mdblist_api_key, omdb = !!cfg.omdb_api_key;
+  const on: Record<string, boolean> = {
+    imdb: (cfg.imdb_dataset ?? true) || jw || mdb || omdb,
+    csfd: !!cfg.csfd,
+    tmdb: !!cfg.tmdb_api_key || jw || mdb,
+    tvmaze: cfg.tvmaze ?? true,
+    rottentomatoes: jw || mdb || omdb,
+    metacritic: mdb || omdb,
+  };
+  return (source) => !!(source in on ? on[source] : mdb);
+}
+const visibleNow = async () => ratingVisible((await settingsMod.load()).ratings);
 
 const RATING_ORDER = ["csfd", "imdb", "tmdb", "tvmaze", "rottentomatoes", "rottentomatoes_audience", "metacritic",
   "metacritic_user", "letterboxd", "trakt", "mdblist"];
@@ -27,7 +43,9 @@ export async function hydrate(titleIds: number[]): Promise<any[]> {
     (ids.get(r.title_id) || ids.set(r.title_id, {}).get(r.title_id)!)[r.kind] = r.value;
   }
   const ratings = new Map<number, any[]>();
+  const visible = await visibleNow();
   for (const r of await db.all(`SELECT * FROM ratings WHERE title_id IN (${p}) AND display IS NOT NULL`, titleIds)) {
+    if (!visible(r.source)) continue;
     (ratings.get(r.title_id) || ratings.set(r.title_id, []).get(r.title_id)!)
       .push({ source: r.source, display: r.display, value: r.value, votes: r.votes, url: r.url });
   }
@@ -137,8 +155,9 @@ export async function facets() {
   const tags = async (col: string) => (await env.db.all(
     `SELECT j.value AS v, COUNT(DISTINCT a.title_id) AS n FROM availability a, json_each(a.${col}) j ` +
     "WHERE j.value IS NOT NULL AND j.value != '' GROUP BY j.value ORDER BY n DESC")).map((r) => ({ value: r.v, titles: r.n }));
-  const ratings = await env.db.all(
-    "SELECT source, COUNT(*) AS n FROM ratings WHERE display IS NOT NULL GROUP BY source ORDER BY n DESC");
+  const visible = await visibleNow();
+  const ratings = (await env.db.all(
+    "SELECT source, COUNT(*) AS n FROM ratings WHERE display IS NOT NULL GROUP BY source ORDER BY n DESC")).filter((r) => visible(r.source));
   const q = await env.db.all("SELECT quality AS v, COUNT(DISTINCT title_id) AS n FROM availability WHERE quality IS NOT NULL GROUP BY quality");
   const added = await env.db.get("SELECT COUNT(DISTINCT title_id) AS n FROM availability WHERE added_at IS NOT NULL");
   return {
