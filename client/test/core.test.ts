@@ -174,6 +174,24 @@ describe("app core", () => {
     expect(v).toMatchObject({ current: "0.1.3", latest: "0.1.4", state: "update" });
   });
 
+  it("JustWatch: an unreachable window is skipped, the rest is stored", async () => {
+    const real = env.fetch;
+    env.fetch = async (url, init) => {
+      const b = init?.body ? JSON.parse(String(init.body)) : null;
+      if (b?.variables?.popularTitlesFilter?.releaseYear?.min === 1990) throw new Error("error sending request for url");
+      return real(url, init);
+    };
+    const s = await settingsMod.load();
+    s.justwatch.enabled = true; s.justwatch.providers = ["nfx"]; s.justwatch.request_delay_s = 0;
+    const ctx = new SyncContext("justwatch", s);
+    await justwatch.sync(ctx);
+    expect(ctx.partial).toBe(true);
+    expect(ctx.notes.join()).toContain("1990–1999");
+    const cat = await api("GET", "/api/catalog?q=cernobyl");
+    expect(cat.items.length).toBe(1);                       // 2019 series arrived
+    expect((await api("GET", "/api/catalog?q=matrix")).items.length).toBe(0);   // 1999 window failed
+  });
+
   it("keeps two works of the same name apart and repairs old mixes", async () => {
     const st = await import("../src/core/store");
     const drama = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2020, ids: { jw: "tsX1", tmdb_tv: "97547" } });
