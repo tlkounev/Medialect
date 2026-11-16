@@ -33,7 +33,8 @@ async function versionStatus(force: boolean) {
   const cur = parseV(env.version), latest = parseV(versionCache.latest);
   const state = !cur || !latest || versionCache.error ? "unknown" : cmp(latest, cur) > 0 ? "update" : "current";
   return { current: env.version, latest: versionCache.latest, state, error: versionCache.error,
-    url: `https://github.com/${env.repo}/releases` };
+    // the exact release: GitHub's "Latest" badge stays on the last desktop release (its updater feed)
+    url: `https://github.com/${env.repo}/releases${versionCache.latest ? `/tag/app-v${versionCache.latest}` : ""}` };
 }
 
 export async function handle(method: string, path: string, q: URLSearchParams, body: any): Promise<unknown> {
