@@ -10,6 +10,8 @@ export const env = {
   repo: "tlkounev/medialect",
   /** sleep is replaceable so tests run without real pauses */
   sleep: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
+  /** called whenever a sync job starts, reports progress or ends (Android: background notification) */
+  onActivity: () => {},
 };
 
 export class SourceError extends Error {}
