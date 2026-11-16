@@ -84,5 +84,7 @@
 "wiz.ratings": "Ocene",
 "wiz.ratings.h": "Od kod jemati ocene. Druge vire (TMDB, OMDb, MDBList) dodaš v Nastavitvah.",
 "set.jw.showAll": "Prikaži vse storitve v državi ({n})",
-"app.noHandler": "Povezave ni mogoče odpreti – v napravi ni aplikacije storitve ali brskalnika."
+"app.noHandler": "Povezave ni mogoče odpreti – v napravi ni aplikacije storitve ali brskalnika.",
+"app.updating": "Prenašanje in nameščanje različice {v}…",
+"app.updateFailed": "Posodobitve ni bilo mogoče namestiti: {e}"
 }

@@ -84,5 +84,7 @@
 "wiz.ratings": "Hodnocení",
 "wiz.ratings.h": "Odkud brát hodnocení. Další zdroje (TMDB, OMDb, MDBList) přidáš v Nastavení.",
 "set.jw.showAll": "Zobrazit všechny služby v zemi ({n})",
-"app.noHandler": "Odkaz nejde otevřít – v zařízení chybí aplikace služby nebo prohlížeč."
+"app.noHandler": "Odkaz nejde otevřít – v zařízení chybí aplikace služby nebo prohlížeč.",
+"app.updating": "Stahuji a instaluji novou verzi {v}…",
+"app.updateFailed": "Aktualizaci se nepodařilo nainstalovat: {e}"
 }

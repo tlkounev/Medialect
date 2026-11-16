@@ -84,5 +84,7 @@
 "wiz.ratings": "Betyg",
 "wiz.ratings.h": "Varifrån betygen kommer. Fler källor (TMDB, OMDb, MDBList) lägger du till i Inställningar.",
 "set.jw.showAll": "Visa alla tjänster i landet ({n})",
-"app.noHandler": "Länken kan inte öppnas – tjänstens app eller en webbläsare saknas på enheten."
+"app.noHandler": "Länken kan inte öppnas – tjänstens app eller en webbläsare saknas på enheten.",
+"app.updating": "Laddar ner och installerar version {v}…",
+"app.updateFailed": "Uppdateringen kunde inte installeras: {e}"
 }

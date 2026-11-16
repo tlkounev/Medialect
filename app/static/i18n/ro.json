@@ -84,5 +84,7 @@
 "wiz.ratings": "Note",
 "wiz.ratings.h": "De unde vin notele. Alte surse (TMDB, OMDb, MDBList) se adaugă în Setări.",
 "set.jw.showAll": "Afișează toate serviciile din țară ({n})",
-"app.noHandler": "Linkul nu poate fi deschis – lipsește aplicația serviciului sau un browser."
+"app.noHandler": "Linkul nu poate fi deschis – lipsește aplicația serviciului sau un browser.",
+"app.updating": "Se descarcă și se instalează versiunea {v}…",
+"app.updateFailed": "Actualizarea nu a putut fi instalată: {e}"
 }

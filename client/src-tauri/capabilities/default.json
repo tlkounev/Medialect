@@ -1,7 +1,9 @@
 {
   "identifier": "default",
   "description": "Local database, HTTP to the catalogue and rating sources, opening links in other apps",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "sql:default",
@@ -10,15 +12,35 @@
     {
       "identifier": "http:default",
       "allow": [
-        { "url": "https://apis.justwatch.com/*" },
-        { "url": "https://datasets.imdbws.com/*" },
-        { "url": "https://api.themoviedb.org/*" },
-        { "url": "https://api.tvmaze.com/*" },
-        { "url": "https://www.omdbapi.com/*" },
-        { "url": "https://api.mdblist.com/*" },
-        { "url": "https://www.csfd.cz/*" },
-        { "url": "https://api.github.com/*" }
+        {
+          "url": "https://apis.justwatch.com/*"
+        },
+        {
+          "url": "https://datasets.imdbws.com/*"
+        },
+        {
+          "url": "https://api.themoviedb.org/*"
+        },
+        {
+          "url": "https://api.tvmaze.com/*"
+        },
+        {
+          "url": "https://www.omdbapi.com/*"
+        },
+        {
+          "url": "https://api.mdblist.com/*"
+        },
+        {
+          "url": "https://www.csfd.cz/*"
+        },
+        {
+          "url": "https://api.github.com/*"
+        },
+        {
+          "url": "https://github.com/*"
+        }
       ]
-    }
+    },
+    "apk-updater:default"
   ]
 }

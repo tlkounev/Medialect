@@ -93,7 +93,15 @@ jobs:
         shell: bash
         env:
           APP_VERSION: ${{ needs.test.outputs.version }}
-        run: npx tauri build --config "{\"version\":\"$APP_VERSION\"}"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: |
+          CFG="{\"version\":\"$APP_VERSION\"}"
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set – building without automatic-update files."
+            CFG="{\"version\":\"$APP_VERSION\",\"bundle\":{\"createUpdaterArtifacts\":false}}"
+          fi
+          npx tauri build --config "$CFG"
       - name: Collect installers
         shell: bash
         run: |
@@ -104,8 +112,10 @@ jobs:
             cp $B/deb/*.deb "out/Medialect_${V}_amd64.deb"
             cp $B/rpm/*.rpm "out/Medialect-${V}.x86_64.rpm"
             cp $B/appimage/*.AppImage "out/Medialect_${V}_amd64.AppImage"
+            if ls $B/appimage/*.AppImage.sig >/dev/null 2>&1; then cp $B/appimage/*.AppImage.sig "out/Medialect_${V}_amd64.AppImage.sig"; fi
           else
             cp $B/nsis/*.exe "out/Medialect_${V}_x64-setup.exe"
+            if ls $B/nsis/*.exe.sig >/dev/null 2>&1; then cp $B/nsis/*.exe.sig "out/Medialect_${V}_x64-setup.exe.sig"; fi
             cp $B/msi/*.msi "out/Medialect_${V}_x64.msi"
           fi
           ls -la out
@@ -154,7 +164,7 @@ jobs:
       - name: Build APK
         env:
           APP_VERSION: ${{ needs.test.outputs.version }}
-        run: npx tauri android build --apk --target aarch64 armv7 --config "{\"version\":\"$APP_VERSION\"}"
+        run: npx tauri android build --apk --target aarch64 armv7 --config "{\"version\":\"$APP_VERSION\",\"bundle\":{\"createUpdaterArtifacts\":false}}"
       - name: Sign APK
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -203,6 +213,23 @@ jobs:
           V: ${{ needs.test.outputs.version }}
         run: |
           ls -la dist
-          gh release create "app-v$V" dist/* --target "$GITHUB_SHA" --title "Medialect app $V" \
-            --notes "Instalační soubory aplikace Medialect $V: Android (.apk), Windows (.exe / .msi), Linux (.AppImage / .deb / .rpm)." \
-            --prerelease
+          # latest.json for the Windows / Linux AppImage self-updater (only when the builds were signed)
+          W="Medialect_${V}_x64-setup.exe"; L="Medialect_${V}_amd64.AppImage"
+          BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/app-v$V"
+          if [ -f "dist/$W.sig" ] && [ -f "dist/$L.sig" ]; then
+            python3 - "$V" "$BASE" "$W" "$L" <<'PY'
+          import json, sys, datetime
+          v, base, w, l = sys.argv[1:]
+          sig = lambda f: open(f"dist/{f}.sig").read().strip()
+          json.dump({"version": v, "notes": f"Medialect {v}",
+                     "pub_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                     "platforms": {"windows-x86_64": {"url": f"{base}/{w}", "signature": sig(w)},
+                                   "linux-x86_64": {"url": f"{base}/{l}", "signature": sig(l)}}},
+                    open("dist/latest.json", "w"), indent=2)
+          PY
+            cat dist/latest.json
+          else
+            echo "::warning::No updater signatures – latest.json not published."
+          fi
+          gh release create "app-v$V" dist/* --target "$GITHUB_SHA" --title "Medialect app $V" --latest \
+            --notes "Instalační soubory aplikace Medialect $V: Android (.apk), Windows (.exe / .msi), Linux (.AppImage / .deb / .rpm). Nainstalovaná aplikace se aktualizuje sama."

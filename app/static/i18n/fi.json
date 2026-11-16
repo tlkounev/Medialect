@@ -84,5 +84,7 @@
 "wiz.ratings": "Arviot",
 "wiz.ratings.h": "Mistä arviot haetaan. Lisää lähteitä (TMDB, OMDb, MDBList) lisätään Asetuksissa.",
 "set.jw.showAll": "Näytä kaikki maan palvelut ({n})",
-"app.noHandler": "Linkkiä ei voi avata – laitteesta puuttuu palvelun sovellus tai selain."
+"app.noHandler": "Linkkiä ei voi avata – laitteesta puuttuu palvelun sovellus tai selain.",
+"app.updating": "Ladataan ja asennetaan versio {v}…",
+"app.updateFailed": "Päivitystä ei voitu asentaa: {e}"
 }
