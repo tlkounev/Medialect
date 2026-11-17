@@ -117,13 +117,13 @@
               <fieldset><legend data-i18n="set.general">Obecné</legend>
                 <label class="field"><span data-i18n="set.country"></span><select name="country" id="setCountry"></select><small data-i18n="set.country.h"></small></label>
                 <label class="field"><span data-i18n="set.language"></span><select name="language" id="setLanguage"></select><small data-i18n="set.language.h"></small></label>
-                <label class="field"><span data-i18n="set.interval"></span><input name="sync_interval_hours" type="number" min="1" step="1"><small data-i18n="set.interval.h"></small></label>
+                <label class="web-only field"><span data-i18n="set.interval"></span><input name="sync_interval_hours" type="number" min="1" step="1"><small data-i18n="set.interval.h"></small></label>
               </fieldset>
 
-              <fieldset><legend data-i18n="set.jw">JustWatch</legend>
-                <p class="muted section-hint" data-i18n="set.jw.h"></p>
-                <label class="chk"><input type="checkbox" name="justwatch.enabled"> <span data-i18n="set.enabled"></span></label>
-                <label class="field"><span data-i18n="set.jw.delay"></span><input name="justwatch.request_delay_s" type="number" min="0" step="0.1"><small data-i18n="set.jw.delay.h"></small></label>
+              <fieldset><legend class="web-only" data-i18n="set.jw">JustWatch</legend>
+                <p class="muted section-hint web-only" data-i18n="set.jw.h"></p>
+                <label class="web-only chk"><input type="checkbox" name="justwatch.enabled"> <span data-i18n="set.enabled"></span></label>
+                <label class="web-only field"><span data-i18n="set.jw.delay"></span><input name="justwatch.request_delay_s" type="number" min="0" step="0.1"><small data-i18n="set.jw.delay.h"></small></label>
                 <div class="field wide"><span data-i18n="set.jw.providers"></span><small data-i18n="set.jw.providers.h"></small>
                   <label class="chk show-all"><input type="checkbox" id="jwShowAll"> <span data-i18n="set.jw.showAll"></span></label>
                   <div id="jwProviders" class="svc-grid"></div></div>
@@ -141,16 +141,16 @@
 
               <fieldset><legend data-i18n="set.ratings">Hodnocení</legend>
                 <label class="chk"><input type="checkbox" name="ratings.imdb_dataset"> <span data-i18n="set.r.imdb"></span><small data-i18n="set.r.imdb.h"></small></label>
-                <label class="chk"><input type="checkbox" name="ratings.justwatch_scores"> <span data-i18n="set.r.jw"></span><small data-i18n="set.r.jw.h"></small></label>
+                <label class="web-only chk"><input type="checkbox" name="ratings.justwatch_scores"> <span data-i18n="set.r.jw"></span><small data-i18n="set.r.jw.h"></small></label>
                 <label class="chk"><input type="checkbox" name="ratings.csfd"> <span data-i18n="set.r.csfd"></span><small data-i18n="set.r.csfd.h"></small></label>
                 <label class="chk"><input type="checkbox" name="ratings.tvmaze"> <span data-i18n="set.r.tvmaze"></span><small data-i18n="set.r.tvmaze.h"></small></label>
-                <label class="field"><span data-i18n="set.r.csfdBudget"></span><input name="ratings.csfd_daily_budget" type="number" min="0"><small data-i18n="set.r.csfdBudget.h"></small></label>
+                <label class="web-only field"><span data-i18n="set.r.csfdBudget"></span><input name="ratings.csfd_daily_budget" type="number" min="0"><small data-i18n="set.r.csfdBudget.h"></small></label>
                 <label class="field"><span data-i18n="set.r.tmdb"></span><input name="ratings.tmdb_api_key" type="password" autocomplete="off"><small data-i18n="set.r.tmdb.h"></small></label>
                 <label class="field"><span data-i18n="set.r.omdb"></span><input name="ratings.omdb_api_key" type="password" autocomplete="off"><small data-i18n="set.r.omdb.h"></small></label>
-                <label class="field"><span data-i18n="set.r.omdbBudget"></span><input name="ratings.omdb_daily_budget" type="number" min="1"><small data-i18n="set.r.omdbBudget.h"></small></label>
+                <label class="web-only field"><span data-i18n="set.r.omdbBudget"></span><input name="ratings.omdb_daily_budget" type="number" min="1"><small data-i18n="set.r.omdbBudget.h"></small></label>
                 <label class="field"><span data-i18n="set.r.mdb"></span><input name="ratings.mdblist_api_key" type="password" autocomplete="off"><small data-i18n="set.r.mdb.h"></small></label>
-                <label class="field"><span data-i18n="set.r.mdbBudget"></span><input name="ratings.mdblist_daily_budget" type="number" min="1"><small data-i18n="set.r.mdbBudget.h"></small></label>
-                <label class="field"><span data-i18n="set.r.refresh"></span><input name="ratings.refresh_days" type="number" min="1"><small data-i18n="set.r.refresh.h"></small></label>
+                <label class="web-only field"><span data-i18n="set.r.mdbBudget"></span><input name="ratings.mdblist_daily_budget" type="number" min="1"><small data-i18n="set.r.mdbBudget.h"></small></label>
+                <label class="web-only field"><span data-i18n="set.r.refresh"></span><input name="ratings.refresh_days" type="number" min="1"><small data-i18n="set.r.refresh.h"></small></label>
               </fieldset>
             </form>
             <div class="savebar">
@@ -202,7 +202,7 @@
           <div class="row"><h2 data-i18n="sync.title">Synchronizace</h2><button id="syncAll" data-i18n="sync.runAll"></button></div>
           <div id="stats" class="muted"></div>
           <table id="jobs"></table>
-          <div id="budgets" class="muted"></div>
+          <div id="budgets" class="muted web-only"></div>
         </div>
       </div>
     </section>

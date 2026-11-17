@@ -57,6 +57,10 @@ async function start(): Promise<void> {
   await env.db.run("UPDATE sync_runs SET status='error', message=?, finished_at=? WHERE status='running'",
     ["Přerušeno zavřením aplikace", Date.now() / 1000]);
   installFetchShim();
+  if ((window as any).__TAURI_INTERNALS__) {
+    const { logo } = await import("./logo");
+    (window as any).MEDIALECT_LOGO = logo;     // logos of the same size in the catalogue
+  }
   (await import("./background")).initBackground();   // before anything can start a sync
   document.addEventListener("click", (e) => {
     const a = (e.target as Element)?.closest?.("a[href]") as HTMLAnchorElement | null;

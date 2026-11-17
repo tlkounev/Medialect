@@ -134,6 +134,8 @@ jobs:
 
   android:
     needs: test
+    # PRs only run the tests; the APK is built once, for the release
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

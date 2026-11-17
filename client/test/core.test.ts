@@ -320,3 +320,31 @@ describe("app core", () => {
     env.fetch = real;
   });
 });
+
+describe("service logos", () => {
+  it("finds the logo inside its tile and scales every logo to the same size", async () => {
+    const { analyse, placement, TILE, FILL } = await import("../src/logo");
+    const img = (w: number, h: number, bg: number[], box: [number, number, number, number], fg: number[]) => {
+      const d = new Uint8ClampedArray(w * h * 4);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const inside = x >= box[0] && x < box[0] + box[2] && y >= box[1] && y < box[1] + box[3];
+        d.set(inside ? fg : bg, (y * w + x) * 4);
+      }
+      return d;
+    };
+    // small wordmark in the middle of a black tile (like a logo with lots of margin)
+    const small = analyse(img(100, 100, [0, 0, 0, 255], [35, 45, 30, 10], [229, 9, 20, 255]), 100, 100);
+    expect(small.bg).toEqual([0, 0, 0, 255]);
+    expect(small.box).toEqual({ x: 35, y: 45, w: 30, h: 10 });
+    // logo that nearly fills a blue tile
+    const big = analyse(img(100, 100, [17, 60, 207, 255], [5, 20, 90, 60], [255, 255, 255, 255]), 100, 100);
+    expect(big.box).toEqual({ x: 5, y: 20, w: 90, h: 60 });
+    // both end up equally wide on the output tile
+    expect(placement(small.box!).w).toBeCloseTo(TILE * FILL);
+    expect(placement(big.box!).w).toBeCloseTo(TILE * FILL);
+    // transparent icon: the visible pixels are the logo
+    const clear = analyse(img(50, 50, [0, 0, 0, 0], [10, 20, 30, 10], [255, 255, 255, 255]), 50, 50);
+    expect(clear.bg[3]).toBe(0);
+    expect(clear.box).toEqual({ x: 10, y: 20, w: 30, h: 10 });
+  });
+});

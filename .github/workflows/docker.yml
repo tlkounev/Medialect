@@ -1,12 +1,9 @@
 name: Test & Docker image
 
+# Docker is paused: only built on request (Actions → Run workflow) or for a v* tag
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-    paths-ignore: ["client/**", ".github/workflows/app.yml"]
-  pull_request:
-    paths-ignore: ["client/**", ".github/workflows/app.yml"]
   workflow_dispatch:
 
 permissions:
