@@ -349,8 +349,8 @@ def main():
         assert "mubi" not in provs
         em = provs[f"emby-{emby_id}"]
         assert em["quality"] == "UHD" and em["video"][:1] == ["DV"] and "Atmos" in em["audio"] and "TrueHD" in em["audio"]
-        assert em["audio_langs"] == ["en", "cs"] and em["subtitle_langs"] == ["cs", "en"]
-        assert em["url"] == "https://emby.example.cz/web/index.html#!/item?id=m1&serverId=srv123"
+        assert em["audio_langs"] == ["en", "cs", "de"] and em["subtitle_langs"] == ["cs", "en"], em   # both copies
+        assert em["url"] == "https://emby.example.cz/web/index.html#!/item?id=m1&serverId=srv123"       # better copy
         assert provs[f"jellyfin-{jf_id}"]["url"].endswith("/web/#/details?id=m1&serverId=srv123")
         assert provs[f"plex-{plex_id}"]["quality"] == "FHD"
         assert provs[f"plex-{plex_id}"]["url"].startswith("https://app.plex.tv/desktop/#!/server/plexmachine/details?key=%2Flibrary%2Fmetadata%2F102")
@@ -442,13 +442,14 @@ def main():
         assert cat["items"][0]["ids"].get("imdb") == "tt7366338"
         # sort by date added on the platform/library; exact quality filter; quality facet
         cat = client.get("/api/catalog", params={"sort": "added", "page_size": 4}).json()
-        assert [i["title"] for i in cat["items"][:3]] == ["Černobyl", "Matrix", "Duna: Část druhá"], [(i["title"], [o["added_at"] for o in i["where"]]) for i in cat["items"]]
+        same = lambda t: "Černobyl" if t == "Chernobyl" else t   # name = first server to create the title (jobs run in parallel)
+        assert [same(i["title"]) for i in cat["items"][:3]] == ["Černobyl", "Matrix", "Duna: Část druhá"], [(i["title"], [o["added_at"] for o in i["where"]]) for i in cat["items"]]
         cat = client.get("/api/catalog", params={"sort": "added", "provider": f"emby-{emby_id}"}).json()
-        assert [i["title"] for i in cat["items"]] == ["Černobyl", "Matrix", "Pelíšky"], [i["title"] for i in cat["items"]]
+        assert [same(i["title"]) for i in cat["items"]] == ["Černobyl", "Matrix", "Pelíšky"], [i["title"] for i in cat["items"]]
         assert any(o["added_at"] == "2026-11-14T08:00:00" for o in cat["items"][0]["where"])
         assert [x["value"] for x in f["quality"]][:2] == ["UHD", "FHD"] and f["with_added_date"] >= 4, f["quality"]
         cat = client.get("/api/catalog", params={"quality": "FHD", "provider": f"plex-{plex_id}"}).json()
-        assert sorted(i["title"] for i in cat["items"]) == ["Chernobyl", "The Matrix"] or sorted(i["title"] for i in cat["items"]) == ["Matrix", "Černobyl"], [i["title"] for i in cat["items"]]
+        assert len(cat["items"]) == 2 and {same(i["title"]).replace("The ", "") for i in cat["items"]} == {"Matrix", "Černobyl"}, [i["title"] for i in cat["items"]]
         print("  providers ->", client.get("/api/providers").json()["items"])
         # multi-select filters: values in one filter OR, across filters AND (on the same offer)
         def titles(**prm):

@@ -123,20 +123,33 @@ class EmbyLike:
                 raise SourceError(f"{name}: na serveru není žádný uživatel.")
             uid = admin["Id"]
 
+            # several library items can be one title (two copies of a film, another version with more
+            # audio tracks): their tracks are added up, the link goes to the best copy
+            emitted: dict[int, tuple[dict, dict, str | None]] = {}
+
             async def emit(item: dict, ttype: str, summary: dict, added: str | None = None) -> None:
                 tid = await store.upsert_title(store.TitleInfo(
                     type=ttype, title=item.get("Name") or "?", original_title=item.get("OriginalTitle"),
                     year=item.get("ProductionYear"), poster=self.poster(item),
                     ids=_ids(item.get("ProviderIds"), ttype), authoritative=("csfd",), library=True,
                 ))
+                added_at = max(filter(None, (item.get("DateCreated"), added)), default=None)
+                main = item
+                if tid in emitted:
+                    prev_summary, prev_item, prev_added = emitted[tid]
+                    if best_quality(prev_summary["quality"], summary["quality"]) == prev_summary["quality"]:
+                        main = prev_item
+                    summary = _merge_summary(prev_summary, summary)
+                    added_at = max(filter(None, (prev_added, added_at)), default=None)
+                else:
+                    ctx.items += 1
+                emitted[tid] = (summary, main, added_at)
                 await store.upsert_offer(tid, store.Offer(
                     source=self.source, provider=provider, provider_name=name, kind="library",
-                    monetization="library", url=self.item_link(item["Id"], server_id),
-                    extra={"item_id": item["Id"], "server_id": server_id, "server_type": self.flavor},
-                    added_at=max(filter(None, (item.get("DateCreated"), added)), default=None),
-                    **summary,
+                    monetization="library", url=self.item_link(main["Id"], server_id),
+                    extra={"item_id": main["Id"], "server_id": server_id, "server_type": self.flavor},
+                    added_at=added_at, **summary,
                 ), ctx.started)
-                ctx.items += 1
 
             ctx.progress(f"{name}: filmy", 0)
             async for it in self._items(c, uid, "Movie", FIELDS):

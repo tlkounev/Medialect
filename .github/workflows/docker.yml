@@ -80,7 +80,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Release tag
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
         run: |
           git tag "v${{ steps.version.outputs.version }}" "$GITHUB_SHA"
           git push origin "v${{ steps.version.outputs.version }}"

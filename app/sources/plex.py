@@ -145,20 +145,33 @@ class Plex:
                 raise SourceError(f"{name}: neplatný X-Plex-Token (HTTP {r.status_code}).")
             sections = r.raise_for_status().json()["MediaContainer"].get("Directory") or []
 
+            # several library items can be one title (the same film in two sections or two copies):
+            # their tracks are added up, the link goes to the best copy
+            emitted: dict[int, tuple[dict, dict, int | None]] = {}
+
             async def emit(meta: dict, ttype: str, summary: dict, added: int | None = None) -> None:
                 tid = await store.upsert_title(store.TitleInfo(
                     type=ttype, title=meta.get("title") or "?", original_title=meta.get("originalTitle"),
                     year=meta.get("year"), poster=self.poster(meta),
                     ids=_ids_from_guids(meta.get("Guid"), ttype), library=True,
                 ))
+                added_ts = max(filter(None, (meta.get("addedAt"), added)), default=None)
+                main = meta
+                if tid in emitted:
+                    prev_summary, prev_meta, prev_added = emitted[tid]
+                    if best_quality(prev_summary["quality"], summary["quality"]) == prev_summary["quality"]:
+                        main = prev_meta
+                    summary = _merge(prev_summary, summary)
+                    added_ts = max(filter(None, (prev_added, added_ts)), default=None)
+                else:
+                    ctx.items += 1
+                emitted[tid] = (summary, main, added_ts)
                 await store.upsert_offer(tid, store.Offer(
                     source=self.source, provider=provider, provider_name=name, kind="library",
-                    monetization="library", url=self.link(machine_id, meta["ratingKey"]),
-                    extra={"rating_key": meta["ratingKey"], "machine_id": machine_id, "server_type": "plex"},
-                    added_at=_iso(max(filter(None, (meta.get("addedAt"), added)), default=None)),
-                    **summary,
+                    monetization="library", url=self.link(machine_id, main["ratingKey"]),
+                    extra={"rating_key": main["ratingKey"], "machine_id": machine_id, "server_type": "plex"},
+                    added_at=_iso(added_ts), **summary,
                 ), ctx.started)
-                ctx.items += 1
 
             for si, sec in enumerate(sections):
                 label = sec.get("title") or sec["key"]
