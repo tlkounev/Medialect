@@ -25,10 +25,11 @@ function viewBase(srv: any): string {
   return trimSlash(srv.public_url) || trimSlash(srv.url);
 }
 
-async function get(base: string, path: string, headers: Record<string, string>, params?: Record<string, unknown>) {
+async function get(base: string, path: string, headers: Record<string, string>, params?: Record<string, unknown>,
+  timeoutMs = 120000) {
   let r;
   try {
-    r = await http(base + path, { headers, params, timeoutMs: 120000 });
+    r = await http(base + path, { headers, params, timeoutMs });
   } catch (e) {
     // the HTTP client only says "error sending request": find out what is wrong with the address
     if (e instanceof SourceError && env.localNetwork && !(await env.localNetwork(false).catch(() => true))) {
@@ -41,6 +42,41 @@ async function get(base: string, path: string, headers: Record<string, string>, 
   if (r.status === 401 || r.status === 403) throw new SourceError(`${new URL(base).host}: neplatný API klíč / token (HTTP ${r.status}).`);
   if (!r.ok) throw new SourceError(`${new URL(base).host}: HTTP ${r.status}`);
   return r.data;
+}
+
+/**
+ * The address the app talks to the server through: the internal one at home; away from home (mobile data)
+ * the internal one does not answer, so the public one is used when it is filled in.
+ */
+async function reachable(srv: any, path: string, headers: Record<string, string>): Promise<[string, any]> {
+  const internal = trimSlash(srv.url), pub = trimSlash(srv.public_url);
+  try {
+    return [internal, await get(internal, path, headers, undefined, pub && pub !== internal ? 6000 : 120000)];
+  } catch (e) {
+    if (!pub || pub === internal || !(e instanceof SourceError) || /HTTP 40[13]|token|klíč/.test(e.message)) throw e;
+    try {
+      return [pub, await get(pub, path, headers)];
+    } catch (e2) {
+      throw new SourceError(`${e.message} Veřejná adresa: ${(e2 as Error).message}`);
+    }
+  }
+}
+
+/** Library copies of one title (two files, another version with more audio tracks) add up. */
+class Emitted<K> {
+  private seen = new Map<number, [Summary, K, string | number | null]>();
+  /** Returns the merged summary, the item to link to and the newest date; first = first copy of the title. */
+  add(tid: number, summary: Summary, item: K, added: string | number | null): [Summary, K, any, boolean] {
+    const prev = this.seen.get(tid);
+    let main = item, s = summary, a = added;
+    if (prev) {
+      if (bestQuality(prev[0].quality, summary.quality) === prev[0].quality) main = prev[1];
+      s = merge(prev[0], summary);
+      a = [prev[2], added].filter((x) => x != null).sort().pop() ?? null;
+    }
+    this.seen.set(tid, [s, main, a]);
+    return [s, main, a, !prev];
+  }
 }
 
 // --- Emby / Jellyfin ------------------------------------------------------------
@@ -99,9 +135,10 @@ async function* embyItems(base: string, headers: Record<string, string>, userId:
 async function embySync(srv: any, ctx: SyncContext): Promise<void> {
   const flavor = srv.type as "emby" | "jellyfin";
   const name = srv.name || (flavor === "emby" ? "Emby" : "Jellyfin");
-  const base = trimSlash(srv.url), view = viewBase(srv), headers = embyHeaders(srv);
+  const view = viewBase(srv), headers = embyHeaders(srv);
   const source = `${flavor}:${srv.id}`, provider = `${flavor}-${srv.id}`;
-  const info = await get(base, "/System/Info", headers);
+  const [base, info] = await reachable(srv, "/System/Info", headers);
+  if (base !== trimSlash(srv.url)) ctx.note(`${name}: interní adresa neodpovídá, synchronizuji přes veřejnou.`);
   const serverId = info?.Id;
   const users: any[] = (await get(base, "/Users", headers)) || [];
   const admin = users.find((u) => u?.Policy?.IsAdministrator) || users[0];
@@ -113,14 +150,16 @@ async function embySync(srv: any, ctx: SyncContext): Promise<void> {
   const poster = (it: any) => it.ImageTags?.Primary
     ? `${view}/Items/${it.Id}/Images/Primary?maxHeight=360&tag=${it.ImageTags.Primary}` : null;
 
+  const emitted = new Emitted<any>();
   const emit = async (item: any, ttype: "movie" | "show", summary: Summary, added?: string) => {
     const tid = await store.upsertTitle({ type: ttype, title: item.Name || "?", original_title: item.OriginalTitle,
       year: item.ProductionYear, poster: poster(item), ids: embyIds(item.ProviderIds, ttype), authoritative: ["csfd"], library: true });
     const dates = [item.DateCreated, added].filter(Boolean).sort();
+    const [s, main, addedAt, first] = emitted.add(tid, summary, item, dates.length ? dates[dates.length - 1] : null);
     await store.upsertOffer(tid, { source, provider, provider_name: name, kind: "library", monetization: "library",
-      url: link(item.Id), extra: { item_id: item.Id, server_id: serverId, server_type: flavor },
-      added_at: dates.length ? dates[dates.length - 1] : null, ...summary }, ctx.started);
-    ctx.items++;
+      url: link(main.Id), extra: { item_id: main.Id, server_id: serverId, server_type: flavor },
+      added_at: addedAt, ...s }, ctx.started);
+    if (first) ctx.items++;
   };
 
   ctx.progress(`${name}: filmy`, 0);
@@ -217,10 +256,12 @@ async function pool<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R>): 
 
 async function plexSync(srv: any, ctx: SyncContext): Promise<void> {
   const name = srv.name || "Plex";
-  const base = trimSlash(srv.url), headers = plexHeaders(srv);
+  const headers = plexHeaders(srv);
   const source = `plex:${srv.id}`, provider = `plex-${srv.id}`;
   const pub = trimSlash(srv.public_url), view = viewBase(srv);
-  const machineId = (await get(base, "/identity", headers))?.MediaContainer?.machineIdentifier;
+  const [base, ident] = await reachable(srv, "/identity", headers);
+  if (base !== trimSlash(srv.url)) ctx.note(`${name}: interní adresa neodpovídá, synchronizuji přes veřejnou.`);
+  const machineId = ident?.MediaContainer?.machineIdentifier;
   const sections: any[] = (await get(base, "/library/sections", headers))?.MediaContainer?.Directory || [];
   const detail = async (key: string) => ((await get(base, `/library/metadata/${key}`, headers))?.MediaContainer?.Metadata || [])[0] || {};
   const link = (key: string) => {
@@ -235,13 +276,15 @@ async function plexSync(srv: any, ctx: SyncContext): Promise<void> {
     : null;
   const iso = (ts?: number) => (ts ? new Date(ts * 1000).toISOString().slice(0, 19) : null);
 
+  const emitted = new Emitted<any>();
   const emit = async (meta: any, ttype: "movie" | "show", summary: Summary, added?: number) => {
     const tid = await store.upsertTitle({ type: ttype, title: meta.title || "?", original_title: meta.originalTitle,
       year: meta.year, poster: poster(meta), ids: plexIds(meta.Guid, ttype), library: true });
+    const [s, main, addedTs, first] = emitted.add(tid, summary, meta, Math.max(meta.addedAt || 0, added || 0) || null);
     await store.upsertOffer(tid, { source, provider, provider_name: name, kind: "library", monetization: "library",
-      url: link(meta.ratingKey), extra: { rating_key: meta.ratingKey, machine_id: machineId, server_type: "plex" },
-      added_at: iso(Math.max(meta.addedAt || 0, added || 0) || undefined), ...summary }, ctx.started);
-    ctx.items++;
+      url: link(main.ratingKey), extra: { rating_key: main.ratingKey, machine_id: machineId, server_type: "plex" },
+      added_at: iso(addedTs || undefined), ...s }, ctx.started);
+    if (first) ctx.items++;
   };
 
   for (const [si, sec] of sections.entries()) {
@@ -298,11 +341,11 @@ export function serverSync(srv: any): (ctx: SyncContext) => Promise<void> {
 
 export async function testServer(srv: any): Promise<Record<string, unknown>> {
   await askLocalNetwork();
-  const base = trimSlash(srv.url);
   if (srv.type === "plex") {
-    const mc = (await get(base, "/identity", plexHeaders(srv)))?.MediaContainer || {};
-    return { id: mc.machineIdentifier, version: mc.version };
+    const [base, ident] = await reachable(srv, "/identity", plexHeaders(srv));
+    const mc = ident?.MediaContainer || {};
+    return { id: mc.machineIdentifier, version: mc.version, via: base };
   }
-  const info = await get(base, "/System/Info", embyHeaders(srv));
-  return { name: info?.ServerName, version: info?.Version, id: info?.Id };
+  const [base, info] = await reachable(srv, "/System/Info", embyHeaders(srv));
+  return { name: info?.ServerName, version: info?.Version, id: info?.Id, via: base };
 }

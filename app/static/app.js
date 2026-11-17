@@ -672,7 +672,7 @@ function addServerRow(srv = {}) {
     say(t("srv.testing"));
     try {
       const r = await api("/api/servers/test", { method: "POST", body: readServer(node) });
-      r.ok ? say(`${t("srv.ok")} – ${r.info.name || ""} ${r.info.version || ""}`, "ok") : say(`${t("srv.error")}: ${r.error}`, "err");
+      r.ok ? say(`${t("srv.ok")} – ${r.info.name || ""} ${r.info.version || ""}${r.info.via ? ` (${r.info.via})` : ""}`, "ok") : say(`${t("srv.error")}: ${r.error}`, "err");
     } catch (e) { say(`${t("srv.error")}: ${e.message}`, "err"); }
   });
   $(".remove", node).addEventListener("click", async () => {

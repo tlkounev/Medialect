@@ -270,7 +270,10 @@ describe("app core", () => {
       const type = u.searchParams.get("IncludeItemTypes");
       const items = type === "Movie" ? [{ Id: "m1", Name: "Matrix", ProductionYear: 1999, ImageTags: { Primary: "t" },
           ProviderIds: { Imdb: "tt0133093", Csfd: "9499-matrix" },
-          MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 3840, Height: 2160 }, { Type: "Audio", Language: "ces", Channels: 6 }] }] }]
+          MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 3840, Height: 2160 }, { Type: "Audio", Language: "ces", Channels: 6 }] }] },
+        // a second copy of the same film with another audio track: both tracks belong to the one title
+        { Id: "m2", Name: "Matrix", ProductionYear: 1999, ProviderIds: { Imdb: "tt0133093" },
+          MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 1920, Height: 1080 }, { Type: "Audio", Language: "eng", Channels: 2 }] }] }]
         : type === "Series" ? [{ Id: "s1", Name: "Zrádci", ProductionYear: 2024, ProviderIds: { Imdb: "tt33321873" } }]
         : [{ Id: "e1", SeriesId: "s1", DateCreated: "2026-11-11T19:19:13", MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 1920, Height: 1080 }] }] }];
       return j({ Items: items, TotalRecordCount: items.length });
@@ -279,6 +282,9 @@ describe("app core", () => {
     env.diagnose = async (u) => `${new URL(u).host} neodpovídá.`;
     const down = await api("POST", "/api/servers/test", { type: "emby", url: "http://10.0.0.1:8096", token: "k" });
     expect(down).toEqual({ ok: false, error: "10.0.0.1:8096 neodpovídá." });
+    // away from home: the internal address does not answer, the public one is used
+    const away = await api("POST", "/api/servers/test", { type: "emby", url: "http://10.0.0.1:8096", public_url: "http://emby.test", token: "k" });
+    expect(away).toMatchObject({ ok: true, info: { name: "Doma", via: "http://emby.test" } });
     env.diagnose = null;
     // Android 17 without the home-network permission: the prompt is shown on test, the error says what to allow
     const asked: boolean[] = [];
@@ -299,6 +305,8 @@ describe("app core", () => {
     const m = (await api("GET", "/api/catalog?q=matrix")).items[0];
     const lib = m.where.find((w: any) => w.kind === "library");
     expect(lib.quality).toBe("UHD");
+    expect(lib.audio_langs).toEqual(expect.arrayContaining(["cs", "en"]));        // tracks of both copies
+    expect(lib.url).toContain("id=m1");                                           // link to the better copy
     expect(lib.icon).toBe("https://emby.example/web/favicon.ico");                // the server's own logo
     expect(lib.url).toBe("https://emby.example/web/index.html#!/item?id=m1&serverId=srv1");
     expect(m.ids.csfd).toBe("9499");
