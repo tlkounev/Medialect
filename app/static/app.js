@@ -150,6 +150,12 @@ $$("header nav button").forEach((b) => b.addEventListener("click", () => openTab
 $$(".subnav button").forEach((b) => b.addEventListener("click", () => openSub(b.dataset.sub)));
 
 /* ---------- rendering ---------- */
+function fillLogos(root) {
+  if (!window.MEDIALECT_LOGO) return;
+  for (const img of $$("img[data-logo]:not([src])", root)) {
+    window.MEDIALECT_LOGO(img.dataset.logo).then((s) => { img.src = s; }).catch(() => logoFailed(img, img.dataset.lib === "true"));
+  }
+}
 window.logoFailed = (img, lib) => {
   if (lib) { img.remove(); return; }
   const name = document.createElement("span");
@@ -172,7 +178,9 @@ function renderOffer(o) {
   const lib = o.kind === "library";
   // streaming services: logo only (name as tooltip, shown instead when the logo cannot load);
   // own servers: their logo + the name from the settings
-  const logo = o.icon ? `<img class="logo" src="${esc(o.icon)}" alt="${esc(o.provider_name)}" title="${esc(o.provider_name)}" loading="lazy" onerror="logoFailed(this, ${lib})">` : "";
+  // the app evens out the logos (same size, margins cut away) and fills them in after rendering
+  const src = window.MEDIALECT_LOGO ? "" : ` src="${esc(o.icon)}"`;
+  const logo = o.icon ? `<img class="svc-logo"${src} data-logo="${esc(o.icon)}" data-lib="${lib}" alt="${esc(o.provider_name)}" title="${esc(o.provider_name)}" loading="lazy" onerror="logoFailed(this, ${lib})">` : "";
   return `<div class="offer ${o.kind}">
     <span class="prov">${logo}${lib || !o.icon ? `<span class="name">${esc(o.provider_name)}</span>` : ""}</span>${mon ? `<span class="muted">${esc(mon)}</span>` : ""}
     ${tags.join("")}<span class="langs">${esc(info.join(" · "))}</span>
@@ -320,6 +328,7 @@ async function loadCatalog() {
     $("#cInfo").textContent = info;
     catalogTotal = data.total;
     $("#catalog").innerHTML = data.items.length ? data.items.map(renderTitle).join("") : `<p class="muted">${esc(t(syncRunning ? "cat.loading" : "cat.none"))}</p>`;
+    fillLogos($("#catalog"));
     $("#cPrev").disabled = cPage <= 1;
     $("#cNext").disabled = cPage >= pages;
     $(".pager").classList.toggle("hidden", pages <= 1);
