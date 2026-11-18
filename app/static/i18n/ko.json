@@ -21,7 +21,7 @@
 "f.anyQuality": "화질", "f.anyVideo": "영상", "f.anyAudio": "오디오",
 "f.anyAudioLang": "오디오 언어", "f.anySub": "자막", "f.reset": "필터 초기화", "f.clear": "선택 해제",
 "sort.added": "최근 추가", "sort.year": "개봉 연도", "sort.title": "제목", "sort.rating": "{name} 평점",
-"cat.count": "{n}개 작품", "cat.page": "{p}/{n} 페이지", "cat.none": "검색 결과가 없습니다.",
+"cat.count": "{n}개 작품", "cat.none": "검색 결과가 없습니다.",
 "cat.addedNote": "추가 날짜는 내 라이브러리와 Streaming Availability만 알고 있으며, 나머지 작품은 마지막에 표시됩니다",
 "pager.prev": "‹ 이전", "pager.next": "다음 ›",
 "offer.free": "무료", "offer.ads": "광고 포함", "offer.addon": "애드온", "offer.audio": "음성", "offer.subs": "자막",

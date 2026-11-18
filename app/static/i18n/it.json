@@ -21,7 +21,7 @@
 "f.anyQuality": "Qualità", "f.anyVideo": "Video", "f.anyAudio": "Audio",
 "f.anyAudioLang": "Lingua audio", "f.anySub": "Sottotitoli", "f.reset": "Azzera filtri", "f.clear": "Cancella selezione",
 "sort.added": "Aggiunti di recente", "sort.year": "Anno di uscita", "sort.title": "Titolo", "sort.rating": "Voto {name}",
-"cat.count": "{n} titoli", "cat.page": "pagina {p}/{n}", "cat.none": "Nessun risultato.",
+"cat.count": "{n} titoli", "cat.none": "Nessun risultato.",
 "cat.addedNote": "la data di aggiunta è nota per le librerie personali e Streaming Availability, gli altri titoli sono in fondo",
 "pager.prev": "‹ Precedente", "pager.next": "Successiva ›",
 "offer.free": "gratis", "offer.ads": "con pubblicità", "offer.addon": "add-on", "offer.audio": "audio", "offer.subs": "sottotitoli",

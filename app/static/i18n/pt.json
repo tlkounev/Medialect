@@ -21,7 +21,7 @@
 "f.anyQuality": "Qualidade", "f.anyVideo": "Imagem", "f.anyAudio": "Som",
 "f.anyAudioLang": "Idioma do áudio", "f.anySub": "Legendas", "f.reset": "Limpar filtros", "f.clear": "Limpar seleção",
 "sort.added": "Adicionados recentemente", "sort.year": "Ano de lançamento", "sort.title": "Título", "sort.rating": "Classificação {name}",
-"cat.count": "{n} títulos", "cat.page": "página {p}/{n}", "cat.none": "Nada encontrado.",
+"cat.count": "{n} títulos", "cat.none": "Nada encontrado.",
 "cat.addedNote": "a data de adição é conhecida nas bibliotecas próprias e no Streaming Availability, os restantes títulos ficam no fim",
 "pager.prev": "‹ Anterior", "pager.next": "Seguinte ›",
 "offer.free": "grátis", "offer.ads": "com anúncios", "offer.addon": "extra", "offer.audio": "áudio", "offer.subs": "legendas",

@@ -21,7 +21,7 @@
 "f.anyQuality": "Kvalitet", "f.anyVideo": "Bild", "f.anyAudio": "Ljud",
 "f.anyAudioLang": "Ljudspråk", "f.anySub": "Undertexter", "f.reset": "Rensa filter", "f.clear": "Rensa val",
 "sort.added": "Nyligen tillagda", "sort.year": "Utgivningsår", "sort.title": "Titel", "sort.rating": "Betyg {name}",
-"cat.count": "{n} titlar", "cat.page": "sida {p}/{n}", "cat.none": "Inget hittades.",
+"cat.count": "{n} titlar", "cat.none": "Inget hittades.",
 "cat.addedNote": "datum för tillägg finns för egna bibliotek och Streaming Availability, övriga titlar hamnar sist",
 "pager.prev": "‹ Föregående", "pager.next": "Nästa ›",
 "offer.free": "gratis", "offer.ads": "med reklam", "offer.addon": "tillägg", "offer.audio": "ljud", "offer.subs": "undertexter",

@@ -21,7 +21,7 @@
 "f.anyQuality": "Kualitas", "f.anyVideo": "Gambar", "f.anyAudio": "Suara",
 "f.anyAudioLang": "Bahasa audio", "f.anySub": "Subtitel", "f.reset": "Atur ulang filter", "f.clear": "Hapus pilihan",
 "sort.added": "Baru ditambahkan", "sort.year": "Tahun rilis", "sort.title": "Judul", "sort.rating": "Rating {name}",
-"cat.count": "{n} judul", "cat.page": "halaman {p}/{n}", "cat.none": "Tidak ditemukan.",
+"cat.count": "{n} judul", "cat.none": "Tidak ditemukan.",
 "cat.addedNote": "tanggal ditambahkan hanya diketahui untuk pustaka sendiri dan Streaming Availability, judul lain ada di akhir",
 "pager.prev": "‹ Sebelumnya", "pager.next": "Berikutnya ›",
 "offer.free": "gratis", "offer.ads": "dengan iklan", "offer.addon": "add-on", "offer.audio": "audio", "offer.subs": "subtitel",

@@ -21,7 +21,7 @@
 "f.anyQuality": "Qualität", "f.anyVideo": "Bild", "f.anyAudio": "Ton",
 "f.anyAudioLang": "Tonsprache", "f.anySub": "Untertitel", "f.reset": "Filter zurücksetzen", "f.clear": "Auswahl aufheben",
 "sort.added": "Neu hinzugefügt", "sort.year": "Erscheinungsjahr", "sort.title": "Titel", "sort.rating": "Bewertung {name}",
-"cat.count": "{n} Titel", "cat.page": "Seite {p}/{n}", "cat.none": "Nichts gefunden.",
+"cat.count": "{n} Titel", "cat.none": "Nichts gefunden.",
 "cat.addedNote": "das Hinzufügedatum kennen eigene Bibliotheken und Streaming Availability, andere Titel stehen am Ende",
 "pager.prev": "‹ Zurück", "pager.next": "Weiter ›",
 "offer.free": "kostenlos", "offer.ads": "mit Werbung", "offer.addon": "Zusatzpaket", "offer.audio": "Ton", "offer.subs": "Untertitel",

@@ -139,15 +139,31 @@ class SyncManager:
             })
         return out
 
+    async def unfinished(self) -> list[str]:
+        """Jobs whose last run did not finish: an error, stopped early, or the process ended during it."""
+        out = []
+        for job_id, _label, _fn in await self.jobs():
+            row = await db.fetchone("SELECT status FROM sync_runs WHERE source=? ORDER BY started_at DESC LIMIT 1",
+                                    (job_id,))
+            if row and row["status"] in ("error", "partial", "running") and job_id not in self.running:
+                out.append(job_id)
+        return out
+
     async def _loop(self) -> None:
         await asyncio.sleep(10)
+        first = True    # right after start, the jobs the previous sync left unfinished continue on their own
         while True:
             try:
                 s = await settings_mod.load()
                 interval = max(1.0, float(s.get("sync_interval_hours", 24))) * 3600
                 last = await db.kv_get("sync.last_full", 0)
                 if time.time() - last >= interval and not self._full_lock.locked():
+                    first = False
                     await self.run()
+                elif first:
+                    first = False
+                    for job_id in await self.unfinished():
+                        self.trigger(job_id)
                 elif await self._jw_unfinished(s):
                     self.trigger("justwatch")
             except Exception:  # noqa: BLE001

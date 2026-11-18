@@ -538,12 +538,16 @@ async function loadCatalog(append = false) {
     $("#cInfo").textContent = info;
     catalogTotal = data.total;
     const html = data.items.map(renderTitle).join("");
+    const before = append ? $("#catalog").children.length : 0;
     if (append) {
-      $("#catalog").insertAdjacentHTML("beforeend", `<div class="page-mark" data-page="${cPage}">${esc(t("cat.page", { p: cPage, n: catalogPages }))}</div>${html}`);
+      $("#catalog").insertAdjacentHTML("beforeend", html);
     } else {
-      $("#catalog").innerHTML = data.items.length ? `<div class="page-mark first" data-page="1"></div>${html}`
+      $("#catalog").innerHTML = data.items.length ? html
         : `<p class="muted">${esc(t(syncRunning ? "cat.loading" : "cat.none"))}</p>`;
     }
+    // the first title of each loaded page marks where the page starts (the page buttons jump to it)
+    const first = data.items.length && $("#catalog").children[before];
+    if (first) { first.classList.add("page-mark"); first.dataset.page = append ? cPage : 1; }
     fillLogos($("#catalog"));
     clampTags($("#catalog"));
     focusSoon();
@@ -601,12 +605,12 @@ function goPage(n) {
   const off = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hdr")) || 0) + 60;
   scrollTo({ top: m.getBoundingClientRect().top + scrollY - off, behavior: "smooth" });
 }
-// the buttons appear while the list moves and fade away 3 s after it stops (or after the last tap on them)
+// the buttons appear while the list moves and fade away 2 s after it stops (or after the last tap on them)
 let fabTimer = null;
 function fabWake() {
   $("#fab").classList.remove("idle");
   clearTimeout(fabTimer);
-  fabTimer = setTimeout(() => $("#fab").classList.add("idle"), 3000);
+  fabTimer = setTimeout(() => $("#fab").classList.add("idle"), 2000);
 }
 $("#fab").addEventListener("pointerdown", fabWake);
 $("#fab").addEventListener("focusin", fabWake);
@@ -616,7 +620,6 @@ function fabUpdate() {
   if (!show) return;
   fabWake();
   const p = currentPage();
-  $("#fabPage").textContent = `${p}/${catalogPages}`;
   $("#fabUp").disabled = p <= 1 && scrollY < 10;
   $("#fabDown").disabled = p >= catalogPages;
 }

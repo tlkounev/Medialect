@@ -21,7 +21,7 @@
 "f.anyQuality": "الجودة", "f.anyVideo": "الصورة", "f.anyAudio": "الصوت",
 "f.anyAudioLang": "لغة الصوت", "f.anySub": "الترجمة", "f.reset": "إعادة ضبط الفلاتر", "f.clear": "إلغاء التحديد",
 "sort.added": "المضاف حديثًا", "sort.year": "سنة الإصدار", "sort.title": "العنوان", "sort.rating": "تقييم {name}",
-"cat.count": "{n} عنوان", "cat.page": "الصفحة {p}/{n}", "cat.none": "لم يتم العثور على شيء.",
+"cat.count": "{n} عنوان", "cat.none": "لم يتم العثور على شيء.",
 "cat.addedNote": "تاريخ الإضافة معروف لمكتباتك الخاصة وStreaming Availability فقط، وتظهر العناوين الأخرى في النهاية",
 "pager.prev": "السابق ›", "pager.next": "‹ التالي",
 "offer.free": "مجاني", "offer.ads": "مع إعلانات", "offer.addon": "إضافة", "offer.audio": "الصوت", "offer.subs": "الترجمة",

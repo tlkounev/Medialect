@@ -120,13 +120,26 @@ export class SyncManager {
     return !!row?.finished_at && now() - row.finished_at >= 600;
   }
 
-  /** While the app is open: run a full sync when the interval has passed (checked every minute). */
+  /** Jobs whose last run did not finish: an error, stopped early, or the app closed during it. */
+  async unfinished(): Promise<string[]> {
+    const out: string[] = [];
+    for (const [id] of await this.jobs()) {
+      const row = await env.db.get("SELECT status FROM sync_runs WHERE source=? ORDER BY started_at DESC LIMIT 1", [id]);
+      if (row && ["error", "partial", "running"].includes(row.status) && !this.running.has(id)) out.push(id);
+    }
+    return out;
+  }
+
+  /** While the app is open: run a full sync when the interval has passed (checked every minute).
+   *  Right after the app starts, the jobs the previous sync left unfinished continue on their own. */
   start(): void {
+    let first = true;
     const tick = async () => {
       try {
         const s = await settingsMod.load();
         const last = await env.db.kvGet<number>("sync.last_full", 0);
-        if (now() - last >= Math.max(1, Number(s.sync_interval_hours)) * 3600 && !this.fullRunning) await this.run();
+        if (now() - last >= Math.max(1, Number(s.sync_interval_hours)) * 3600 && !this.fullRunning) { first = false; await this.run(); }
+        else if (first) { first = false; for (const id of await this.unfinished()) this.trigger(id); }
         else if (await this.jwUnfinished(s)) this.trigger("justwatch");
       } catch (e) { console.error("scheduler", e); }
     };

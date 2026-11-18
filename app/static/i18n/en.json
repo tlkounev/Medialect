@@ -21,7 +21,7 @@
 "f.anyQuality": "Quality", "f.anyVideo": "Video", "f.anyAudio": "Audio",
 "f.anyAudioLang": "Audio language", "f.anySub": "Subtitles", "f.reset": "Reset filters", "f.clear": "Clear selection",
 "sort.added": "Recently added", "sort.year": "Release year", "sort.title": "Title", "sort.rating": "{name} rating",
-"cat.count": "{n} titles", "cat.page": "page {p}/{n}", "cat.none": "Nothing found.",
+"cat.count": "{n} titles", "cat.none": "Nothing found.",
 "cat.addedNote": "the date added is known for your own libraries and Streaming Availability; other titles come last",
 "pager.prev": "‹ Previous", "pager.next": "Next ›",
 "offer.free": "free", "offer.ads": "with ads", "offer.addon": "add-on", "offer.audio": "audio", "offer.subs": "subtitles",
