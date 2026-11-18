@@ -271,7 +271,10 @@ describe("app core", () => {
     env.fetch = async (url: string, init?: RequestInit) => {
       if (new URL(url).host !== "api.ceskatelevize.cz") return prev(url, init);
       const body = JSON.parse(String(init?.body)); bodies.push({ body, headers: init?.headers });
-      const all = shows[body.variables.categoryId] || [];
+      // the real field for pictures is not known for sure: this fake knows only the second variant
+      if (body.query.includes("images {")) return new Response(JSON.stringify({ errors: [{ message: "Cannot query field \"images\"" }] }),
+        { status: 400, headers: { "content-type": "application/json" } });
+      const all = (shows[body.variables.categoryId] || []).map((x) => body.query.includes("imageUrl") ? { ...x, imageUrl: `//img.ceskatelevize.cz/${x.id}.jpg` } : x);
       return new Response(JSON.stringify({ data: { showFindByGenre: {
         items: all.slice(body.variables.offset, body.variables.offset + body.variables.limit), totalCount: all.length } } }),
         { headers: { "content-type": "application/json" } });
@@ -285,6 +288,9 @@ describe("app core", () => {
     await ivy.sync(ctx);
     expect(ctx.items).toBe(3);
     expect(bodies[0].body.variables).toMatchObject({ limit: 40, offset: 0, categoryId: "3947" });
+    expect(bodies.filter((b) => b.body.query.includes("images {")).length).toBe(1);   // rejected once, then remembered
+    expect((await env.db.get("SELECT poster FROM titles t JOIN title_ids i ON i.title_id=t.id WHERE i.kind='ct' AND i.value='10124'"))!.poster)
+      .toBe("https://img.ceskatelevize.cz/10124.jpg");
     expect((bodies[0].headers as any).Referer).toBe("https://www.ceskatelevize.cz/");
     const offer = await env.db.get("SELECT title_id, url, monetization FROM availability WHERE provider='ivysilani' AND url LIKE '%pelisky%'");
     expect(offer).toMatchObject({ title_id: pelisky, url: "https://www.ceskatelevize.cz/porady/10123-pelisky/", monetization: "free" });

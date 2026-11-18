@@ -130,9 +130,12 @@ export async function catalog(f: CatalogQuery) {
     jparams = [...provs];
     orderSql = `ad.added IS NULL, ad.added ${dir}, t.year DESC`;
   } else {
-    orderSql = `r.value IS NULL, r.value ${dir}, t.year DESC`;
-    join = "LEFT JOIN ratings r ON r.title_id=t.id AND r.source=?";
+    // sorted by a rating: only titles that have it (the rest would only pile up at the end)
+    orderSql = `r.value ${dir}, r.votes DESC, t.year DESC`;
+    join = "JOIN ratings r ON r.title_id=t.id AND r.source=? AND r.value IS NOT NULL";
     jparams = [sort];
+    where += " AND EXISTS (SELECT 1 FROM ratings rr WHERE rr.title_id=t.id AND rr.source=? AND rr.value IS NOT NULL)";
+    params.push(sort);
   }
   let orderParams: unknown[] = [];
   if (nq) {

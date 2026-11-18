@@ -1,6 +1,7 @@
 {
 "svc.moving": "Move with the arrows, confirm with OK", "svc.remove": "Remove",
 "offer.details": "Details", "f.sort": "Sort", "ui.help": "Help",
+"nav.top": "To the top", "nav.pageUp": "Page up", "nav.pageDown": "Page down", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Newest first", "sort.oldest": "Oldest first", "sort.highest": "Highest first", "sort.lowest": "Lowest first",
 "nav.back": "Back", "f.filters": "Filters", "ui.close": "Close",
 "app.download": "Downloading version {v} in the browser – open the file when it finishes to install it.",
 "job.catalog": "Catalogue",
@@ -38,7 +39,7 @@
 "job.ratings": "Ratings",
 "set.title": "Catalogue settings",
 "set.intro": "Where the catalogue and its ratings come from. Changes take effect after you press “Save catalogue settings” below.",
-"set.save": "Save catalogue settings", "set.saved": "Saved.", "set.unsaved": "You have unsaved changes.", "set.loading": "Loading…",
+"set.save": "Save", "set.saved": "Saved.", "set.unsaved": "You have unsaved changes.", "set.loading": "Loading…",
 "set.enabled": "Enabled",
 "set.general": "General",
 "set.country": "Country", "set.country.h": "Which country's streaming catalogues to load. Catalogues differ by country.",

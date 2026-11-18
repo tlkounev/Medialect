@@ -1,6 +1,7 @@
 {
 "svc.moving": "Mit den Pfeilen verschieben, mit OK bestätigen", "svc.remove": "Entfernen",
 "offer.details": "Details", "f.sort": "Sortierung", "ui.help": "Hilfe",
+"nav.top": "Nach oben", "nav.pageUp": "Eine Seite hoch", "nav.pageDown": "Eine Seite runter", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Neueste zuerst", "sort.oldest": "Älteste zuerst", "sort.highest": "Höchste zuerst", "sort.lowest": "Niedrigste zuerst",
 "nav.back": "Zurück", "f.filters": "Filter", "ui.close": "Schließen",
 "app.download": "Version {v} wird im Browser geladen – öffne die Datei danach, um sie zu installieren.",
 "job.catalog": "Katalog",
@@ -38,7 +39,7 @@
 "job.ratings": "Bewertungen",
 "set.title": "Katalogeinstellungen",
 "set.intro": "Woher der Katalog und die Bewertungen kommen. Änderungen gelten erst nach „Katalogeinstellungen speichern“ unten.",
-"set.save": "Katalogeinstellungen speichern", "set.saved": "Gespeichert.", "set.unsaved": "Du hast ungespeicherte Änderungen.", "set.loading": "Wird geladen…",
+"set.save": "Speichern", "set.saved": "Gespeichert.", "set.unsaved": "Du hast ungespeicherte Änderungen.", "set.loading": "Wird geladen…",
 "set.enabled": "Aktiv",
 "set.general": "Allgemein",
 "set.country": "Land", "set.country.h": "Für welches Land das Angebot der Streamingdienste geladen wird. Die Kataloge unterscheiden sich je nach Land.",

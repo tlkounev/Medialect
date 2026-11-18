@@ -1,6 +1,7 @@
 {
 "svc.moving": "화살표로 이동, OK로 확인", "svc.remove": "제거",
 "offer.details": "자세히", "f.sort": "정렬", "ui.help": "도움말",
+"nav.top": "맨 위로", "nav.pageUp": "한 페이지 위로", "nav.pageDown": "한 페이지 아래로", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "최신순", "sort.oldest": "오래된순", "sort.highest": "높은순", "sort.lowest": "낮은순",
 "nav.back": "뒤로", "f.filters": "필터", "ui.close": "닫기",
 "app.download": "브라우저에서 버전 {v}을(를) 내려받는 중입니다. 완료되면 파일을 열어 설치하세요.",
 "job.catalog": "카탈로그",
@@ -38,7 +39,7 @@
 "job.ratings": "평점",
 "set.title": "카탈로그 설정",
 "set.intro": "카탈로그와 평점의 출처입니다. 아래의 '카탈로그 설정 저장'을 누르면 변경 사항이 적용됩니다.",
-"set.save": "카탈로그 설정 저장", "set.saved": "저장되었습니다.", "set.unsaved": "저장하지 않은 변경 사항이 있습니다.", "set.loading": "불러오는 중…",
+"set.save": "저장", "set.saved": "저장되었습니다.", "set.unsaved": "저장하지 않은 변경 사항이 있습니다.", "set.loading": "불러오는 중…",
 "set.enabled": "사용",
 "set.general": "일반",
 "set.country": "국가", "set.country.h": "어느 국가의 스트리밍 카탈로그를 불러올지 선택합니다. 카탈로그는 국가마다 다릅니다.",

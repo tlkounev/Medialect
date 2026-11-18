@@ -1,6 +1,7 @@
 {
 "svc.moving": "矢印で移動、OKで確定", "svc.remove": "削除",
 "offer.details": "詳細", "f.sort": "並べ替え", "ui.help": "ヘルプ",
+"nav.top": "先頭へ", "nav.pageUp": "前のページ", "nav.pageDown": "次のページ", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "新しい順", "sort.oldest": "古い順", "sort.highest": "高い順", "sort.lowest": "低い順",
 "nav.back": "戻る", "f.filters": "絞り込み", "ui.close": "閉じる",
 "app.download": "ブラウザでバージョン {v} をダウンロードしています。完了したらファイルを開いてインストールしてください。",
 "job.catalog": "カタログ",
@@ -38,7 +39,7 @@
 "job.ratings": "評価",
 "set.title": "カタログの設定",
 "set.intro": "カタログと評価の取得元です。下の「カタログの設定を保存」を押すと変更が反映されます。",
-"set.save": "カタログの設定を保存", "set.saved": "保存しました。", "set.unsaved": "未保存の変更があります。", "set.loading": "読み込み中…",
+"set.save": "保存", "set.saved": "保存しました。", "set.unsaved": "未保存の変更があります。", "set.loading": "読み込み中…",
 "set.enabled": "有効",
 "set.general": "一般",
 "set.country": "国", "set.country.h": "どの国のストリーミングカタログを読み込むか。カタログは国によって異なります。",

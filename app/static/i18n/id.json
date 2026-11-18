@@ -1,6 +1,7 @@
 {
 "svc.moving": "Pindahkan dengan panah, konfirmasi dengan OK", "svc.remove": "Hapus",
 "offer.details": "Detail", "f.sort": "Urutan", "ui.help": "Bantuan",
+"nav.top": "Ke atas", "nav.pageUp": "Halaman ke atas", "nav.pageDown": "Halaman ke bawah", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Terbaru dulu", "sort.oldest": "Terlama dulu", "sort.highest": "Tertinggi dulu", "sort.lowest": "Terendah dulu",
 "nav.back": "Kembali", "f.filters": "Filter", "ui.close": "Tutup",
 "app.download": "Mengunduh versi {v} di browser – buka file setelah selesai untuk memasangnya.",
 "job.catalog": "Katalog",
@@ -38,7 +39,7 @@
 "job.ratings": "Rating",
 "set.title": "Pengaturan katalog",
 "set.intro": "Asal katalog dan rating. Perubahan berlaku setelah menekan „Simpan pengaturan katalog“ di bawah.",
-"set.save": "Simpan pengaturan katalog", "set.saved": "Tersimpan.", "set.unsaved": "Ada perubahan yang belum disimpan.", "set.loading": "Memuat…",
+"set.save": "Simpan", "set.saved": "Tersimpan.", "set.unsaved": "Ada perubahan yang belum disimpan.", "set.loading": "Memuat…",
 "set.enabled": "Aktif",
 "set.general": "Umum",
 "set.country": "Negara", "set.country.h": "Negara yang katalog layanan streamingnya dimuat. Katalog berbeda di tiap negara.",

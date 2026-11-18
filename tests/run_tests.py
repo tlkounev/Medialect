@@ -302,7 +302,9 @@ def main():
         # services in the user's order (priority), newest titles first
         order = [c[0] for c in JW_CALLS]
         prov_order = list(dict.fromkeys(order))
-        assert prov_order == json.loads(sql("SELECT value FROM kv WHERE key='settings'")[0][0])["justwatch"]["providers"], prov_order
+        # services are fetched at the same time (started in the user's order), so their requests interleave
+        wanted = json.loads(sql("SELECT value FROM kv WHERE key='settings'")[0][0])["justwatch"]["providers"]
+        assert set(prov_order) == set(wanted), prov_order
         assert JW_CALLS[0][2] > 2025, JW_CALLS[0]
 
         # an interrupted run continues where it stopped

@@ -72,7 +72,9 @@ export class SyncManager {
       if (fixed) console.info(`repair: ${fixed} titles mixing two works dropped, the full sync recreates them`);
       const jobs = await this.jobs();
       for (const [id] of jobs) if (!this.running.has(id)) this.queued.add(id);
-      for (const [id, , fn] of jobs) if (!this.running.has(id)) await this.runJob(id, fn);
+      // the sources (own servers, JustWatch, iVysílání) download at the same time; ratings follow
+      await Promise.all(jobs.filter(([id]) => id !== "ratings" && !this.running.has(id)).map(([id, , fn]) => this.runJob(id, fn)));
+      for (const [id, , fn] of jobs) if (id === "ratings" && !this.running.has(id)) await this.runJob(id, fn);
       if (jobs.some(([id]) => id !== "ratings")) await env.db.kvSet("sync.last_full", now());
     } finally {
       this.queued.clear();

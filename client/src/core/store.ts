@@ -84,7 +84,15 @@ async function findTitle(info: TitleInfo, ids: Record<string, string>): Promise<
   return null;
 }
 
-export async function upsertTitle(info: TitleInfo): Promise<number> {
+// sources run at the same time: finding a title and creating it must not interleave (no duplicates)
+let titleLock: Promise<unknown> = Promise.resolve();
+export function upsertTitle(info: TitleInfo): Promise<number> {
+  const p = titleLock.then(() => upsertTitleNow(info), () => upsertTitleNow(info));
+  titleLock = p.catch(() => undefined);
+  return p;
+}
+
+async function upsertTitleNow(info: TitleInfo): Promise<number> {
   const db = env.db;
   const ids = cleanIds(info);
   const t = now();
