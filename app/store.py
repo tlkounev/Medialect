@@ -29,7 +29,7 @@ class TitleInfo:
 
 
 # a source's own entry id always means the same title
-OWN_KINDS = ("jw", "sa")
+OWN_KINDS = ("jw", "sa", "ct")
 # ids that name exactly one work: a title never holds two different values of one of these kinds
 STRONG_KINDS = ("imdb", "tmdb_movie", "tmdb_tv", "tvdb")
 YEAR_TOLERANCE = 2

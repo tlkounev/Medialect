@@ -238,7 +238,8 @@ def main():
         t = client.post("/api/servers/test", json={"type": "emby", "url": f"{BASE}/emby", "token": "bad"}).json()
         assert not t["ok"]
         prov = client.get("/api/justwatch/providers").json()["items"]
-        assert [p["short_name"] for p in prov] == ["nfx", "opl"], prov  # rent/buy-only store filtered out
+        # rent/buy-only store filtered out; iVysílání (own source) is offered in Czechia
+        assert [p["short_name"] for p in prov] == ["ivy", "nfx", "opl"], prov
 
         # ---- run all syncs ----
         run_sync(client)
@@ -538,6 +539,27 @@ def main():
         assert client.get("/api/settings", headers={"X-Api-Key": "nope"}).status_code == 401
         assert client.post("/api/auth/login", json={"password": "spatne"}).status_code == 401
         assert client.post("/api/auth/login", json={"password": "heslo1234"}).status_code == 200
+
+        # ---- iVysílání: picked like a service, its own job, titles paired by name + year ----
+        from app.sources import ivysilani
+        ivysilani.API = f"{BASE}/ct/graphql/"
+        provs = client.get("/api/settings").json()["justwatch"]["providers"]
+        jw_runs = sql("SELECT COUNT(*) FROM sync_runs WHERE source='justwatch'")[0][0]
+        assert client.put("/api/settings", json={"justwatch": {"providers": [*provs, "ivy"]}}).status_code == 200
+        run_sync(client, "ivysilani")
+        assert sql("SELECT COUNT(*) FROM sync_runs WHERE source='justwatch'")[0][0] == jw_runs   # JustWatch not restarted
+        assert mock_servers.CT_CALLS[0]["referer"] == "https://www.ceskatelevize.cz/"
+        matrix = client.get("/api/titles/by/imdb/tt0133093").json()
+        ivy = [o for o in matrix["where"] if o["provider"] == "ivysilani"]
+        assert ivy and ivy[0]["url"] == "https://www.ceskatelevize.cz/porady/10123-matrix/" and ivy[0]["monetization"] == "free", matrix["where"]
+        assert sql("SELECT t.year FROM titles t JOIN title_ids i ON i.title_id=t.id WHERE i.kind='ct' AND i.value='20001'")[0][0] == 1977
+        assert sql("SELECT COUNT(*) FROM availability WHERE provider='ivysilani'")[0][0] == 3
+        assert client.put("/api/settings", json={"justwatch": {"providers": provs}}).status_code == 200
+
+        # ---- languages in other forms are merged into one code ----
+        from app.quality import lang, langs
+        assert [lang(x) for x in ("cs", "cze", "ces", "cs-CZ", "Czech", "Čeština", "Czech (Forced)")] == ["cs"] * 7
+        assert langs(["eng", "English", "en-US", "und", "nob", "nb", "Brazilian Portuguese"]) == ["en", "no", "pt"]
 
         # ---- stale removal: drop a title from the JW catalogue, re-sync ----
         CATALOG.pop()  # Černobyl gone from Netflix

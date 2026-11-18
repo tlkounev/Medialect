@@ -14,6 +14,23 @@ def _emby_ok(token, auth):
 
 
 # ---------------- Emby / Jellyfin ----------------
+CT_SHOWS = {
+    "3947": [{"id": "10123", "slug": "10123-matrix", "title": "Matrix", "year": "1999"},
+             {"id": "10124", "slug": "10124-vrchni-prchni", "title": "Vrchní, prchni!", "year": "1980"}],
+    "3976": [{"id": "20001", "slug": "20001-nemocnice", "title": "Nemocnice na kraji města", "year": "1977–1981"}],
+}
+CT_CALLS: list[dict] = []
+
+
+@app.post("/ct/graphql/")
+async def ct_graphql(request: Request):
+    body = await request.json()
+    CT_CALLS.append({"vars": body["variables"], "referer": request.headers.get("referer")})
+    v = body["variables"]
+    items = CT_SHOWS.get(v["categoryId"], [])
+    return {"data": {"showFindByGenre": {"items": items[v["offset"]:v["offset"] + v["limit"]], "totalCount": len(items)}}}
+
+
 @app.get("/emby/System/Info")
 async def emby_info(x_emby_token: str | None = Header(None), authorization: str | None = Header(None)):
     if not _emby_ok(x_emby_token, authorization):

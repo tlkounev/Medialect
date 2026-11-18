@@ -1,5 +1,7 @@
 // SQLite storage behind a tiny driver interface: the app uses tauri-plugin-sql, tests use node:sqlite.
 
+import { langs } from "./quality";
+
 export type Param = string | number | null;
 export type Row = Record<string, any>;
 
@@ -51,6 +53,19 @@ export class Db {
       try { await this.d.all(pragma, []); } catch { /* not every driver returns rows for pragmas */ }
     }
     for (const stmt of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) await this.d.run(stmt, []);
+    await this.normaliseLangs();
+  }
+
+  /** One language = one code in the filters: older rows may hold "cze", "Czech", "nb" next to "cs", "no". */
+  private async normaliseLangs(): Promise<void> {
+    if ((await this.kvGet<number>("migrate.langs", 0)) >= 2) return;
+    const rows = await this.all("SELECT rowid AS rid, audio_langs, subtitle_langs FROM availability WHERE audio_langs IS NOT NULL OR subtitle_langs IS NOT NULL");
+    const parse = (v: unknown): string[] => { try { return v ? JSON.parse(String(v)) : []; } catch { return []; } };
+    for (const r of rows) {
+      await this.run("UPDATE availability SET audio_langs=?, subtitle_langs=? WHERE rowid=?",
+        [JSON.stringify(langs(parse(r.audio_langs))), JSON.stringify(langs(parse(r.subtitle_langs))), r.rid]);
+    }
+    await this.kvSet("migrate.langs", 2);
   }
 
   run(sql: string, params: unknown[] = []) { return this.d.run(sql, clean(params)); }

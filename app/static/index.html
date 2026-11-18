@@ -53,7 +53,7 @@
         <div class="ms" id="cAudio" data-i18n-title="aria.audio"></div>
         <div class="ms" id="cLang" data-i18n-title="aria.audioLang"></div>
         <div class="ms" id="cSub" data-i18n-title="aria.sub"></div>
-        <select id="cSort" data-i18n-aria="aria.sort"></select>
+        <select id="cSort" class="hidden" data-i18n-aria="aria.sort"></select><div class="ms" id="cSortBox"></div>
         <button type="button" id="cReset" class="ghost" data-i18n="f.reset">Zrušit filtry</button>
       </div>
       <div id="syncNote" class="sync-note hidden" role="status"><button type="button" class="close" data-i18n-title="ui.close" data-i18n-aria="ui.close">×</button><span></span><div class="bar"><i></i></div></div>
@@ -115,14 +115,12 @@
         <div id="sub-settings">
           <!-- catalogue settings: one box, one save button -->
           <section class="settings-box">
-            <header class="box-head">
-              <h2 data-i18n="set.title">Nastavení katalogu</h2>
-              <p class="muted" data-i18n="set.intro"></p>
-            </header>
             <form id="settingsForm">
               <fieldset><legend data-i18n="set.general">Obecné</legend>
-                <label class="field"><span data-i18n="set.country"></span><select name="country" id="setCountry"></select><small data-i18n="set.country.h"></small></label>
-                <label class="field"><span data-i18n="set.language"></span><select name="language" id="setLanguage"></select><small data-i18n="set.language.h"></small></label>
+                <div class="field-pair">
+                  <label class="field"><span data-i18n="set.country"></span><select name="country" id="setCountry"></select><small data-i18n="set.country.h"></small></label>
+                  <label class="field"><span data-i18n="set.language"></span><select name="language" id="setLanguage"></select><small data-i18n="set.language.h"></small></label>
+                </div>
                 <label class="web-only field"><span data-i18n="set.interval"></span><input name="sync_interval_hours" type="number" min="1" step="1"><small data-i18n="set.interval.h"></small></label>
               </fieldset>
 
@@ -145,7 +143,7 @@
                   <div id="saCatalogs" class="chips"></div></div>
               </fieldset>
 
-              <fieldset><legend data-i18n="set.ratings">Hodnocení</legend>
+              <fieldset class="keep-help"><legend data-i18n="set.ratings">Hodnocení</legend>
                 <label class="chk"><input type="checkbox" name="ratings.imdb_dataset"> <span data-i18n="set.r.imdb"></span><small data-i18n="set.r.imdb.h"></small></label>
                 <label class="web-only chk"><input type="checkbox" name="ratings.justwatch_scores"> <span data-i18n="set.r.jw"></span><small data-i18n="set.r.jw.h"></small></label>
                 <label class="chk"><input type="checkbox" name="ratings.csfd"> <span data-i18n="set.r.csfd"></span><small data-i18n="set.r.csfd.h"></small></label>

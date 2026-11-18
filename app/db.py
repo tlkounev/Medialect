@@ -113,6 +113,30 @@ class Database:
         if "added_at" not in cols:                      # databases from v1.0.0–1.0.6
             await self.conn.execute("ALTER TABLE availability ADD COLUMN added_at TEXT")
         await self.conn.commit()
+        await self._normalise_langs()
+
+    async def _normalise_langs(self) -> None:
+        """One language = one code in the filters: older rows may hold "cze", "Czech", "nb" next to "cs", "no"."""
+        from .quality import langs
+        if await self.kv_get("migrate.langs", 0) >= 2:
+            return
+        async with self.lock:
+            async with self.conn.execute(
+                    "SELECT rowid AS rid, audio_langs, subtitle_langs FROM availability "
+                    "WHERE audio_langs IS NOT NULL OR subtitle_langs IS NOT NULL") as cur:
+                rows = list(await cur.fetchall())
+            for r in rows:
+                new = []
+                for col in ("audio_langs", "subtitle_langs"):
+                    try:
+                        old = json.loads(r[col]) if r[col] else []
+                    except ValueError:
+                        old = []
+                    new.append(json.dumps(langs(old)))
+                await self.conn.execute("UPDATE availability SET audio_langs=?, subtitle_langs=? WHERE rowid=?",
+                                        (*new, r["rid"]))
+            await self.conn.commit()
+        await self.kv_set("migrate.langs", 2)
 
     async def close(self) -> None:
         if self.conn:

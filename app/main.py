@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import auth, links, queries, settings as settings_mod, updates
 from .db import db
-from .sources import justwatch
+from .sources import ivysilani, justwatch
 from .sources.base import SourceError, http_client
 from .sync import manager, server_client
 
@@ -195,6 +195,11 @@ async def get_settings():
     return settings_mod.masked(await settings_mod.load())
 
 
+def _jw(s: dict) -> list[str]:
+    """The services JustWatch is asked about (iVysílání has its own source)."""
+    return sorted(p for p in s["justwatch"].get("providers") or [] if p != ivysilani.SHORT_NAME)
+
+
 @app.put("/api/settings", dependencies=authed)
 async def put_settings(body: dict = Body(...)):
     before = await settings_mod.load()
@@ -202,9 +207,11 @@ async def put_settings(body: dict = Body(...)):
     # start what the change made relevant, instead of waiting for the next scheduled run
     await manager.trigger_new_servers()
     if saved["justwatch"].get("enabled") and (
-            sorted(saved["justwatch"].get("providers") or []) != sorted(before["justwatch"].get("providers") or [])
+            _jw(saved) != _jw(before)
             or not before["justwatch"].get("enabled")):
         manager.trigger("justwatch")
+    if ivysilani.selected(saved) and not ivysilani.selected(before):
+        manager.trigger("ivysilani")
     sa_keys = ("enabled", "api_key", "catalogs", "mode")
     if saved["streaming_availability"].get("enabled") and any(
             saved["streaming_availability"].get(k) != before["streaming_availability"].get(k) for k in sa_keys):
@@ -251,7 +258,8 @@ async def test_server(server: dict = Body(...)):
 async def jw_providers(country: str | None = None):
     s = await settings_mod.load()
     try:
-        return {"items": await justwatch.list_providers((country or s["country"]).upper())}
+        c = (country or s["country"]).upper()
+        return {"items": await ivysilani.register(c, await justwatch.list_providers(c))}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, f"JustWatch nedostupný: {e}")
 
