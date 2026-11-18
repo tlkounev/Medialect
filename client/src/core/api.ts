@@ -75,7 +75,7 @@ export async function handle(method: string, path: string, q: URLSearchParams, b
       const before = await settingsMod.load();
       const saved = await settingsMod.save(body || {});
       // iVysílání has its own source: picking it alone does not start JustWatch again
-      const jw = (s: typeof saved) => (s.justwatch.providers || []).filter((p) => p !== ivysilani.SHORT_NAME).sort().join();
+      const jw = (s: typeof saved) => queries.jwProviders(s.justwatch.providers).sort().join();
       const changed = jw(saved) !== jw(before) || saved.country !== before.country || !before.justwatch.enabled;
       if (saved.justwatch.enabled && jw(saved) && changed) manager.trigger("justwatch");
       if (ivysilani.selected(saved) && !ivysilani.selected(before)) manager.trigger("ivysilani");

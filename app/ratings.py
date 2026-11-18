@@ -11,7 +11,7 @@ import re
 import time
 from urllib.parse import quote
 
-from . import store
+from . import queries, store
 from .db import DATA_DIR, db
 from .quality import norm
 from .sources.base import SourceError, SyncContext, http_client
@@ -161,18 +161,16 @@ async def csfd_rating(c, csfd_id: str) -> tuple[int | None, int | None, str, str
 async def csfd(ctx: SyncContext) -> None:
     cfg = ctx.settings["ratings"]
     refresh = time.time() - float(cfg.get("refresh_days", 14)) * 86400
+    # one title after another: in the user's service order (titles of the first service first)
+    rank, rank_params = await queries.rank_sql()
     rows = await db.fetchall(
         """SELECT t.id, t.title, t.original_title, t.year,
                   (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id
            FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
            WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)
              AND (r.updated_at IS NULL OR r.updated_at < ?)
-           ORDER BY r.updated_at IS NOT NULL,
-                    -- titles only on iVysílání last: matched by name only, the rest of the catalogue goes first
-                    NOT EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id AND a.provider != 'ivysilani'),
-                    csfd_id IS NULL,
-                    NOT EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id AND a.kind='library'),
-                    r.updated_at, t.id""", (refresh,))
+           ORDER BY r.updated_at IS NOT NULL, {rank}, csfd_id IS NULL, r.updated_at, t.id""".format(rank=rank),
+        (refresh, *rank_params))
     if not rows:
         return
     budget = int(cfg.get("csfd_daily_budget", 0))   # 0 = no daily limit, only the pause between requests
@@ -244,13 +242,14 @@ async def mdblist(ctx: SyncContext) -> None:
     if not key:
         return
     refresh = time.time() - float(cfg.get("refresh_days", 14)) * 86400
+    rank, rank_params = await queries.rank_sql()      # in the user's service order
     rows = await db.fetchall(
         """SELECT t.id, t.type, i.value AS imdb FROM titles t
            JOIN title_ids i ON i.title_id=t.id AND i.kind='imdb'
            LEFT JOIN ratings r ON r.title_id=t.id AND r.source='mdblist'
            WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)
              AND (r.updated_at IS NULL OR r.updated_at < ?)
-           ORDER BY r.updated_at IS NOT NULL, r.updated_at""", (refresh,))
+           ORDER BY r.updated_at IS NOT NULL, {rank}, r.updated_at""".format(rank=rank), (refresh, *rank_params))
     budget = int(cfg.get("mdblist_daily_budget", 900))
     async with http_client() as c:
         for i, row in enumerate(rows, 1):
@@ -301,8 +300,9 @@ async def _due(source: str, refresh_days: float, kinds: tuple[str, ...], ttype: 
     if ttype:
         sql += " AND t.type=?"
         params.append(ttype)
-    sql += " ORDER BY r.updated_at IS NOT NULL, r.updated_at, t.id"
-    return await db.fetchall(sql, params)
+    rank, rank_params = await queries.rank_sql()      # in the user's service order
+    sql += f" ORDER BY r.updated_at IS NOT NULL, {rank}, r.updated_at, t.id"
+    return await db.fetchall(sql, [*params, *rank_params])
 
 
 # --- TMDB (free API key) ------------------------------------------------------

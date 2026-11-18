@@ -8,6 +8,7 @@ import time
 import traceback
 
 from . import ratings, settings as settings_mod, store
+from .queries import jw_providers
 from .db import db
 from .sources import ivysilani, justwatch, streaming_availability
 from .sources.base import SourceError, SyncContext
@@ -36,7 +37,7 @@ class SyncManager:
         for srv in s["servers"]:
             if srv.get("enabled", True) and srv.get("url"):
                 out.append((f"server:{srv['id']}", srv.get("name") or srv["type"], server_client(srv).sync))
-        if s["justwatch"].get("enabled") and [p for p in s["justwatch"].get("providers") or [] if p != ivysilani.SHORT_NAME]:
+        if s["justwatch"].get("enabled") and jw_providers(s["justwatch"].get("providers")):
             out.append(("justwatch", "JustWatch", justwatch.sync))
         if ivysilani.selected(s):
             out.append(("ivysilani", "iVysílání", ivysilani.sync))
@@ -153,7 +154,7 @@ class SyncManager:
     async def _jw_unfinished(self, s: dict) -> bool:
         """An interrupted JustWatch run is continued on its own 10 minutes after it stopped."""
         if self._full_lock.locked() or "justwatch" in self.running or not s["justwatch"].get("enabled") \
-                or not s["justwatch"].get("providers") or not await justwatch.resume_pending():
+                or not jw_providers(s["justwatch"].get("providers")) or not await justwatch.resume_pending():
             return False
         row = await db.fetchone(
             "SELECT finished_at FROM sync_runs WHERE source='justwatch' ORDER BY started_at DESC LIMIT 1")

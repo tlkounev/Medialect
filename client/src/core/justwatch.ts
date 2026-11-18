@@ -6,6 +6,7 @@ import { env, http, SourceError } from "./env";
 import { POPULAR_QUERY, PROVIDERS_QUERY } from "./jw_queries";
 import { justwatchTech, langs, providerKey, qualityFromLabel } from "./quality";
 import * as store from "./store";
+import { jwProviders } from "./queries";
 import type { SyncContext } from "./context";
 
 export const GRAPHQL_URL = "https://apis.justwatch.com/graphql";
@@ -173,7 +174,7 @@ async function storeEntry(ctx: SyncContext, node: any, selected: Map<string, str
 
 export async function sync(ctx: SyncContext): Promise<void> {
   const cfg = ctx.settings.justwatch;
-  const wanted = (cfg.providers || []).filter((sn) => sn !== "ivy");   // iVysílání has its own source
+  const wanted = jwProviders(cfg.providers);   // iVysílání and own servers have their own sources
   if (!wanted.length) { ctx.note("Nejsou vybrané žádné služby."); return; }
   const delayMs = Math.max(0, Number(cfg.request_delay_s ?? 0.5)) * 1000;
   const names = new Map((await listProviders(ctx.settings.country)).map((p) => [p.short_name, p.name]));

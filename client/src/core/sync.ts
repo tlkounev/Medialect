@@ -7,6 +7,7 @@ import * as justwatch from "./justwatch";
 import * as ivysilani from "./ivysilani";
 import * as ratings from "./ratings";
 import * as store from "./store";
+import { jwProviders } from "./queries";
 import { serverSync } from "./servers";
 
 type JobFn = (ctx: SyncContext) => Promise<void>;
@@ -24,7 +25,7 @@ export class SyncManager {
     for (const srv of s.servers || []) {
       if (srv.enabled !== false && srv.url) out.push([`server:${srv.id}`, srv.name || srv.type, serverSync(srv)]);
     }
-    if (s.justwatch.enabled && s.justwatch.providers.some((p) => p !== ivysilani.SHORT_NAME)) out.push(["justwatch", "JustWatch", justwatch.sync]);
+    if (s.justwatch.enabled && jwProviders(s.justwatch.providers).length > 0) out.push(["justwatch", "JustWatch", justwatch.sync]);
     if (ivysilani.selected(s)) out.push(["ivysilani", "iVysílání", ivysilani.sync]);
     out.push(["ratings", "Hodnocení", ratings.sync]);
     return out;
@@ -107,7 +108,7 @@ export class SyncManager {
 
   /** An interrupted JustWatch run is continued on its own 10 minutes after it stopped. */
   private async jwUnfinished(s: settingsMod.Settings): Promise<boolean> {
-    if (this.fullRunning || this.running.has("justwatch") || !s.justwatch.enabled || !s.justwatch.providers.some((p) => p !== ivysilani.SHORT_NAME)) return false;
+    if (this.fullRunning || this.running.has("justwatch") || !s.justwatch.enabled || !jwProviders(s.justwatch.providers).length) return false;
     if (!(await justwatch.resumePending())) return false;
     const row = await env.db.get("SELECT finished_at FROM sync_runs WHERE source='justwatch' ORDER BY started_at DESC LIMIT 1");
     return !!row?.finished_at && now() - row.finished_at >= 600;

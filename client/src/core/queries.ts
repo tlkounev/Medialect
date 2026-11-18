@@ -27,10 +27,33 @@ const list = (v?: string | null) => (v || "").split(",").map((x) => x.trim()).fi
 const ph = (n: number) => Array(n).fill("?").join(",");
 
 /** Provider key -> position in the user's service order (settings), for sorting offers. */
+export const SERVER_PREFIX = "srv:";   // a media server in the user's service order: "srv:<server id>"
+
+/** The services JustWatch is asked about: the order also holds iVysílání and the user's own servers. */
+export const jwProviders = (order: string[] | null | undefined) =>
+  (order || []).filter((p) => p !== "ivy" && !p.startsWith(SERVER_PREFIX));
+
+/** Provider key -> position in the user's service order, for sorting offers and for the order in which
+ *  ratings are fetched. Own servers are in the order as "srv:<id>". */
 export async function providerRank(): Promise<Map<string, number>> {
-  const s = await env.db.kvGet<any>("settings", {});
+  const s = await settingsMod.load();
   const keys = await env.db.kvGet<Record<string, string>>("jw.provider_keys", {});
-  return new Map(((s?.justwatch?.providers || []) as string[]).map((sn, i) => [keys[sn] || sn, i]));
+  const servers = new Map((s.servers || []).map((x: any) => [x.id, `${x.type}-${x.id}`]));
+  const out = new Map<string, number>();
+  (s.justwatch?.providers || []).forEach((sn: string, i: number) => {
+    const key = sn.startsWith(SERVER_PREFIX) ? servers.get(sn.slice(SERVER_PREFIX.length)) : keys[sn] || sn;
+    if (key) out.set(key, i);
+  });
+  return out;
+}
+
+/** SQL for a title's best position in the user's service order (lower = sooner). Own libraries not yet
+ *  placed in the order come first, services the user did not pick last. */
+export async function rankSql(alias = "t"): Promise<[string, unknown[]]> {
+  const rank = await providerRank();
+  const rest = "CASE WHEN a.kind='library' THEN -1 ELSE 9999 END";
+  const c = rank.size ? `CASE a.provider ${[...rank].map(() => "WHEN ? THEN ?").join(" ")} ELSE ${rest} END` : rest;
+  return [`(SELECT MIN(${c}) FROM availability a WHERE a.title_id=${alias}.id)`, [...rank].flat()];
 }
 
 export async function hydrate(titleIds: number[]): Promise<any[]> {
@@ -87,9 +110,9 @@ export async function hydrate(titleIds: number[]): Promise<any[]> {
     if (!t) continue;
     const rank = (s: string) => (RATING_ORDER.includes(s) ? RATING_ORDER.indexOf(s) : 99);
     const rs = (ratings.get(tid) || []).sort((a, b) => rank(a.source) - rank(b.source));
+    const pos = (o: any) => order.get(o.provider) ?? (o.kind === "library" ? -1 : 999);
     const offers = [...(where.get(tid)?.values() || [])].sort((a, b) =>
-      Number(a.kind !== "library") - Number(b.kind !== "library") ||
-      (order.get(a.provider) ?? 999) - (order.get(b.provider) ?? 999) ||
+      pos(a) - pos(b) ||
       (a.provider_name || "").toLowerCase().localeCompare((b.provider_name || "").toLowerCase()));
     out.push({ id: tid, type: t.type, title: t.title, original_title: t.original_title, year: t.year, poster: t.poster,
       ids: ids.get(tid) || {}, ratings: rs, where: offers });

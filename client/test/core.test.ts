@@ -250,6 +250,30 @@ describe("app core", () => {
     expect(cat.items.map((i: any) => i.title)).toEqual(["Nový film", "Matrix"]);   // Matrix counts from 2021
   });
 
+  it("service order includes own servers: offers and the ČSFD queue follow it", async () => {
+    const st = await import("../src/core/store");
+    const q = await import("../src/core/queries");
+    const s = await settingsMod.load();
+    await env.db.kvSet("settings", { ...s, servers: [{ id: "abc", type: "emby", name: "Doma", url: "http://10.0.0.10:8096" }],
+      justwatch: { ...s.justwatch, providers: ["nfx", "srv:abc", "ivy"] } });
+    await env.db.kvSet("jw.provider_keys", { nfx: "netflix", ivy: "ivysilani" });
+    const a = await st.upsertTitle({ type: "movie", title: "Jen doma", year: 2001 });
+    const b = await st.upsertTitle({ type: "movie", title: "Jen Netflix", year: 2002 });
+    const c = await st.upsertTitle({ type: "movie", title: "Jen ČT", year: 2003 });
+    const off = (provider: string, kind: "stream" | "library" = "stream") =>
+      ({ source: kind === "library" ? "emby:abc" : provider, provider, provider_name: provider, kind, monetization: kind === "library" ? "library" : "flatrate" });
+    await st.upsertOffer(a, off("emby-abc", "library"), 1);
+    await st.upsertOffer(b, off("netflix"), 1);
+    await st.upsertOffer(c, off("ivysilani"), 1);
+    await st.upsertOffer(a, off("netflix"), 1);
+    expect(q.jwProviders(["nfx", "srv:abc", "ivy"])).toEqual(["nfx"]);
+    const [rank, params] = await q.rankSql();
+    const ids = (await env.db.all(`SELECT t.id FROM titles t ORDER BY ${rank}, t.id`, params)).map((r) => r.id);
+    expect(ids).toEqual([a, b, c]);       // a and b both on Netflix (1st), c on iVysílání (3rd)
+    const [hyd] = await q.hydrate([a]);
+    expect(hyd.where.map((o: any) => o.provider)).toEqual(["netflix", "emby-abc"]);   // the user's order, not "library first"
+  });
+
   it("keeps two works of the same name apart and repairs old mixes", async () => {
     const st = await import("../src/core/store");
     const drama = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2020, ids: { jw: "tsX1", tmdb_tv: "97547" } });
