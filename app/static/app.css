@@ -39,7 +39,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .subnav button.active { border-color: var(--line); background: var(--panel); }
 /* the search field and the open filters stay at the top while the list scrolls */
 .catbar { position: sticky; top: var(--hdr, 0px); z-index: 4; background: var(--bg); padding-top: 6px; margin-bottom: 4px; }
-.searchbar { margin-bottom: 8px; }
+.searchbar { margin-bottom: 8px; flex-wrap: nowrap; }
+.searchbar input { min-width: 0; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: grid; gap: 12px; width: min(360px, 92vw); }
 
 .searchbar, .filters, .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -68,8 +69,10 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .offer { display: grid; grid-template-columns: 1fr auto; align-items: stretch; border-radius: 8px; background: #11141a;
   color: var(--text); border: 1px solid transparent; }
 .offer.link:hover, .offer.link:focus-within { border-color: var(--accent); background: #151b26; }
-.offer-main { display: flex; gap: 6px 8px; align-items: center; flex-wrap: wrap; padding: 7px 9px; color: inherit; text-decoration: none;
-  border-radius: 8px; min-width: 0; }
+/* one line per service: the logo, beside it the badges in at most two rows (the rest stays hidden), so
+   every service box has the same height */
+.offer-main { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; padding: 7px 9px; color: inherit; text-decoration: none;
+  border-radius: 8px; min-width: 0; min-height: 50px; }
 a.offer-main:active { background: #1b2740; }
 a.offer-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .offer .more { align-self: center; width: 36px; height: 36px; margin-inline-end: 4px; padding: 0; display: grid; place-items: center;
@@ -77,15 +80,17 @@ a.offer-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -
 .offer .more:hover, .offer .more:focus-visible { background: rgba(255,255,255,.08); color: var(--text); }
 .offer .more svg { transition: transform .15s; }
 .offer .more[aria-expanded="true"] svg { transform: rotate(180deg); }
-.offer .tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.offer .tags { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 4px;
+  max-height: 36px; overflow: hidden; }
+.offer .tags .mon { background: transparent; border: 1px solid var(--line); color: var(--muted); font-weight: 600; }
 .offer .langs { grid-column: 1 / -1; display: grid; gap: 3px; padding: 0 9px 8px; color: var(--muted); font-size: 12px; }
 .offer .langs.hidden { display: none; }
 .offer .li { display: flex; gap: 6px; align-items: flex-start; }
 .offer .li .ico { width: 14px; height: 14px; margin-top: 1px; color: var(--muted); flex: none; }
-.offer .prov { display: inline-flex; align-items: center; gap: 8px; min-width: 40px; }
-.offer .name { font-weight: 600; }
+.offer .prov { display: inline-flex; align-items: center; flex: none; min-width: 36px; max-width: 42%; }
+.offer .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* a frame around every logo: tiles of one size, whatever the logo inside looks like */
-.offer .svc-logo { width: 32px; height: 32px; border-radius: 8px; object-fit: contain; flex: none;
+.offer .svc-logo { width: 36px; height: 36px; border-radius: 9px; object-fit: contain; flex: none;
   box-shadow: 0 0 0 1.5px rgba(255,255,255,.28), 0 1px 4px rgba(0,0,0,.5); }
 .offer .svc-logo:not([src]) { background: var(--line); }
 .tag { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; line-height: 16px; padding: 0 5px;
