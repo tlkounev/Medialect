@@ -283,6 +283,21 @@ function renderOffer(o) {
   const more = rows.length ? `<button type="button" class="more" aria-expanded="false" title="${esc(t("offer.details"))}" aria-label="${esc(t("offer.details"))}">${CARET}</button>` : "";
   return `<div class="offer ${o.kind}${o.url ? " link" : ""}">${main}${more}${rows.length ? `<div class="langs hidden">${rows.join("")}</div>` : ""}</div>`;
 }
+/* At most two rows of badges beside the logo: what wraps to a third row is hidden whole (measured, so it
+   works with any font size); the opened details show them all. */
+function clampTags(root) {
+  requestAnimationFrame(() => {
+    for (const box of root.querySelectorAll(".offer .tags")) {
+      const tags = [...box.children];
+      tags.forEach((t) => t.classList.remove("over"));
+      const rows = [...new Set(tags.map((t) => t.offsetTop))].sort((a, b) => a - b);
+      if (rows.length > 2) for (const t of tags) if (t.offsetTop > rows[1]) t.classList.add("over");
+    }
+  });
+}
+let clampTimer = null;
+addEventListener("resize", () => { clearTimeout(clampTimer); clampTimer = setTimeout(() => clampTags($("#catalog")), 200); });
+document.fonts?.ready?.then(() => clampTags($("#catalog")));
 $("#catalog").addEventListener("click", (e) => {
   const more = e.target.closest(".offer .more");
   if (!more) return;
@@ -326,7 +341,7 @@ function renderTitle(ti) {
   const meta = [ti.type === "movie" ? t("type.movie") : t("type.show"), ti.year].filter(Boolean).join(" · ");
   const sub = ti.original_title && ti.original_title !== ti.title ? ti.original_title : "";
   const img = ti.poster ? `<img loading="lazy" src="${esc(ti.poster)}" alt="" onerror="posterFailed(this)">` : `<div class="noimg"></div>`;
-  return `<article class="title">${img}<div>
+  return `<article class="title" data-id="${esc(ti.id)}">${img}<div>
     <h3>${esc(ti.title)} <span class="meta">${esc(meta)}</span></h3>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}
     <div class="ratings">${ratings}</div>
     <div class="offers">${(ti.where || []).map(renderOffer).join("")}</div>
@@ -530,6 +545,8 @@ async function loadCatalog(append = false) {
         : `<p class="muted">${esc(t(syncRunning ? "cat.loading" : "cat.none"))}</p>`;
     }
     fillLogos($("#catalog"));
+    clampTags($("#catalog"));
+    focusSoon();
     $("#more").classList.toggle("hidden", cPage >= catalogPages);
     fabUpdate();
   } catch (e) {
@@ -548,7 +565,27 @@ function moreIfNear() {
   const r = $("#more").getBoundingClientRect();
   if (!$("#more").classList.contains("hidden") && r.top < innerHeight + 800) loadMore();
 }
-addEventListener("scroll", () => { moreIfNear(); fabUpdate(); }, { passive: true });
+addEventListener("scroll", () => { moreIfNear(); fabUpdate(); focusSoon(); }, { passive: true });
+
+/* the ratings of the titles on screen are fetched first: the app says which ones they are (the ones in
+   view, then the ones below them, then above), shortly after the list stops moving */
+let focusTimer = null, lastFocus = "";
+function focusSoon() { clearTimeout(focusTimer); focusTimer = setTimeout(sendFocus, 1200); }
+function sendFocus() {
+  if (currentTab !== "catalog") return;
+  const all = $$("#catalog .title[data-id]");
+  const top = 0, bottom = innerHeight;
+  const inView = [], below = [], above = [];
+  for (const el of all) {
+    const r = el.getBoundingClientRect();
+    (r.bottom < top ? above : r.top > bottom ? below : inView).push(Number(el.dataset.id));
+  }
+  const ids = [...inView, ...below, ...above.reverse()].slice(0, 200);
+  const key = ids.join(",");
+  if (!ids.length || key === lastFocus) return;
+  lastFocus = key;
+  api("/api/ratings/focus", { method: "POST", body: { ids } }).catch(() => {});
+}
 
 /* floating buttons once the list is long: to the top, one page up, one page down */
 const pageMarks = () => $$("#catalog .page-mark");

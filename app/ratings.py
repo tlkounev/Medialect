@@ -6,6 +6,7 @@ import asyncio
 import gzip
 import html
 import io
+import json
 import os
 import re
 import time
@@ -158,26 +159,51 @@ async def csfd_rating(c, csfd_id: str) -> tuple[int | None, int | None, str, str
     return (int(m.group(1)) if m else None), votes, url, (imdb.group(1) if imdb else None)
 
 
-async def csfd(ctx: SyncContext) -> None:
-    cfg = ctx.settings["ratings"]
-    refresh = time.time() - float(cfg.get("refresh_days", 14)) * 86400
-    # one title after another: in the user's service order (titles of the first service first)
+CSFD_FOCUS_KEY = "ratings.focus"     # titles the user has on screen right now: rated before the rest
+
+
+async def _csfd_queue(refresh: float) -> list:
+    """Titles still to be rated: the ones on the user's screen first, then the user's service order."""
     rank, rank_params = await queries.rank_sql()
-    rows = await db.fetchall(
+    focus = json.dumps((await db.kv_get(CSFD_FOCUS_KEY, {})).get("ids") or [])
+    return await db.fetchall(
         """SELECT t.id, t.title, t.original_title, t.year,
                   (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id
            FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
            WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)
              AND (r.updated_at IS NULL OR r.updated_at < ?)
-           ORDER BY r.updated_at IS NOT NULL, {rank}, csfd_id IS NULL, r.updated_at, t.id""".format(rank=rank),
-        (refresh, *rank_params))
+           ORDER BY COALESCE((SELECT CAST(j.key AS INTEGER) FROM json_each(?) j WHERE j.value = t.id), 1000000),
+                    r.updated_at IS NOT NULL, {rank}, csfd_id IS NULL, r.updated_at, t.id""".format(rank=rank),
+        (refresh, focus, *rank_params))
+
+
+async def csfd(ctx: SyncContext) -> None:
+    cfg = ctx.settings["ratings"]
+    refresh = time.time() - float(cfg.get("refresh_days", 14)) * 86400
+    rows = await _csfd_queue(refresh)
     if not rows:
         return
+    # progress over the whole catalogue: a run that continues an interrupted one starts where it stopped
+    total = (await db.fetchone("SELECT COUNT(*) AS n FROM titles t WHERE EXISTS "
+                               "(SELECT 1 FROM availability a WHERE a.title_id=t.id)"))["n"]
+    done_before = max(0, total - len(rows))
+    focus_v = (await db.kv_get(CSFD_FOCUS_KEY, {})).get("v")
     budget = int(cfg.get("csfd_daily_budget", 0))   # 0 = no daily limit, only the pause between requests
     errors = 0
     async with http_client(headers={"User-Agent": CSFD_UA, "Accept-Language": "cs,en;q=0.5"}) as c:
-        for i, row in enumerate(rows, 1):
-            ctx.progress(f"ČSFD: {i}/{len(rows)}" + (f" (denní limit {budget})" if budget else ""), i / max(1, len(rows)))
+        i, seen = 0, set()
+        while rows:
+            # the user scrolled to other titles: those come next
+            if (await db.kv_get(CSFD_FOCUS_KEY, {})).get("v") != focus_v:
+                focus_v = (await db.kv_get(CSFD_FOCUS_KEY, {})).get("v")
+                rows = [r for r in await _csfd_queue(refresh) if r["id"] not in seen]
+                if not rows:
+                    break
+            row = rows.pop(0)
+            seen.add(row["id"])
+            i += 1
+            ctx.progress(f"ČSFD: {done_before + i}/{total}" + (f" (denní limit {budget})" if budget else ""),
+                         (done_before + i) / max(1, total))
             if not await db.budget_take("csfd", budget):
                 ctx.partial = True
                 ctx.note(f"ČSFD: denní limit {budget} titulů vyčerpán, pokračuje se zítra.")

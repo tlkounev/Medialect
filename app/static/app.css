@@ -82,9 +82,9 @@ a.offer-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -
 .offer .more[aria-expanded="true"] svg { transform: rotate(180deg); }
 /* sizes in em: they grow with the phone's font size setting, so two rows always fit and the logo
    is exactly as tall as those two rows (a tag = 1.6em + 2px border, gap .4em) */
-.offer .tags { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: .4em;
-  font-size: 10px; max-height: calc(3.6em + 4px); overflow: hidden; }
-.offer.open .tags { max-height: none; }          /* opened details show every badge */
+.offer .tags { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: .4em; font-size: 10px; }
+.offer .tags .tag.over { display: none; }          /* a third row: hidden whole (app.js measures the rows) */
+.offer.open .tags .tag.over { display: inline-flex; }   /* opened details show every badge */
 .offer .tags .mon { background: transparent; color: var(--muted); font-weight: 600; }
 .offer .langs { grid-column: 1 / -1; display: grid; gap: 3px; padding: 0 9px 8px; color: var(--muted); font-size: 12px; }
 .offer .langs.hidden { display: none; }
@@ -97,11 +97,10 @@ a.offer-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -
   box-shadow: 0 0 0 1.5px rgba(255,255,255,.28), 0 1px 4px rgba(0,0,0,.5); }
 .offer .svc-logo:not([src]) { background: var(--line); }
 .tag { display: inline-flex; align-items: center; gap: .3em; font-size: 10px; font-weight: 700; line-height: 1.6em; padding: 0 .5em;
-  border-radius: 4px; background: var(--line); color: #fff; white-space: nowrap; border: 1px solid rgba(255,255,255,.28); }
+  border-radius: 4px; background: var(--line); color: #fff; white-space: nowrap; border: 1px solid transparent; }
 .tag .g { width: 1em; height: 1em; flex: none; }
-/* resolution: one colour per step (no industry standard exists) */
-.tag.q-UHD { background: #6b3cff; } .tag.q-QHD { background: #3b56d6; } .tag.q-FHD { background: #2d5fd1; }
-.tag.q-HD { background: #1f7a8c; } .tag.q-SD { background: #4a5162; }
+/* resolution: framed, in the gold of the "4K Ultra HD" / "HD" marks on film covers */
+.tag[class*="q-"] { background: rgba(240,192,64,.10); border-color: #e8b730; color: #f3c540; }
 /* codecs: own glyphs, a colour per family */
 .tag.c-dv { background: linear-gradient(90deg, #3a1d6e, #7a2a8c); }
 .tag.c-hdr { background: #8a5a00; } .tag.c-hdrp { background: #a5640a; }
