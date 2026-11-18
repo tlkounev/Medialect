@@ -243,7 +243,6 @@ jobs:
           else
             echo "::warning::No updater signatures – latest.json not published."
           fi
-          # "latest" stays on the newest release with Windows/Linux files: the desktop updater reads releases/latest
-          if [ -f dist/latest.json ]; then LATEST=--latest; else LATEST=--latest=false; fi
-          gh release create "app-v$V" dist/* --target "$GITHUB_SHA" --title "Medialect app $V" $LATEST \
-            --notes "Instalační soubory aplikace Medialect $V: Android (.apk), Windows (.exe / .msi), Linux (.AppImage / .deb / .rpm). Nainstalovaná aplikace se aktualizuje sama."
+          # the newest release is GitHub's "Latest" (releases/latest), so a download from there is the current APK
+          gh release create "app-v$V" dist/* --target "$GITHUB_SHA" --title "Medialect app $V" --latest \
+            --notes "Instalační soubor aplikace Medialect $V pro Android (telefon i Google TV): .apk. Novou verzi aplikace ohlásí, stahuje se v prohlížeči."
