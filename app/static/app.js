@@ -731,7 +731,10 @@ function fillChoices() {
    title in the catalogue. Reordering: hold a tile and drag it (touch), drag it (mouse), or on a remote/
    keyboard press OK on a chosen tile, move it with the arrows and confirm with OK. */
 function servicePicker(box, items, selected, onChange) {
+  // fixed items (own media servers) are always in the order: they can be moved, not removed
+  const fixed = new Set(items.filter((p) => p.fixed).map((p) => p.short_name));
   let order = selected.filter((sn) => items.some((p) => p.short_name === sn));
+  order = [...[...fixed].filter((sn) => !order.includes(sn)), ...order];
   let moving = null;   // remote/keyboard move mode: short_name of the tile being moved
   let dragging = null; // pointer drag: short_name of the dragged tile
   let rendering = false;
@@ -745,13 +748,13 @@ function servicePicker(box, items, selected, onChange) {
     box.innerHTML = [...chosen, ...others].map((p) => {
       const pos = order.indexOf(p.short_name);
       const on = pos >= 0;
-      const cls = `svc${on ? " on" : " other"}${p.short_name === moving ? " moving" : ""}${p.short_name === dragging ? " placeholder" : ""}`;
+      const cls = `svc${on ? " on" : " other"}${p.fixed ? " fixed" : ""}${p.short_name === moving ? " moving" : ""}${p.short_name === dragging ? " placeholder" : ""}`;
       return `<div class="${cls}" data-sn="${esc(p.short_name)}">
         <button type="button" class="svc-main" aria-pressed="${on}" title="${esc(p.name)}">
-          ${p.icon ? `<img src="${esc(p.icon)}" alt="" draggable="false">` : `<span class="svc-noicon">${esc(p.name.slice(0, 2))}</span>`}
+          ${p.icon ? `<img src="${esc(p.icon)}" alt="" draggable="false" data-initials="${esc(p.name.slice(0, 2))}" onerror="svcIconFailed(this)">` : `<span class="svc-noicon">${esc(p.name.slice(0, 2))}</span>`}
           <span class="svc-name">${esc(p.name)}</span>
         </button>
-        ${on ? `<button type="button" class="svc-x" data-remove title="${esc(t("svc.remove"))}" aria-label="${esc(t("svc.remove"))} ${esc(p.name)}">×</button>` : ""}
+        ${on && !p.fixed ? `<button type="button" class="svc-x" data-remove title="${esc(t("svc.remove"))}" aria-label="${esc(t("svc.remove"))} ${esc(p.name)}">×</button>` : ""}
       </div>`;
     }).join("");
     hint.textContent = moving ? t("svc.moving") : "";
@@ -794,6 +797,7 @@ function servicePicker(box, items, selected, onChange) {
     if (!tile) return;
     const sn = tile.dataset.sn;
     if (e.target.closest("[data-remove]")) {
+      if (fixed.has(sn)) return;
       moving = null;
       order = order.filter((x) => x !== sn);
       changed(sn);
@@ -806,6 +810,7 @@ function servicePicker(box, items, selected, onChange) {
       render(sn);
       return;
     }
+    if (fixed.has(sn)) return;                      // a server is switched off in its own settings
     moving = null;
     order = order.includes(sn) ? order.filter((x) => x !== sn) : [...order, sn];
     changed(sn);
@@ -939,6 +944,14 @@ function servicePicker(box, items, selected, onChange) {
 }
 
 let jwPicker = null;
+function svcIconFailed(img) {
+  img.replaceWith(Object.assign(document.createElement("span"), { className: "svc-noicon", textContent: img.dataset.initials || "?" }));
+}
+function serverIcon(srv) {
+  if (!document.body.classList.contains("local")) return `/api/poster/${encodeURIComponent(srv.id)}?path=%2Fweb%2Ffavicon.ico`;
+  const base = String((srv.link_mode !== "internal" && srv.public_url) || srv.url || "").replace(/\/+$/, "");
+  return base ? `${base}/web/favicon.ico` : "";
+}
 async function loadJwProviders() {
   const box = $("#jwProviders");
   jwPicker = null;
@@ -946,7 +959,10 @@ async function loadJwProviders() {
   try {
     const { items } = await api(`/api/justwatch/providers?country=${encodeURIComponent($("#setCountry").value)}`);
     const selected = current.justwatch.providers || [];
-    jwPicker = servicePicker(box, items, selected, () => markDirty(true));
+    // own media servers are ordered together with the services (offers in the catalogue, ratings first)
+    const servers = (current.servers || []).filter((srv) => srv.id && srv.url).map((srv) => ({
+      short_name: `srv:${srv.id}`, name: srv.name || srv.type, fixed: true, icon: serverIcon(srv) }));
+    jwPicker = servicePicker(box, [...servers, ...items], selected, () => markDirty(true));
     // services the user does not have stay hidden; one click shows the rest of the country's offer
     const anyChosen = items.some((p) => selected.includes(p.short_name));
     $("#jwShowAll").checked = !anyChosen;

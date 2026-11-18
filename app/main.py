@@ -197,7 +197,7 @@ async def get_settings():
 
 def _jw(s: dict) -> list[str]:
     """The services JustWatch is asked about (iVysílání has its own source)."""
-    return sorted(p for p in s["justwatch"].get("providers") or [] if p != ivysilani.SHORT_NAME)
+    return sorted(queries.jw_providers(s["justwatch"].get("providers")))
 
 
 @app.put("/api/settings", dependencies=authed)

@@ -22,12 +22,37 @@ def _j(s: str | None) -> list:
         return []
 
 
+SERVER_PREFIX = "srv:"     # a media server in the user's service order: "srv:<server id>"
+
+
+def jw_providers(order: list[str] | None) -> list[str]:
+    """The services JustWatch is asked about: the order also holds iVysílání and the user's own servers."""
+    return [p for p in order or [] if p != "ivy" and not p.startswith(SERVER_PREFIX)]
+
+
 async def provider_rank() -> dict[str, int]:
-    """Provider key -> position in the user's service order (settings), for sorting offers."""
+    """Provider key -> position in the user's service order (settings), for sorting offers and for the
+    order in which ratings are fetched. Own servers are in the order as "srv:<id>"."""
     from . import settings as settings_mod
-    order = (await settings_mod.load())["justwatch"].get("providers") or []
+    s = await settings_mod.load()
     keys = await db.kv_get("jw.provider_keys", {})
-    return {keys.get(sn, sn): i for i, sn in enumerate(order)}
+    servers = {srv["id"]: f"{srv['type']}-{srv['id']}" for srv in s.get("servers") or []}
+    out = {}
+    for i, sn in enumerate(s["justwatch"].get("providers") or []):
+        key = servers.get(sn[len(SERVER_PREFIX):]) if sn.startswith(SERVER_PREFIX) else keys.get(sn, sn)
+        if key:
+            out[key] = i
+    return out
+
+
+async def rank_sql(alias: str = "t") -> tuple[str, list]:
+    """SQL for a title's best position in the user's service order (lower = sooner). Own libraries not yet
+    placed in the order come first, services the user did not pick last."""
+    rank = await provider_rank()
+    rest = "CASE WHEN a.kind='library' THEN -1 ELSE 9999 END"
+    case = ("CASE a.provider " + " ".join("WHEN ? THEN ?" for _ in rank) + f" ELSE {rest} END") if rank else rest
+    params = [x for k, v in rank.items() for x in (k, v)]
+    return f"(SELECT MIN({case}) FROM availability a WHERE a.title_id={alias}.id)", params
 
 
 def rating_visible(cfg: dict):
@@ -115,7 +140,7 @@ async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[di
         rs = sorted(ratings.get(tid, []),
                     key=lambda x: RATING_ORDER.index(x["source"]) if x["source"] in RATING_ORDER else 99)
         offers = sorted(where.get(tid, {}).values(),
-                        key=lambda o: (o["kind"] != "library", rank.get(o["provider"], 999),
+                        key=lambda o: (rank.get(o["provider"], -1 if o["kind"] == "library" else 999),
                                        (o["provider_name"] or "").lower()))
         out.append({
             "id": tid, "type": t["type"], "title": t["title"], "original_title": t["original_title"],

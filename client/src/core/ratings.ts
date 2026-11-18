@@ -3,6 +3,7 @@ import { env, http, SourceError, userAgent } from "./env";
 import { now } from "./db";
 import { norm } from "./quality";
 import * as store from "./store";
+import { rankSql } from "./queries";
 import type { SyncContext } from "./context";
 
 export const urls = {
@@ -78,7 +79,8 @@ async function due(source: string, refreshDays: number, kinds: string[], ttype?:
       AND (r.updated_at IS NULL OR r.updated_at < ?)`;
   const params: unknown[] = [source, ...kinds, refresh];
   if (ttype) { sql += " AND t.type=?"; params.push(ttype); }
-  return env.db.all(sql + " ORDER BY r.updated_at IS NOT NULL, r.updated_at, t.id", params);
+  const [rank, rankParams] = await rankSql();     // in the user's service order
+  return env.db.all(sql + ` ORDER BY r.updated_at IS NOT NULL, ${rank}, r.updated_at, t.id`, [...params, ...rankParams]);
 }
 
 // --- TMDB ----------------------------------------------------------------------------------
@@ -174,11 +176,12 @@ export async function mdblist(ctx: SyncContext): Promise<void> {
   const key = cfg.mdblist_api_key;
   if (!key) return;
   const refresh = now() - Number(cfg.refresh_days) * 86400;
+  const [rank, rankParams] = await rankSql();     // in the user's service order
   const rows = await env.db.all(`SELECT t.id, t.type, i.value AS imdb FROM titles t
       JOIN title_ids i ON i.title_id=t.id AND i.kind='imdb'
       LEFT JOIN ratings r ON r.title_id=t.id AND r.source='mdblist'
       WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id) AND (r.updated_at IS NULL OR r.updated_at < ?)
-      ORDER BY r.updated_at IS NOT NULL, r.updated_at`, [refresh]);
+      ORDER BY r.updated_at IS NOT NULL, ${rank}, r.updated_at`, [refresh, ...rankParams]);
   const budget = Number(cfg.mdblist_daily_budget);
   for (const [i, row] of rows.entries()) {
     ctx.progress(`MDBList: ${i + 1}/${rows.length}`, (i + 1) / rows.length);
@@ -256,14 +259,13 @@ async function csfdRating(cid: string): Promise<[number | null, number | null, s
 export async function csfd(ctx: SyncContext): Promise<void> {
   const cfg = ctx.settings.ratings;
   const refresh = now() - Number(cfg.refresh_days) * 86400;
+  // one title after another: in the user's service order (titles of the first service first)
+  const [rank, rankParams] = await rankSql();
   const rows = await env.db.all(`SELECT t.id, t.title, t.original_title, t.year,
       (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id
     FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
     WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id) AND (r.updated_at IS NULL OR r.updated_at < ?)
-    ORDER BY r.updated_at IS NOT NULL,
-      -- titles only on iVysílání last: matched by name only, the rest of the catalogue goes first
-      NOT EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id AND a.provider != 'ivysilani'),
-      csfd_id IS NULL, r.updated_at, t.id`, [refresh]);
+    ORDER BY r.updated_at IS NOT NULL, ${rank}, csfd_id IS NULL, r.updated_at, t.id`, [refresh, ...rankParams]);
   const budget = Number(cfg.csfd_daily_budget);
   let errors = 0;
   for (const [i, row] of rows.entries()) {

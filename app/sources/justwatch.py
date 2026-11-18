@@ -15,6 +15,7 @@ import time
 from simplejustwatchapi import justwatch as jw
 
 from .. import store
+from ..queries import jw_providers
 from ..db import db
 from ..quality import justwatch_tech, langs, provider_key, quality_from_label
 from .base import SourceError, SyncContext
@@ -141,7 +142,7 @@ async def _store_entry(ctx: SyncContext, entry, selected: dict[str, str]) -> Non
 
 async def sync(ctx: SyncContext) -> None:
     cfg = ctx.settings["justwatch"]
-    wanted = [sn for sn in cfg.get("providers") or [] if sn != "ivy"]   # iVysílání has its own source
+    wanted = jw_providers(cfg.get("providers"))   # iVysílání and own servers have their own sources
     if not wanted:
         ctx.note("Nejsou vybraní žádní poskytovatelé.")
         return
