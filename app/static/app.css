@@ -329,8 +329,6 @@ body:not(.local) .app-only { display: none !important; }
 .searchbar .reset:hover, .searchbar .reset:focus-visible { background: rgba(255,92,92,.26); color: #fff; }
 .searchbar .reset.hidden { display: none; }
 .ms-sep { height: 1px; background: var(--line); margin: 6px 0; }
-.page-mark { text-align: center; color: var(--muted); font-size: 12px; padding: 4px 0; }
-.page-mark.first { display: none; }
 .more-loading { display: grid; place-items: center; padding: 18px 0; color: var(--muted); }
 .more-loading.hidden { display: none; }
 .spinner { width: 22px; height: 22px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
@@ -344,7 +342,6 @@ body:not(.local) .app-only { display: none !important; }
   background: transparent; border: 0; color: var(--text); }
 .fab button:hover, .fab button:focus-visible { background: rgba(79,140,255,.2); }
 .fab button:disabled { opacity: .3; }
-.fab-page { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 body.note-open .fab { bottom: 120px; }
 @media (max-width: 640px) {
   .searchbar .reset span { display: none; }

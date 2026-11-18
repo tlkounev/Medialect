@@ -21,7 +21,7 @@
 "f.anyQuality": "Laatu", "f.anyVideo": "Kuva", "f.anyAudio": "Ääni",
 "f.anyAudioLang": "Äänen kieli", "f.anySub": "Tekstitykset", "f.reset": "Tyhjennä suodattimet", "f.clear": "Tyhjennä valinta",
 "sort.added": "Äskettäin lisätyt", "sort.year": "Julkaisuvuosi", "sort.title": "Nimi", "sort.rating": "Arvio {name}",
-"cat.count": "{n} nimikettä", "cat.page": "sivu {p}/{n}", "cat.none": "Mitään ei löytynyt.",
+"cat.count": "{n} nimikettä", "cat.none": "Mitään ei löytynyt.",
 "cat.addedNote": "lisäyspäivä tiedetään omista kirjastoista ja Streaming Availabilitystä, muut nimikkeet ovat lopussa",
 "pager.prev": "‹ Edellinen", "pager.next": "Seuraava ›",
 "offer.free": "ilmainen", "offer.ads": "mainoksin", "offer.addon": "lisäpalvelu", "offer.audio": "ääni", "offer.subs": "tekstitys",

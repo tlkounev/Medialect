@@ -21,7 +21,7 @@
 "f.anyQuality": "Якість", "f.anyVideo": "Зображення", "f.anyAudio": "Звук",
 "f.anyAudioLang": "Мова звуку", "f.anySub": "Субтитри", "f.reset": "Скинути фільтри", "f.clear": "Скинути вибір",
 "sort.added": "Нещодавно додані", "sort.year": "Рік виходу", "sort.title": "Назва", "sort.rating": "Оцінка {name}",
-"cat.count": "{n} назв", "cat.page": "сторінка {p}/{n}", "cat.none": "Нічого не знайдено.",
+"cat.count": "{n} назв", "cat.none": "Нічого не знайдено.",
 "cat.addedNote": "дату додавання знають власні бібліотеки та Streaming Availability, решта назв — у кінці",
 "pager.prev": "‹ Попередня", "pager.next": "Наступна ›",
 "offer.free": "безкоштовно", "offer.ads": "з рекламою", "offer.addon": "доповнення", "offer.audio": "звук", "offer.subs": "субтитри",

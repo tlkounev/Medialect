@@ -158,6 +158,11 @@ describe("app core", () => {
     await waitIdle();
     expect(await titles("provider=disneyplus")).toEqual([]);
     expect((await api("GET", "/api/sync/status")).last_full).toBeGreaterThan(0);
+
+    // a run that ended with an error (or was cut off by closing the app) continues after the next start
+    expect(await manager.unfinished()).toEqual([]);
+    await env.db.run("UPDATE sync_runs SET status='error' WHERE id=(SELECT MAX(id) FROM sync_runs WHERE source='justwatch')");
+    expect(await manager.unfinished()).toEqual(["justwatch"]);
   });
 
   it("ČSFD is opt-in and stops cleanly on the anti-bot page", async () => {

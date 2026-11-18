@@ -21,7 +21,7 @@
 "f.anyQuality": "गुणवत्ता", "f.anyVideo": "वीडियो", "f.anyAudio": "ऑडियो",
 "f.anyAudioLang": "ऑडियो भाषा", "f.anySub": "सबटाइटल", "f.reset": "फ़िल्टर रीसेट करें", "f.clear": "चयन हटाएँ",
 "sort.added": "हाल ही में जोड़े गए", "sort.year": "रिलीज़ वर्ष", "sort.title": "शीर्षक", "sort.rating": "{name} रेटिंग",
-"cat.count": "{n} शीर्षक", "cat.page": "पृष्ठ {p}/{n}", "cat.none": "कुछ नहीं मिला।",
+"cat.count": "{n} शीर्षक", "cat.none": "कुछ नहीं मिला।",
 "cat.addedNote": "जोड़ने की तारीख़ केवल अपनी लाइब्रेरी और Streaming Availability से पता चलती है, बाकी शीर्षक अंत में हैं",
 "pager.prev": "‹ पिछला", "pager.next": "अगला ›",
 "offer.free": "मुफ़्त", "offer.ads": "विज्ञापन के साथ", "offer.addon": "ऐड-ऑन", "offer.audio": "ऑडियो", "offer.subs": "सबटाइटल",

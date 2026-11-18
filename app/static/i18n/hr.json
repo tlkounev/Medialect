@@ -21,7 +21,7 @@
 "f.anyQuality": "Kvaliteta", "f.anyVideo": "Slika", "f.anyAudio": "Zvuk",
 "f.anyAudioLang": "Jezik zvuka", "f.anySub": "Titlovi", "f.reset": "Poništi filtre", "f.clear": "Poništi odabir",
 "sort.added": "Nedavno dodano", "sort.year": "Godina izlaska", "sort.title": "Naslov", "sort.rating": "Ocjena {name}",
-"cat.count": "{n} naslova", "cat.page": "stranica {p}/{n}", "cat.none": "Ništa nije pronađeno.",
+"cat.count": "{n} naslova", "cat.none": "Ništa nije pronađeno.",
 "cat.addedNote": "datum dodavanja poznaju vlastite knjižnice i Streaming Availability, ostali naslovi su na kraju",
 "pager.prev": "‹ Prethodna", "pager.next": "Sljedeća ›",
 "offer.free": "besplatno", "offer.ads": "s oglasima", "offer.addon": "dodatak", "offer.audio": "zvuk", "offer.subs": "titlovi",

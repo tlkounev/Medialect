@@ -21,7 +21,7 @@
 "f.anyQuality": "Calitate", "f.anyVideo": "Imagine", "f.anyAudio": "Sunet",
 "f.anyAudioLang": "Limba audio", "f.anySub": "Subtitrări", "f.reset": "Șterge filtrele", "f.clear": "Șterge selecția",
 "sort.added": "Adăugate recent", "sort.year": "Anul lansării", "sort.title": "Titlu", "sort.rating": "Notă {name}",
-"cat.count": "{n} titluri", "cat.page": "pagina {p}/{n}", "cat.none": "Nu s-a găsit nimic.",
+"cat.count": "{n} titluri", "cat.none": "Nu s-a găsit nimic.",
 "cat.addedNote": "data adăugării este cunoscută pentru bibliotecile proprii și Streaming Availability, celelalte titluri sunt la final",
 "pager.prev": "‹ Anterioara", "pager.next": "Următoarea ›",
 "offer.free": "gratuit", "offer.ads": "cu reclame", "offer.addon": "supliment", "offer.audio": "sunet", "offer.subs": "subtitrări",
