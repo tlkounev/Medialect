@@ -17,6 +17,9 @@ export class SyncManager {
   queued = new Set<string>();
   private ratingsAgain = false;
   private fullRunning = false;
+
+  /** A sync is running or about to continue with the next job (e.g. ratings after the sources). */
+  get busy(): boolean { return this.running.size > 0 || this.fullRunning || this.queued.size > 0 || this.ratingsAgain; }
   private timer: ReturnType<typeof setInterval> | null = null;
 
   async jobs(): Promise<[string, string, JobFn][]> {

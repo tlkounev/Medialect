@@ -17,7 +17,7 @@ async function describe(): Promise<State> {
     : id === "justwatch" ? (t?.("job.catalog") || "Katalog") : names.get(id) || id);
   const known = jobs.map((c) => c.percent).filter((p): p is number => p != null);
   return {
-    active: jobs.length > 0,
+    active: manager.busy,
     text: jobs.map((c) => `${label(c.source)}${c.percent != null ? ` ${c.percent} %` : ""}`).join(" · "),
     percent: known.length ? Math.round(known.reduce((a, b) => a + b, 0) / known.length) : -1,
   };
@@ -25,6 +25,7 @@ async function describe(): Promise<State> {
 
 // One call at a time, always ending on the latest state. (Reporting "started" and "finished" as two
 // independent calls could leave the service running for good when a job ended before the first call returned.)
+const STOP_GRACE_MS = 20000;
 let sent: State = { active: false, text: "", percent: -1 };
 let busy = false, again = false, lastAt = 0, failedAt = 0;
 
@@ -34,8 +35,15 @@ async function pump(): Promise<void> {
   try {
     do {
       again = false;
-      const want = await describe();
+      let want = await describe();
       if (!want.active && !sent.active) continue;
+      if (!want.active) {
+        // one job hands over to the next (sources -> ratings) after a short pause: the service must not stop
+        // in between, because Android does not let an app in the background start it again
+        await env.sleep(STOP_GRACE_MS);
+        want = await describe();
+        if (want.active) { again = true; continue; }
+      }
       if (want.active && !sent.active && Date.now() - failedAt < 30000) continue;   // Android refused: do not hammer
       // start and stop at once; progress updates at most every 2 s
       if (want.active && sent.active && (want.text === sent.text || Date.now() - lastAt < 2000)) continue;
