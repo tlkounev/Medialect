@@ -34,10 +34,11 @@ if (!m.includes("LEANBACK_LAUNCHER")) {
   must(launcher.test(m), "LAUNCHER category");
   m = m.replace(launcher, (all, ws) => `${all}${ws}<category android:name="android.intent.category.LEANBACK_LAUNCHER" />`);
 }
-// keyboard: move the page up instead of shrinking the window (the shrinking showed a black strip)
+// keyboard: the window shrinks above it, so the top bar and the search field stay in place (the window
+// background below is in the app's colour, so no black strip shows)
 if (!m.includes("windowSoftInputMode")) {
   must(/android:name="\.MainActivity"/.test(m), "MainActivity");
-  m = m.replace(/android:name="\.MainActivity"/, 'android:name=".MainActivity"\n            android:windowSoftInputMode="adjustPan"');
+  m = m.replace(/android:name="\.MainActivity"/, 'android:name=".MainActivity"\n            android:windowSoftInputMode="adjustResize"');
 }
 writeFileSync(manifestPath, m);
 
