@@ -3,6 +3,7 @@
 "offer.details": "Podrobnosti", "f.sort": "Řazení", "ui.help": "Nápověda",
 "nav.top": "Nahoru", "nav.pageUp": "O stránku výš", "nav.pageDown": "O stránku níž", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Od nejnovějších", "sort.oldest": "Od nejstarších", "sort.highest": "Od nejvyššího", "sort.lowest": "Od nejnižšího",
 "sub.updates": "Aktualizace",
+"offer.server": "server", "srv.key.emby": "Klíč API vytvoří správce v Emby: Nástěnka (Manage Emby Server) → Advanced → API Keys → + New Api Key. Pojmenuj ho např. Medialect a zkopíruj.", "srv.key.jellyfin": "Klíč API vytvoří správce v Jellyfinu: Ovládací panel (Dashboard) → API Keys → +. Pojmenuj ho např. Medialect a zkopíruj.", "srv.key.plex": "Token najdeš v Plex Web: u libovolného titulu ⋯ → Get Info → View XML; v adrese otevřené stránky je za X-Plex-Token=.",
 "nav.back": "Zpět", "f.filters": "Filtry", "ui.close": "Zavřít",
 "app.download": "Stahuji verzi {v} v prohlížeči – po stažení soubor otevři a nainstaluj.",
 "job.catalog": "Katalog",

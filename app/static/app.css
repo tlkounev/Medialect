@@ -84,7 +84,9 @@ a.offer-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -
 .offer .li .ico { width: 14px; height: 14px; margin-top: 1px; color: var(--muted); flex: none; }
 .offer .prov { display: inline-flex; align-items: center; gap: 8px; min-width: 40px; }
 .offer .name { font-weight: 600; }
-.offer .svc-logo { width: 32px; height: 32px; border-radius: 8px; object-fit: contain; flex: none; }
+/* a frame around every logo: tiles of one size, whatever the logo inside looks like */
+.offer .svc-logo { width: 32px; height: 32px; border-radius: 8px; object-fit: contain; flex: none;
+  box-shadow: 0 0 0 1.5px rgba(255,255,255,.28), 0 1px 4px rgba(0,0,0,.5); }
 .offer .svc-logo:not([src]) { background: var(--line); }
 .tag { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; line-height: 16px; padding: 0 5px;
   border-radius: 4px; background: var(--line); color: #fff; white-space: nowrap; }
@@ -172,7 +174,7 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 #saveSettings { font-weight: 600; padding: 10px 18px; }
 #saveSettings.attention { box-shadow: 0 0 0 3px rgba(79,140,255,.35); }
 #saveMsg.dirty { color: var(--warn); }
-.cat-info { color: var(--muted); font-size: 13px; }
+.cat-info { color: var(--muted); font-size: 13px; flex-basis: 100%; }
 
 @media (max-width: 640px) {
   /* phone: smaller type and tighter spacing, so the list shows more than one title */
@@ -202,7 +204,8 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 .ms-list { max-height: 320px; overflow-y: auto; display: grid; }
 .ms-list label { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
 .ms-list label:hover { background: var(--line); }
-.ms-list label span { flex: 1; }
+.ms-list label > span { flex: 1; }
+.ms-list .ms-item .tag { flex: none; }
 .ms-list small { color: var(--muted); font-size: 12px; }
 .ms-clear { width: 100%; margin-top: 4px; font-size: 13px; }
 @media (max-width: 640px) {
@@ -338,3 +341,9 @@ body.note-open .fab { bottom: 120px; }
   .searchbar .reset span { display: none; }
   .searchbar .reset { padding: 0 10px; }
 }
+
+/* filter lists: the same logos, badges and flags as at the titles */
+.ms-item { display: inline-flex; align-items: center; gap: 7px; }
+.ms-item .ico { width: 16px; height: 16px; color: var(--muted); }
+.svc-logo.sm { width: 22px; height: 22px; border-radius: 6px; object-fit: contain; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
+.svc-logo.sm:not([src]) { background: var(--line); }

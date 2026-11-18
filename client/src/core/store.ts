@@ -108,8 +108,10 @@ async function upsertTitleNow(info: TitleInfo): Promise<number> {
     tid = (await db.run("INSERT INTO titles(type, title, original_title, year, poster, created_at, updated_at) VALUES(?,?,?,?,?,?,?)",
       [info.type, info.title, info.original_title, info.year, info.poster, t, t])).lastId;
   } else {
+    // the poster of the user's own library wins (it is the one the user chose, and stays current)
+    const posterSql = info.library ? "poster=COALESCE(?, poster)" : "poster=COALESCE(poster, ?)";
     await db.run("UPDATE titles SET original_title=COALESCE(original_title, ?), year=COALESCE(year, ?), " +
-      "poster=COALESCE(poster, ?), updated_at=? WHERE id=?", [info.original_title, info.year, info.poster, t, tid]);
+      `${posterSql}, updated_at=? WHERE id=?`, [info.original_title, info.year, info.poster, t, tid]);
   }
   for (const [kind, value] of Object.entries(ids)) {
     if (info.authoritative?.includes(kind)) {

@@ -139,9 +139,11 @@ async def upsert_title(info: TitleInfo) -> int:
             )
             tid = cur.lastrowid
         else:
+            # the poster of the user's own library wins (it is the one the user chose, and stays current)
+            poster_sql = "poster=COALESCE(?, poster)" if info.library else "poster=COALESCE(poster, ?)"
             await conn.execute(
                 "UPDATE titles SET original_title=COALESCE(original_title, ?), year=COALESCE(year, ?), "
-                "poster=COALESCE(poster, ?), updated_at=? WHERE id=?",
+                f"{poster_sql}, updated_at=? WHERE id=?",
                 (info.original_title, info.year, info.poster, now, tid),
             )
         for kind, value in ids.items():

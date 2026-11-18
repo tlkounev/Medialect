@@ -249,10 +249,20 @@ async def catalog(provider: str | None = None, ttype: str | None = None, min_qua
 
 
 async def providers() -> list[dict]:
+    """Services and libraries in the catalogue, in the user's service order, with their logos."""
     rows = await db.fetchall(
-        "SELECT provider, MAX(provider_name) AS name, kind, COUNT(DISTINCT title_id) AS titles "
+        "SELECT provider, MAX(provider_name) AS name, kind, MAX(source) AS source, COUNT(DISTINCT title_id) AS titles "
         "FROM availability GROUP BY provider, kind ORDER BY kind DESC, name COLLATE NOCASE")
-    return [dict(r) for r in rows]
+    rank = await provider_rank()
+    icons = await db.kv_get("jw.provider_icons", {})
+    out = []
+    for r in rows:
+        d = {k: r[k] for k in ("provider", "name", "kind", "titles")}
+        d["icon"] = (f"/api/poster/{r['source'].split(':', 1)[1]}?path=%2Fweb%2Ffavicon.ico" if r["kind"] == "library"
+                     else icons.get(r["provider"]))
+        out.append(d)
+    out.sort(key=lambda d: rank.get(d["provider"], -1 if d["kind"] == "library" else 999))   # stable: name order stays
+    return out
 
 
 async def stats() -> dict:

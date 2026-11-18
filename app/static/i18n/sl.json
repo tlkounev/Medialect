@@ -3,6 +3,7 @@
 "offer.details": "Podrobnosti", "f.sort": "Razvrščanje", "ui.help": "Pomoč",
 "nav.top": "Na vrh", "nav.pageUp": "Stran navzgor", "nav.pageDown": "Stran navzdol", "sort.az": "A → Ž", "sort.za": "Ž → A", "sort.newest": "Najnovejše najprej", "sort.oldest": "Najstarejše najprej", "sort.highest": "Najvišja najprej", "sort.lowest": "Najnižja najprej",
 "sub.updates": "Posodobitve",
+"offer.server": "strežnik", "srv.key.emby": "Ključ ustvari skrbnik v Embyju: Nadzorna plošča (Manage Emby Server) → Advanced → API Keys → + New Api Key. Poimenuj ga npr. Medialect in kopiraj.", "srv.key.jellyfin": "Ključ ustvari skrbnik v Jellyfinu: Nadzorna plošča (Dashboard) → API Keys → +. Poimenuj ga npr. Medialect in kopiraj.", "srv.key.plex": "Žeton najdeš v Plex Webu: pri poljubnem naslovu ⋯ → Get Info → View XML; je v naslovu odprte strani, za X-Plex-Token=.",
 "nav.back": "Nazaj", "f.filters": "Filtri", "ui.close": "Zapri",
 "app.download": "Različica {v} se prenaša v brskalniku – po prenosu odpri datoteko in jo namesti.",
 "job.catalog": "Katalog",

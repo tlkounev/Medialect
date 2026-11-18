@@ -86,9 +86,7 @@ export async function hydrate(titleIds: number[]): Promise<any[]> {
     } as any;
     if (r.kind === "library") {
       // the server's own logo, straight from the server (public address when there is one)
-      const srv: any = servers.get(String(r.source).split(":")[1]);
-      const base = srv ? String((srv.link_mode !== "internal" && srv.public_url) || srv.url || "").replace(/\/+$/, "") : "";
-      offer.icon = base ? `${base}/web/favicon.ico` : null;
+      offer.icon = serverIcon(servers.get(String(r.source).split(":")[1]));
     } else {
       offer.icon = offer.extra.icon || icons[r.provider] || null;
     }
@@ -174,9 +172,23 @@ export async function catalog(f: CatalogQuery) {
   return { total, page, page_size: pageSize, items: await hydrate(rows.map((r) => r.id)) };
 }
 
+/** The logo of an own server, straight from the server (public address when there is one). */
+export function serverIcon(srv: any): string | null {
+  const base = srv ? String((srv.link_mode !== "internal" && srv.public_url) || srv.url || "").replace(/\/+$/, "") : "";
+  return base ? `${base}/web/favicon.ico` : null;
+}
+
+/** Services and libraries in the catalogue, in the user's service order, with their logos. */
 export async function providers() {
-  return env.db.all("SELECT provider, MAX(provider_name) AS name, kind, COUNT(DISTINCT title_id) AS titles " +
+  const rows = await env.db.all("SELECT provider, MAX(provider_name) AS name, kind, MAX(source) AS source, COUNT(DISTINCT title_id) AS titles " +
     "FROM availability GROUP BY provider, kind ORDER BY kind DESC, name COLLATE NOCASE");
+  const rank = await providerRank();
+  const icons = await env.db.kvGet<Record<string, string>>("jw.provider_icons", {});
+  const servers = new Map(((await settingsMod.load()).servers || []).map((x: any) => [x.id, x]));
+  const pos = (r: any) => rank.get(r.provider) ?? (r.kind === "library" ? -1 : 999);
+  return rows.map((r) => ({ provider: r.provider, name: r.name, kind: r.kind, titles: r.titles,
+    icon: r.kind === "library" ? serverIcon(servers.get(String(r.source).split(":")[1])) : icons[r.provider] || null }))
+    .sort((a, b) => pos(a) - pos(b));
 }
 
 export async function stats() {

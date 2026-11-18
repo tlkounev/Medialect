@@ -3,6 +3,7 @@
 "offer.details": "Detaljer", "f.sort": "Sortering", "ui.help": "Hjælp",
 "nav.top": "Til toppen", "nav.pageUp": "Side op", "nav.pageDown": "Side ned", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Nyeste først", "sort.oldest": "Ældste først", "sort.highest": "Højeste først", "sort.lowest": "Laveste først",
 "sub.updates": "Opdateringer",
+"offer.server": "server", "srv.key.emby": "En administrator opretter nøglen i Emby: Dashboard (Manage Emby Server) → Advanced → API Keys → + New Api Key. Kald den f.eks. Medialect og kopiér den.", "srv.key.jellyfin": "En administrator opretter nøglen i Jellyfin: Dashboard → API Keys → +. Kald den f.eks. Medialect og kopiér den.", "srv.key.plex": "Tokenet findes i Plex Web: ved en vilkårlig titel ⋯ → Get Info → View XML; det står i adressen på den åbnede side efter X-Plex-Token=.",
 "nav.back": "Tilbage", "f.filters": "Filtre", "ui.close": "Luk",
 "app.download": "Version {v} hentes i browseren – åbn filen bagefter for at installere den.",
 "job.catalog": "Katalog",
