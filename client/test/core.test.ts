@@ -297,6 +297,21 @@ describe("app core", () => {
     expect(await st.repairMixedTitles()).toBe(0);      // nothing left with two values of one id
   });
 
+  it("ČSFD rates the titles on screen first", async () => {
+    const st = await import("../src/core/store");
+    const r = await import("../src/core/ratings");
+    const ids: number[] = [];
+    for (const name of ["A", "B", "C"]) {
+      const id = await st.upsertTitle({ type: "movie", title: name, year: 2000 });
+      await st.upsertOffer(id, { source: "justwatch", provider: "netflix", provider_name: "Netflix", kind: "stream", monetization: "flatrate" }, 1);
+      ids.push(id);
+    }
+    const [a, b, c] = ids;
+    expect((await r.csfdQueue(0)).map((x) => x.id)).toEqual([a, b, c]);
+    await api("POST", "/api/ratings/focus", { ids: [c, a] });
+    expect((await r.csfdQueue(0)).map((x) => x.id)).toEqual([c, a, b]);
+  });
+
   it("keeps two works of the same name apart and repairs old mixes", async () => {
     const st = await import("../src/core/store");
     const drama = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2020, ids: { jw: "tsX1", tmdb_tv: "97547" } });

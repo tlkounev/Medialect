@@ -114,6 +114,12 @@ export async function handle(method: string, path: string, q: URLSearchParams, b
         progress: { phase: j.progress!.phase, percent: j.progress!.percent } })),
       queued: jobs.filter((j) => j.queued).length, first: !(await db.kvGet("sync.last_full", 0)) };
     }
+    case "POST /api/ratings/focus": {
+      // the titles the viewer has on screen, in display order: their ratings are fetched first
+      const ids = ((body?.ids || []) as unknown[]).slice(0, 200).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+      await db.kvSet("ratings.focus", { ids, v: now() });
+      return { ok: true };
+    }
     case "POST /api/sync":
       manager.trigger(q.get("job"));
       return { ok: true };

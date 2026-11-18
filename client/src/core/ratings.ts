@@ -256,20 +256,44 @@ async function csfdRating(cid: string): Promise<[number | null, number | null, s
   return [m ? Number(m[1]) : null, digits ? Number(digits) : null, url, imdb ? imdb[1] : null];
 }
 
-export async function csfd(ctx: SyncContext): Promise<void> {
-  const cfg = ctx.settings.ratings;
-  const refresh = now() - Number(cfg.refresh_days) * 86400;
-  // one title after another: in the user's service order (titles of the first service first)
+const FOCUS_KEY = "ratings.focus";   // titles the user has on screen right now: rated before the rest
+
+/** Titles still to be rated: the ones on the user's screen first, then the user's service order. */
+export async function csfdQueue(refresh: number): Promise<any[]> {
   const [rank, rankParams] = await rankSql();
-  const rows = await env.db.all(`SELECT t.id, t.title, t.original_title, t.year,
+  const focus = JSON.stringify((await env.db.kvGet<any>(FOCUS_KEY, {}))?.ids || []);
+  return env.db.all(`SELECT t.id, t.title, t.original_title, t.year,
       (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id
     FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
     WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id) AND (r.updated_at IS NULL OR r.updated_at < ?)
-    ORDER BY r.updated_at IS NOT NULL, ${rank}, csfd_id IS NULL, r.updated_at, t.id`, [refresh, ...rankParams]);
+    ORDER BY COALESCE((SELECT CAST(j.key AS INTEGER) FROM json_each(?) j WHERE j.value = t.id), 1000000),
+      r.updated_at IS NOT NULL, ${rank}, csfd_id IS NULL, r.updated_at, t.id`, [refresh, focus, ...rankParams]);
+}
+
+export async function csfd(ctx: SyncContext): Promise<void> {
+  const cfg = ctx.settings.ratings;
+  const refresh = now() - Number(cfg.refresh_days) * 86400;
+  let rows = await csfdQueue(refresh);
+  if (!rows.length) return;
+  // progress over the whole catalogue: a run that continues an interrupted one starts where it stopped
+  const total = Number((await env.db.get("SELECT COUNT(*) AS n FROM titles t WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)"))!.n);
+  const doneBefore = Math.max(0, total - rows.length);
+  let focusV = (await env.db.kvGet<any>(FOCUS_KEY, {}))?.v;
   const budget = Number(cfg.csfd_daily_budget);
   let errors = 0;
-  for (const [i, row] of rows.entries()) {
-    ctx.progress(`ČSFD: ${i + 1}/${rows.length}`, (i + 1) / rows.length);
+  const seen = new Set<number>();
+  for (let i = 0; rows.length; ) {
+    // the user scrolled to other titles: those come next
+    const v = (await env.db.kvGet<any>(FOCUS_KEY, {}))?.v;
+    if (v !== focusV) {
+      focusV = v;
+      rows = (await csfdQueue(refresh)).filter((r) => !seen.has(r.id));
+      if (!rows.length) break;
+    }
+    const row = rows.shift()!;
+    seen.add(row.id);
+    i++;
+    ctx.progress(`ČSFD: ${doneBefore + i}/${total}`, (doneBefore + i) / Math.max(1, total));
     if (!(await env.db.budgetTake("csfd", budget))) { ctx.partial = true; ctx.note(`ČSFD: denní limit ${budget} titulů vyčerpán.`); return; }
     try {
       let cid: string | null = row.csfd_id;

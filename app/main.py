@@ -282,6 +282,14 @@ async def sync_progress():
             "first": not await db.kv_get("sync.last_full", 0)}
 
 
+@app.post("/api/ratings/focus")
+async def ratings_focus(body: dict = Body(...)):
+    """The titles the viewer has on screen, in display order: their ratings are fetched first."""
+    ids = [int(x) for x in (body.get("ids") or [])[:200] if str(x).isdigit()]
+    await db.kv_set("ratings.focus", {"ids": ids, "v": time.time()})
+    return {"ok": True}
+
+
 @app.post("/api/sync", dependencies=authed)
 async def sync_now(job: str | None = None):
     manager.trigger(job)
