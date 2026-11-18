@@ -273,7 +273,8 @@ function renderOffer(o) {
   // the app evens out the logos (same size, margins cut away) and fills them in after rendering
   const src = window.MEDIALECT_LOGO ? "" : ` src="${esc(o.icon)}"`;
   const logo = o.icon ? `<img class="svc-logo"${src} data-logo="${esc(o.icon)}" data-lib="${lib}" alt="${esc(o.provider_name)}" title="${esc(o.provider_name)}" loading="lazy" onerror="logoFailed(this, ${lib})">` : "";
-  const head = `<span class="prov">${logo}${!o.icon ? `<span class="name">${esc(o.provider_name)}</span>` : ""}</span>${mon ? `<span class="muted mon">${esc(mon)}</span>` : ""}
+  if (mon) tags.unshift(`<span class="tag mon">${esc(mon)}</span>`);
+  const head = `<span class="prov">${logo}${!o.icon ? `<span class="name">${esc(o.provider_name)}</span>` : ""}</span>
     <span class="tags">${tags.join("")}</span>`;
   // the box starts playback in the service's app; the caret only opens the details
   const main = o.url
@@ -308,11 +309,22 @@ function renderRating(r) {
   return r.url ? `<a class="${cls}" href="${esc(r.url)}" target="_blank" rel="noopener" title="${esc(title)}">${inner}</a>`
     : `<span class="${cls}" title="${esc(title)}">${inner}</span>`;
 }
+/* Emby/Jellyfin may fail to scale a picture the user picked by hand: ask once more for it unscaled
+   (still resized for the screen by the WebView), then show the empty field */
+function posterFailed(img) {
+  const src = img.getAttribute("src") || "";
+  if (!img.dataset.retry && /\/Images\/Primary/.test(src) && /[?&](maxHeight|maxWidth|fillHeight|fillWidth)=/.test(src)) {
+    img.dataset.retry = "1";
+    img.src = src.replace(/([?&])(maxHeight|maxWidth|fillHeight|fillWidth)=\d+&?/g, "$1").replace(/[?&]$/, "");
+    return;
+  }
+  img.replaceWith(Object.assign(document.createElement("div"), { className: "noimg" }));
+}
 function renderTitle(ti) {
   const ratings = (ti.ratings || []).map(renderRating).join("");
   const meta = [ti.type === "movie" ? t("type.movie") : t("type.show"), ti.year].filter(Boolean).join(" · ");
   const sub = ti.original_title && ti.original_title !== ti.title ? ti.original_title : "";
-  const img = ti.poster ? `<img loading="lazy" src="${esc(ti.poster)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'), { className: 'noimg' }))">` : `<div class="noimg"></div>`;
+  const img = ti.poster ? `<img loading="lazy" src="${esc(ti.poster)}" alt="" onerror="posterFailed(this)">` : `<div class="noimg"></div>`;
   return `<article class="title">${img}<div>
     <h3>${esc(ti.title)} <span class="meta">${esc(meta)}</span></h3>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}
     <div class="ratings">${ratings}</div>
