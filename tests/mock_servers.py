@@ -44,6 +44,15 @@ MOVIE = {
 NOIDS = {"Id": "m2", "Name": "Pelíšky", "ProductionYear": 1999, "ProviderIds": {}, "DateCreated": "2025-01-02T10:00:00.0000000Z",
          "MediaSources": [{"MediaStreams": [{"Type": "Video", "Width": 1920, "Height": 1080, "Codec": "h264"},
                                             {"Type": "Audio", "Codec": "aac", "Channels": 2, "Language": "ces"}]}]}
+# two rips in one folder = one item with two versions; the listing returns only the default one
+VERSIONS = {"Id": "m4", "Name": "Odyssea", "ProductionYear": 2026, "ProviderIds": {"Imdb": "tt33764258"},
+            "MediaSourceCount": 2,
+            "MediaSources": [{"MediaStreams": [{"Type": "Video", "Width": 3840, "Height": 2160, "Codec": "hevc"},
+                                               {"Type": "Audio", "Codec": "dts", "Channels": 6, "Language": "eng"}]}]}
+VERSIONS_FULL = {**VERSIONS, "MediaSources": VERSIONS["MediaSources"] + [{"MediaStreams": [
+    {"Type": "Video", "Width": 3840, "Height": 2160, "Codec": "hevc"},
+    {"Type": "Audio", "Codec": "eac3", "Channels": 6, "Language": "cze"}]}]}
+
 # a second, worse copy of Matrix with a German track added later: the catalogue shows the tracks of both
 MOVIE_COPY = {"Id": "m3", "Name": "Matrix", "ProductionYear": 1999, "ProviderIds": {"Imdb": "tt0133093"},
               "DateCreated": "2024-01-01T20:00:00.0000000Z",
@@ -61,10 +70,15 @@ EPISODES = [
 ]
 
 
+@app.get("/emby/Users/{uid}/Items/{item_id}")
+async def emby_item(uid: str, item_id: str):
+    return {"m4": VERSIONS_FULL}.get(item_id, {})
+
+
 @app.get("/emby/Users/{uid}/Items")
 async def emby_items(uid: str, IncludeItemTypes: str, StartIndex: int = 0, Limit: int = 100):
     assert uid == "u2", "must use admin user"
-    data = {"Movie": [MOVIE, NOIDS, MOVIE_COPY], "Series": [SERIES], "Episode": EPISODES}[IncludeItemTypes]
+    data = {"Movie": [MOVIE, NOIDS, MOVIE_COPY, VERSIONS], "Series": [SERIES], "Episode": EPISODES}[IncludeItemTypes]
     return {"Items": data[StartIndex:StartIndex + Limit], "TotalRecordCount": len(data)}
 
 

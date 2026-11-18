@@ -80,7 +80,10 @@ class Emitted<K> {
 }
 
 // --- Emby / Jellyfin ------------------------------------------------------------
-const EMBY_FIELDS = "ProviderIds,MediaSources,MediaStreams,OriginalTitle,ProductionYear,DateCreated";
+// MediaSourceCount: a film with several versions (two rips in one folder) is one item, and library listings
+// return only its default version; with the count we know when to ask for all of them
+const EMBY_FIELDS = "ProviderIds,MediaSources,MediaStreams,MediaSourceCount,OriginalTitle,ProductionYear,DateCreated";
+const EMBY_EP_FIELDS = "MediaSources,MediaStreams,MediaSourceCount,DateCreated";
 
 function embyHeaders(srv: any): Record<string, string> {
   return srv.type === "jellyfin"
@@ -163,11 +166,20 @@ async function embySync(srv: any, ctx: SyncContext): Promise<void> {
   };
 
   ctx.progress(`${name}: filmy`, 0);
-  for await (const it of embyItems(base, headers, admin.Id, "Movie", EMBY_FIELDS)) await emit(it, "movie", embySummary(it));
+  /** The item with every version's tracks (the single-item endpoint returns all of them). */
+  const allVersions = async (item: any) => {
+    if ((item.MediaSourceCount || 0) <= (item.MediaSources || []).length) return item;
+    try {
+      const full = await get(base, `/Users/${admin.Id}/Items/${item.Id}`, headers);
+      return { ...item, MediaSources: full?.MediaSources || item.MediaSources };
+    } catch { return item; }
+  };
+  for await (const it of embyItems(base, headers, admin.Id, "Movie", EMBY_FIELDS)) await emit(it, "movie", embySummary(await allVersions(it)));
   const perSeries = new Map<string, Summary>(), newestEp = new Map<string, string>();
   ctx.progress(`${name}: kvalita epizod`, 1 / 3);
   let n = 0;
-  for await (const ep of embyItems(base, headers, admin.Id, "Episode", "MediaSources,MediaStreams,DateCreated")) {
+  for await (const raw of embyItems(base, headers, admin.Id, "Episode", EMBY_EP_FIELDS)) {
+    const ep = await allVersions(raw);
     if (++n % 500 === 0) ctx.progress(`${name}: kvalita epizod (${n})`);
     if (!ep.SeriesId) continue;
     perSeries.set(ep.SeriesId, merge(perSeries.get(ep.SeriesId), embySummary(ep)));

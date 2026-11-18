@@ -10,7 +10,10 @@ from ..quality import (audio_tags, best_quality, langs, merge_tags, quality_from
                        video_tags)
 from .base import SourceError, SyncContext, http_client
 
-FIELDS = "ProviderIds,MediaSources,MediaStreams,OriginalTitle,ProductionYear,DateCreated"
+# MediaSourceCount: a film with several versions (two rips in one folder) is one item, and library
+# listings return only its default version; with the count we know when to ask for all of them
+FIELDS = "ProviderIds,MediaSources,MediaStreams,MediaSourceCount,OriginalTitle,ProductionYear,DateCreated"
+EP_FIELDS = "MediaSources,MediaStreams,MediaSourceCount,DateCreated"
 PAGE = 300
 
 
@@ -151,15 +154,25 @@ class EmbyLike:
                     added_at=added_at, **summary,
                 ), ctx.started)
 
+            async def all_versions(item: dict) -> dict:
+                """The item with every version's tracks (the single-item endpoint returns all of them)."""
+                if (item.get("MediaSourceCount") or 0) <= len(item.get("MediaSources") or []):
+                    return item
+                r = await c.get(f"/Users/{uid}/Items/{item['Id']}")
+                if r.status_code != 200:
+                    return item
+                return {**item, "MediaSources": r.json().get("MediaSources") or item.get("MediaSources")}
+
             ctx.progress(f"{name}: filmy", 0)
             async for it in self._items(c, uid, "Movie", FIELDS):
-                await emit(it, "movie", media_summary(it))
+                await emit(it, "movie", media_summary(await all_versions(it)))
 
             per_series: dict[str, dict] = defaultdict(dict)
             newest_ep: dict[str, str] = {}
             ctx.progress(f"{name}: kvalita epizod", 1 / 3)
             n_eps = 0
-            async for ep in self._items(c, uid, "Episode", "MediaSources,MediaStreams,DateCreated"):
+            async for ep in self._items(c, uid, "Episode", EP_FIELDS):
+                ep = await all_versions(ep)
                 n_eps += 1
                 if n_eps % 500 == 0:
                     ctx.progress(f"{name}: kvalita epizod ({n_eps})")

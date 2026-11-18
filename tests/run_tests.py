@@ -357,6 +357,9 @@ def main():
         rt = {x["source"]: x["display"] for x in m["ratings"]}
         assert rt["imdb"] == "8.7" and rt["csfd"] == "91 %" and rt["rottentomatoes"] == "88 %", rt   # OMDb (newer) over JustWatch
         assert m["ids"]["csfd"] == "9499"
+        od = client.get("/api/search", params={"q": "odyssea"}).json()["items"][0]
+        od_lib = next(o for o in od["where"] if o["provider"] == f"emby-{emby_id}")
+        assert od_lib["audio_langs"] == ["en", "cs"], od_lib     # the Czech track of the second version
 
         # the ČSFD id from the Emby plugin wins over one our own ČSFD search found (wrong film): replaced, rating refetched
         mid = m["id"]
@@ -435,7 +438,7 @@ def main():
         assert {"csfd", "imdb", "tmdb", "tvmaze"} <= {x["value"] for x in f["ratings"]}, f["ratings"]
         assert all(x["value"] not in ("tmdb_api", "omdb") for x in f["ratings"])
         cat = client.get("/api/catalog", params={"lang": "en", "type": "movie", "provider": f"emby-{emby_id}"}).json()
-        assert [i["title"] for i in cat["items"]] == ["Matrix"], [i["title"] for i in cat["items"]]
+        assert sorted(i["title"] for i in cat["items"]) == ["Matrix", "Odyssea"], [i["title"] for i in cat["items"]]
         cat = client.get("/api/catalog", params={"sub": "en", "provider": f"emby-{emby_id}"}).json()
         assert [i["title"] for i in cat["items"]] == ["Matrix"]
         cat = client.get("/api/catalog", params={"sort": "tvmaze"}).json()
@@ -445,7 +448,7 @@ def main():
         same = lambda t: "Černobyl" if t == "Chernobyl" else t   # name = first server to create the title (jobs run in parallel)
         assert [same(i["title"]) for i in cat["items"][:3]] == ["Černobyl", "Matrix", "Duna: Část druhá"], [(i["title"], [o["added_at"] for o in i["where"]]) for i in cat["items"]]
         cat = client.get("/api/catalog", params={"sort": "added", "provider": f"emby-{emby_id}"}).json()
-        assert [same(i["title"]) for i in cat["items"]] == ["Černobyl", "Matrix", "Pelíšky"], [i["title"] for i in cat["items"]]
+        assert [same(i["title"]) for i in cat["items"]] == ["Černobyl", "Matrix", "Pelíšky", "Odyssea"], [i["title"] for i in cat["items"]]   # Odyssea: no date
         assert any(o["added_at"] == "2026-11-14T08:00:00" for o in cat["items"][0]["where"])
         assert [x["value"] for x in f["quality"]][:2] == ["UHD", "FHD"] and f["with_added_date"] >= 4, f["quality"]
         cat = client.get("/api/catalog", params={"quality": "FHD", "provider": f"plex-{plex_id}"}).json()
@@ -492,7 +495,7 @@ def main():
         new = client.post("/api/servers", json={"type": "jellyfin", "name": "Nový", "url": f"{BASE}/emby", "token": "embykey"}).json()
         assert new["id"] and new["token"] == S.MASK
         run_sync(client, f"server:{new['id']}")
-        assert sql(f"SELECT COUNT(*) FROM availability WHERE source='jellyfin:{new['id']}'")[0][0] == 3
+        assert sql(f"SELECT COUNT(*) FROM availability WHERE source='jellyfin:{new['id']}'")[0][0] == 4   # 3 films (Matrix copies = one) + series
         assert client.delete(f"/api/servers/{new['id']}").status_code == 200
         assert sql(f"SELECT COUNT(*) FROM availability WHERE source='jellyfin:{new['id']}'")[0][0] == 0
         assert all(x["id"] != new["id"] for x in client.get("/api/settings").json()["servers"])
