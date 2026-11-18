@@ -247,10 +247,20 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 /* keyboard / TV remote focus */
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .tv :focus { outline: 3px solid var(--accent); outline-offset: 2px; }
-.tv .title:focus-within { box-shadow: 0 0 0 2px var(--accent); }
+/* TV: one highlight at a time. A title is framed as a whole; inside it the stream's box or its caret. */
+.tv .title:focus { outline-offset: -1px; }
+.tv a.offer-main:focus { outline: none; }
+.tv .offer.link:focus-within { border-color: transparent; background: #11141a; }
+.tv .offer:has(> .offer-main:focus) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); background: #151b26; }
+.tv .offer .more:focus { outline-offset: -2px; }
+/* text fields: their own border lights up, no frame around the whole field */
+.tv input:is([type=text], [type=search], [type=number], [type=password], [type=email], [type=url], [type=tel], :not([type])):focus,
+.tv textarea:focus { outline: none; border-color: var(--accent); }
+/* the remote's back key goes back: no Back button to stop on */
+.tv .subnav [data-back] { display: none; }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; background: #1d2330;
   border: 1px solid var(--line); border-radius: 10px; padding: 12px 18px; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
-.tv label:has(> input:focus) { outline: 3px solid var(--accent); outline-offset: 2px; }
+.tv label:has(> input:is([type=checkbox], [type=radio]):focus) { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* logo in the top bar */
 .logo { display: inline-flex; align-items: center; gap: 8px; }
