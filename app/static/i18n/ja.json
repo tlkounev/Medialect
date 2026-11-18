@@ -2,6 +2,7 @@
 "svc.moving": "矢印で移動、OKで確定", "svc.remove": "削除",
 "offer.details": "詳細", "f.sort": "並べ替え", "ui.help": "ヘルプ",
 "nav.top": "先頭へ", "nav.pageUp": "前のページ", "nav.pageDown": "次のページ", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "新しい順", "sort.oldest": "古い順", "sort.highest": "高い順", "sort.lowest": "低い順",
+"sub.updates": "アップデート",
 "nav.back": "戻る", "f.filters": "絞り込み", "ui.close": "閉じる",
 "app.download": "ブラウザでバージョン {v} をダウンロードしています。完了したらファイルを開いてインストールしてください。",
 "job.catalog": "カタログ",

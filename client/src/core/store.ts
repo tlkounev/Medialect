@@ -81,8 +81,15 @@ async function findTitle(info: TitleInfo, ids: Record<string, string>): Promise<
      WHERE t.type=? AND t.year BETWEEN ? AND ? AND n.norm IN (${names.map(() => "?").join(",")}) ORDER BY ABS(t.year-?)`,
     [info.type, info.year - 1, info.year + 1, ...names, info.year]);
   for (const { id } of cands) if (!(await conflicts(id, ids))) return id;
+  // 3) the user's own library and a streaming catalogue often disagree in one id (e.g. TMDB) for the same
+  // series: the same name, type and year (±1) on one library and one catalogue title is the same work
+  for (const { id } of cands) if ((await hasLibrary(id)) !== !!info.library) return id;
   return null;
 }
+
+const hasLibrary = async (tid: number) => !!(await env.db.get("SELECT 1 AS x FROM availability WHERE title_id=? AND kind='library' LIMIT 1", [tid]));
+const strongValue = async (tid: number, kind: string): Promise<string | null> =>
+  (await env.db.get("SELECT value FROM title_ids WHERE title_id=? AND kind=? LIMIT 1", [tid, kind]))?.value ?? null;
 
 // sources run at the same time: finding a title and creating it must not interleave (no duplicates)
 let titleLock: Promise<unknown> = Promise.resolve();
@@ -113,6 +120,16 @@ async function upsertTitleNow(info: TitleInfo): Promise<number> {
         if (kind === "csfd") await db.run("DELETE FROM ratings WHERE title_id=? AND source='csfd'", [tid]);
       }
       continue;
+    }
+    if (STRONG_KINDS.includes(kind)) {
+      const have = await strongValue(tid, kind);
+      if (have !== null && have !== value) {
+        // one work has one value of a strong id: the library's own id replaces a catalogue's (ratings
+        // derived from the old one are fetched again), a catalogue's never replaces one
+        if (!info.library) continue;
+        await db.run("DELETE FROM title_ids WHERE title_id=? AND kind=?", [tid, kind]);
+        await db.run("DELETE FROM ratings WHERE title_id=? AND source!='csfd'", [tid]);
+      }
     }
     if (info.library && STRONG_KINDS.includes(kind)) {
       // never from another library title: two servers that disagree must not take it from each other on every run
@@ -173,4 +190,40 @@ export async function repairMixedTitles(): Promise<number> {
     for (const [table, col] of [["availability", "title_id"], ["ratings", "title_id"], ["title_ids", "title_id"], ["title_names", "title_id"], ["titles", "id"]])
       await env.db.run(`DELETE FROM ${table} WHERE ${col}=?`, [title_id]);
   return rows.length;
+}
+
+/** Merges a catalogue title into the library title of the same work (same name, type, year ±1) that earlier
+ *  runs kept apart because one id disagreed. Returns how many titles were merged. */
+export function mergeLibraryTwins(): Promise<number> {
+  const p = titleLock.then(mergeTwinsNow, mergeTwinsNow);
+  titleLock = p.catch(() => undefined);
+  return p;
+}
+async function mergeTwinsNow(): Promise<number> {
+  const db = env.db;
+  const rows = await db.all(`SELECT DISTINCT a.title_id AS lib, b.title_id AS cat
+    FROM title_names a JOIN title_names b ON b.norm=a.norm AND b.title_id!=a.title_id
+    JOIN titles l ON l.id=a.title_id JOIN titles c ON c.id=b.title_id
+    WHERE l.type=c.type AND l.year IS NOT NULL AND c.year IS NOT NULL AND ABS(l.year-c.year) <= 1
+      AND EXISTS (SELECT 1 FROM availability x WHERE x.title_id=l.id AND x.kind='library')
+      AND NOT EXISTS (SELECT 1 FROM availability x WHERE x.title_id=c.id AND x.kind='library')
+    ORDER BY a.title_id, b.title_id`);
+  let merged = 0;
+  for (const { lib, cat } of rows) {
+    if (!(await db.get("SELECT 1 AS x FROM titles WHERE id=?", [cat]))) continue;   // already merged elsewhere
+    for (const { kind, value } of await db.all("SELECT kind, value FROM title_ids WHERE title_id=?", [cat])) {
+      const have = STRONG_KINDS.includes(kind) ? await strongValue(lib, kind) : null;
+      if (have !== null && have !== value) await db.run("DELETE FROM title_ids WHERE kind=? AND value=?", [kind, value]);
+      else await db.run("UPDATE OR IGNORE title_ids SET title_id=? WHERE kind=? AND value=?", [lib, kind, value]);
+    }
+    for (const table of ["availability", "title_names", "ratings"]) {
+      await db.run(`UPDATE OR IGNORE ${table} SET title_id=? WHERE title_id=?`, [lib, cat]);
+      await db.run(`DELETE FROM ${table} WHERE title_id=?`, [cat]);
+    }
+    await db.run("DELETE FROM title_ids WHERE title_id=?", [cat]);
+    await db.run("UPDATE titles SET poster=COALESCE(poster, (SELECT poster FROM titles WHERE id=?)) WHERE id=?", [cat, lib]);
+    await db.run("DELETE FROM titles WHERE id=?", [cat]);
+    merged++;
+  }
+  return merged;
 }

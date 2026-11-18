@@ -2,6 +2,7 @@
 "svc.moving": "Pomakni strelicama, potvrdi s OK", "svc.remove": "Ukloni",
 "offer.details": "Pojedinosti", "f.sort": "Poredak", "ui.help": "Pomoć",
 "nav.top": "Na vrh", "nav.pageUp": "Stranica gore", "nav.pageDown": "Stranica dolje", "sort.az": "A → Ž", "sort.za": "Ž → A", "sort.newest": "Najnovije prvo", "sort.oldest": "Najstarije prvo", "sort.highest": "Najviša prvo", "sort.lowest": "Najniža prvo",
+"sub.updates": "Ažuriranja",
 "nav.back": "Natrag", "f.filters": "Filtri", "ui.close": "Zatvori",
 "app.download": "Verzija {v} preuzima se u pregledniku – nakon preuzimanja otvori datoteku i instaliraj.",
 "job.catalog": "Katalog",

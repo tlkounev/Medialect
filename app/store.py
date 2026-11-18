@@ -106,7 +106,23 @@ async def _find_title(conn, info: TitleInfo, ids: dict[str, str]) -> int | None:
     for tid in candidates:
         if not await _conflicts(conn, tid, ids):
             return tid
+    # 3) the user's own library and a streaming catalogue often disagree in one id (e.g. TMDB) for the same
+    # series: the same name, type and year (±1) on one library and one catalogue title is the same work
+    for tid in candidates:
+        if await _has_library(conn, tid) != info.library:
+            return tid
     return None
+
+
+async def _has_library(conn, tid: int) -> bool:
+    async with conn.execute("SELECT 1 FROM availability WHERE title_id=? AND kind='library' LIMIT 1", (tid,)) as cur:
+        return await cur.fetchone() is not None
+
+
+async def _strong_value(conn, tid: int, kind: str) -> str | None:
+    async with conn.execute("SELECT value FROM title_ids WHERE title_id=? AND kind=? LIMIT 1", (tid, kind)) as cur:
+        r = await cur.fetchone()
+    return r[0] if r else None
 
 
 async def upsert_title(info: TitleInfo) -> int:
@@ -138,6 +154,13 @@ async def upsert_title(info: TitleInfo) -> int:
                     if kind == "csfd":
                         await conn.execute("DELETE FROM ratings WHERE title_id=? AND source='csfd'", (tid,))
                 continue
+            if kind in STRONG_KINDS and (have := await _strong_value(conn, tid, kind)) not in (None, value):
+                # one work has one value of a strong id: the library's own id replaces a catalogue's
+                # (ratings derived from the old one are fetched again), a catalogue's never replaces one
+                if not info.library:
+                    continue
+                await conn.execute("DELETE FROM title_ids WHERE title_id=? AND kind=?", (tid, kind))
+                await conn.execute("DELETE FROM ratings WHERE title_id=? AND source!='csfd'", (tid,))
             if info.library and kind in STRONG_KINDS:
                 # never from another library title: two servers that disagree must not take it from each other
                 # on every run
@@ -228,3 +251,40 @@ async def repair_mixed_titles() -> int:
                 await db.conn.execute(f"DELETE FROM {table} WHERE {col}=?", (tid,))
         await db.conn.commit()
     return len(ids)
+
+
+async def merge_library_twins() -> int:
+    """Merges a catalogue title into the library title of the same work (same name, type, year ±1) that
+    earlier runs kept apart because one id disagreed. Returns how many titles were merged."""
+    rows = await db.fetchall(
+        """SELECT DISTINCT a.title_id AS lib, b.title_id AS cat
+           FROM title_names a JOIN title_names b ON b.norm=a.norm AND b.title_id!=a.title_id
+           JOIN titles l ON l.id=a.title_id JOIN titles c ON c.id=b.title_id
+           WHERE l.type=c.type AND l.year IS NOT NULL AND c.year IS NOT NULL AND ABS(l.year-c.year) <= 1
+             AND EXISTS (SELECT 1 FROM availability x WHERE x.title_id=l.id AND x.kind='library')
+             AND NOT EXISTS (SELECT 1 FROM availability x WHERE x.title_id=c.id AND x.kind='library')
+           ORDER BY a.title_id, b.title_id""")
+    merged = 0
+    async with db.lock:
+        conn = db.conn
+        for r in rows:
+            lib, cat = r["lib"], r["cat"]
+            async with conn.execute("SELECT 1 FROM titles WHERE id=?", (cat,)) as cur:
+                if not await cur.fetchone():
+                    continue           # already merged into another library title
+            async with conn.execute("SELECT kind, value FROM title_ids WHERE title_id=?", (cat,)) as cur:
+                cat_ids = list(await cur.fetchall())
+            for kind, value in cat_ids:
+                if kind in STRONG_KINDS and await _strong_value(conn, lib, kind) not in (None, value):
+                    await conn.execute("DELETE FROM title_ids WHERE kind=? AND value=?", (kind, value))
+                else:
+                    await conn.execute("UPDATE OR IGNORE title_ids SET title_id=? WHERE kind=? AND value=?", (lib, kind, value))
+            for table in ("availability", "title_names", "ratings"):
+                await conn.execute(f"UPDATE OR IGNORE {table} SET title_id=? WHERE title_id=?", (lib, cat))
+                await conn.execute(f"DELETE FROM {table} WHERE title_id=?", (cat,))
+            await conn.execute("DELETE FROM title_ids WHERE title_id=?", (cat,))
+            await conn.execute("UPDATE titles SET poster=COALESCE(poster, (SELECT poster FROM titles WHERE id=?)) WHERE id=?", (cat, lib))
+            await conn.execute("DELETE FROM titles WHERE id=?", (cat,))
+            merged += 1
+        await conn.commit()
+    return merged

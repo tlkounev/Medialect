@@ -70,7 +70,7 @@ $("#langList").addEventListener("click", (e) => {
   sel.value = b.dataset.lang;
   sel.dispatchEvent(new Event("change"));
 });
-document.addEventListener("click", (e) => { if (!e.target.closest(".lang-menu")) langMenu(false); });
+document.addEventListener("click", (e) => { if (!e.target.closest?.(".lang-menu")) langMenu(false); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#langList").classList.contains("hidden")) { langMenu(false); $("#langBtn").focus(); } });
 $("#uiLang").addEventListener("change", async (e) => {
   await initI18n(appVersion, e.target.value);
@@ -193,8 +193,7 @@ function openSub(name) {
   adminSub = name;
   clearInterval(statusTimer);
   $$(".subnav button[data-sub]").forEach((b) => b.classList.toggle("active", b.dataset.sub === name));
-  $("#sub-sync").classList.toggle("hidden", name !== "sync");
-  $("#sub-settings").classList.toggle("hidden", name !== "settings");
+  for (const sub of ["settings", "updates", "sync"]) $(`#sub-${sub}`)?.classList.toggle("hidden", name !== sub);
   if (name === "sync") { loadStatus(); statusTimer = setInterval(loadStatus, 5000); }
   if (name === "settings") loadSettings();
 }
@@ -207,7 +206,11 @@ function goTo(name) {
   openTab(name);
 }
 addEventListener("popstate", () => openTab(location.hash.slice(1) || "catalog"));
-$("#openSettings").addEventListener("click", () => goTo(currentTab === "admin" ? "catalog" : "admin"));
+// the gear always opens the settings page (also from Updates or Synchronisation)
+$("#openSettings").addEventListener("click", () => {
+  adminSub = "settings";
+  if (currentTab === "admin") openSub("settings"); else goTo("admin");
+});
 $("#home").addEventListener("click", (e) => { if (!e.target.closest("a")) goTo("catalog"); });
 $("#home").addEventListener("keydown", (e) => { if (e.key === "Enter") goTo("catalog"); });
 $$(".subnav [data-back]").forEach((b) => b.addEventListener("click", () => goTo("catalog")));
@@ -327,12 +330,25 @@ let DEFAULT_SORT = "added";
 const ms = {};                                   // id -> { items: [{value,label,count}], sel: Set }
 
 const FILTERS_OPEN_KEY = "medialect.filtersOpen";
-function showFilters(open) {
+let filtersOpenedAt = 0;
+function showFilters(open, remember = true) {
   $("#filters").classList.toggle("hidden", !open);
   $("#fToggle").setAttribute("aria-expanded", String(open));
   $("#fToggle").classList.toggle("on", open);
-  try { localStorage.setItem(FILTERS_OPEN_KEY, open ? "1" : ""); } catch (_) { /* private mode */ }
+  filtersOpenedAt = scrollY;
+  if (remember) try { localStorage.setItem(FILTERS_OPEN_KEY, open ? "1" : ""); } catch (_) { /* private mode */ }
 }
+// the open filters stay on top with the search field; scrolling the list folds them away
+// (only a scroll by the user: a list that gets shorter after a filter change scrolls the page too)
+let userScrollAt = 0;
+for (const ev of ["touchmove", "wheel"]) addEventListener(ev, () => { userScrollAt = Date.now(); }, { passive: true });
+addEventListener("keydown", (e) => { if (/^(Arrow(Up|Down)|Page(Up|Down)|Home|End| )$/.test(e.key)) userScrollAt = Date.now(); });
+addEventListener("scroll", () => {
+  if (Date.now() - userScrollAt > 700) { filtersOpenedAt = scrollY; return; }
+  if ($("#filters").classList.contains("hidden") || Math.abs(scrollY - filtersOpenedAt) < 60) return;
+  document.dispatchEvent(new Event("click"));        // closes an open dropdown
+  showFilters(false, false);
+}, { passive: true });
 $("#fToggle").addEventListener("click", () => showFilters($("#filters").classList.contains("hidden")));
 try { if (localStorage.getItem(FILTERS_OPEN_KEY)) showFilters(true); } catch (_) { /* private mode */ }
 function filterCount() {

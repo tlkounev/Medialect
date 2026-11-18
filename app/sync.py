@@ -71,6 +71,9 @@ class SyncManager:
             await db.execute("UPDATE sync_runs SET finished_at=?, status=?, message=?, items=? WHERE id=?",
                              (time.time(), status, message, ctx.items, run_id))
             log.info("sync %s: %s (%s items)", job_id, status, ctx.items)
+        if job_id != "ratings" and status != "error":
+            if n := await store.merge_library_twins():
+                log.info("merge: %d catalogue titles joined with the same work in a library", n)
         # new titles need ratings: run (or re-run) the ratings job after every source sync
         if job_id == "ratings":
             if self._ratings_again:
@@ -92,6 +95,8 @@ class SyncManager:
         async with self._full_lock:
             if n := await store.repair_mixed_titles():
                 log.info("repair: %d titles mixing two works dropped, the full sync recreates them", n)
+            if n := await store.merge_library_twins():
+                log.info("merge: %d catalogue titles joined with the same work in a library", n)
             jobs = await self.jobs()
             self.queued.update(j for j, _, _ in jobs if j not in self.running)
             try:

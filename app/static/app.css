@@ -37,7 +37,9 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .subnav { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
 .subnav button { background: transparent; border-color: transparent; }
 .subnav button.active { border-color: var(--line); background: var(--panel); }
-.searchbar { margin-bottom: 10px; position: sticky; top: var(--hdr, 0px); z-index: 4; background: var(--bg); padding: 6px 0; }
+/* the search field and the open filters stay at the top while the list scrolls */
+.catbar { position: sticky; top: var(--hdr, 0px); z-index: 4; background: var(--bg); padding-top: 6px; margin-bottom: 4px; }
+.searchbar { margin-bottom: 8px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: grid; gap: 12px; width: min(360px, 92vw); }
 
 .searchbar, .filters, .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

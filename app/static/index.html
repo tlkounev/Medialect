@@ -38,6 +38,7 @@
       </div>
     </div>
     <section id="tab-catalog">
+      <div class="catbar">
       <div class="searchbar">
         <input id="q" type="search" enterkeyhint="search" data-i18n-ph="search.ph" autofocus>
         <button type="button" id="fToggle" class="icon-btn" aria-expanded="false" aria-controls="filters" data-i18n-title="f.filters" data-i18n-aria="f.filters">
@@ -55,6 +56,7 @@
         <div class="ms" id="cLang" data-i18n-title="aria.audioLang"></div>
         <div class="ms" id="cSub" data-i18n-title="aria.sub"></div>
         <select id="cSort" class="hidden" data-i18n-aria="aria.sort"></select><div class="ms" id="cSortBox"></div>
+      </div>
       </div>
       <div id="syncNote" class="sync-note hidden" role="status"><button type="button" class="close" data-i18n-title="ui.close" data-i18n-aria="ui.close">×</button><span></span><div class="bar"><i></i></div></div>
       <div id="cInfo" class="muted"></div>
@@ -115,6 +117,7 @@
         <nav class="subnav">
           <button type="button" class="back" data-back><span aria-hidden="true">‹ </span><span data-i18n="nav.back">Zpět</span></button>
           <button data-sub="settings" class="active" data-i18n="sub.settings">Nastavení</button>
+          <button data-sub="updates" class="app-only" data-i18n="sub.updates">Aktualizace</button>
           <button data-sub="sync" data-i18n="sub.sync">Synchronizace</button>
         </nav>
 
@@ -175,18 +178,6 @@
             <button type="button" id="addServer" class="ghost" data-i18n="srv.add">+ Přidat server</button>
           </section>
 
-          <!-- app only: updates from GitHub -->
-          <section class="settings-box app-only">
-            <header class="box-head"><h2 data-i18n="upd.title">Aktualizace aplikace</h2></header>
-            <div class="box-body">
-              <p id="updState" class="muted"></p>
-              <div class="row">
-                <button type="button" id="updInstall" class="hidden"></button>
-                <button type="button" id="updCheck" class="ghost" data-i18n="upd.check"></button>
-              </div>
-            </div>
-          </section>
-
           <!-- access: unrelated to the catalogue settings -->
           <section class="settings-box web-only">
             <header class="box-head"><h2 data-i18n="acc.title">Přístup a zabezpečení</h2></header>
@@ -207,6 +198,20 @@
             <button type="submit" form="settingsForm" id="saveSettings" data-i18n="set.save">Uložit</button>
             <span id="saveMsg" class="muted"></span>
           </div>
+        </div>
+
+        <!-- app only: updates from GitHub, a page of their own -->
+        <div id="sub-updates" class="hidden">
+          <section class="settings-box app-only">
+            <header class="box-head"><h2 data-i18n="upd.title">Aktualizace aplikace</h2></header>
+            <div class="box-body">
+              <p id="updState" class="muted"></p>
+              <div class="row">
+                <button type="button" id="updInstall" class="hidden"></button>
+                <button type="button" id="updCheck" class="ghost" data-i18n="upd.check"></button>
+              </div>
+            </div>
+          </section>
         </div>
 
         <div id="sub-sync" class="hidden">

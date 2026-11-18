@@ -2,6 +2,7 @@
 "svc.moving": "Sposta con le frecce, conferma con OK", "svc.remove": "Rimuovi",
 "offer.details": "Dettagli", "f.sort": "Ordinamento", "ui.help": "Aiuto",
 "nav.top": "In cima", "nav.pageUp": "Pagina su", "nav.pageDown": "Pagina giù", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Più recenti prima", "sort.oldest": "Meno recenti prima", "sort.highest": "Più alto prima", "sort.lowest": "Più basso prima",
+"sub.updates": "Aggiornamenti",
 "nav.back": "Indietro", "f.filters": "Filtri", "ui.close": "Chiudi",
 "app.download": "Download della versione {v} nel browser: al termine apri il file per installarla.",
 "job.catalog": "Catalogo",

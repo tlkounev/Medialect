@@ -2,6 +2,7 @@
 "svc.moving": "Di chuyển bằng phím mũi tên, xác nhận bằng OK", "svc.remove": "Bỏ",
 "offer.details": "Chi tiết", "f.sort": "Sắp xếp", "ui.help": "Trợ giúp",
 "nav.top": "Lên đầu", "nav.pageUp": "Lên một trang", "nav.pageDown": "Xuống một trang", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Mới nhất trước", "sort.oldest": "Cũ nhất trước", "sort.highest": "Cao nhất trước", "sort.lowest": "Thấp nhất trước",
+"sub.updates": "Cập nhật",
 "nav.back": "Quay lại", "f.filters": "Bộ lọc", "ui.close": "Đóng",
 "app.download": "Đang tải phiên bản {v} trong trình duyệt – tải xong hãy mở tệp để cài đặt.",
 "job.catalog": "Danh mục",
