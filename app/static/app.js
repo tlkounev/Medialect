@@ -319,7 +319,10 @@ function renderRating(r) {
   const icon = site ? `<img class="r-icon" src="https://icons.duckduckgo.com/ip3/${site}.ico" alt="${esc(name)}" loading="lazy" onerror="ratingIconFailed(this)">` : `<span class="r-name">${esc(name)}</span>`;
   const v = r.value;
   const band = v == null ? "" : v >= 70 ? " r-good" : v >= 30 ? " r-mid" : " r-low";
-  const inner = `${icon}${AUDIENCE.has(r.source) ? ICON.people : ""}<b>${esc(r.display)}</b>`;
+  // on ČSFD but without a rating yet (rating not started or nobody voted): a lock, as on ČSFD itself
+  const locked = v == null && r.source === "csfd";
+  const inner = locked ? `${icon}<span class="r-lock">${ICON.lock}</span>`
+    : `${icon}${AUDIENCE.has(r.source) ? ICON.people : ""}<b>${esc(r.display)}</b>`;
   const title = `${name}${r.votes ? ` · ${fmtNum(r.votes)}×` : ""}`;
   const cls = `rating ${esc(r.source)}${band}`;
   return r.url ? `<a class="${cls}" href="${esc(r.url)}" target="_blank" rel="noopener" title="${esc(title)}">${inner}</a>`
@@ -436,6 +439,7 @@ const ICON = {
   lang: svg('<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15 9h7M18.5 7v2M16 15l2.5-6 2.5 6M16.8 13h3.4"/>'),
   subs: svg('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 10.5a2 2 0 1 0 0 3M17 10.5a2 2 0 1 0 0 3"/>'),
   date: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>'),
+  lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
   people: svg('<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-4-5.6"/>'),
   sort: svg('<path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/>'),
   server: svg('<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>'),
