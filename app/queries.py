@@ -196,7 +196,7 @@ async def catalog(provider: str | None = None, ttype: str | None = None, min_qua
         if provider:
             provs = [p for p in provider.split(",") if p]
             prov_cond = f" AND a.provider IN ({','.join('?' * len(provs))})"
-        join = (f"LEFT JOIN (SELECT a.title_id, MAX(a.added_at) AS added FROM availability a "
+        join = (f"LEFT JOIN (SELECT a.title_id, MIN(a.added_at) AS added FROM availability a "
                 f"WHERE a.added_at IS NOT NULL{prov_cond} GROUP BY a.title_id) ad ON ad.title_id=t.id")
         jparams = [p for p in provider.split(",") if p] if provider else []
         order_sql = f"ad.added IS NULL, ad.added {direction}, t.year DESC"

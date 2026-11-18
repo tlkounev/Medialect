@@ -36,7 +36,6 @@ async function boot() {
   if (st.local) {
     // desktop/mobile app: no login, "Administrace" is just the settings
     document.body.classList.add("local");
-    DEFAULT_SORT = "year";        // no source in the app knows when a service added a title
   }
   loadVersion(true);
   setAdmin(st.logged_in, false);
@@ -449,8 +448,8 @@ async function loadFacets() {
   msSet("cLang", langs(f.audio_langs));
   msSet("cSub", langs(f.subtitle_langs));
   const local = document.body.classList.contains("local");
-  setOptions($("#cSort"), [...(local ? [] : [{ value: "added", label: t("sort.added") }]), { value: "title", label: t("sort.title") },
-    { value: "year", label: t("sort.year") },
+  // newly added = the oldest known date of the title on the chosen services (JustWatch, own libraries)
+  setOptions($("#cSort"), [{ value: "added", label: t("sort.added") }, { value: "year", label: t("sort.year") },
     ...f.ratings.map((r) => ({ value: r.value, label: t("sort.rating", { name: RATING_LABEL[r.value] || r.value }) }))]);
   if (!facetsLoaded) {
     const saved = savedFilters();
@@ -478,7 +477,6 @@ async function loadCatalog(append = false) {
     if (seq !== catalogSeq) return;
     catalogPages = Math.max(1, Math.ceil(data.total / data.page_size));
     let info = t("cat.count", { n: fmtNum(data.total) });
-    if (sort === "added") info += ` · ${t("cat.addedNote")}`;
     $("#cInfo").textContent = info;
     catalogTotal = data.total;
     const html = data.items.map(renderTitle).join("");
@@ -601,7 +599,13 @@ function sortRender() {
   btn.classList.toggle("on", (!!sel.value && sel.value !== DEFAULT_SORT) || sortDir !== defaultDir(sel.value));
   btn.title = `${t("f.sort")}: ${sel.selectedOptions[0]?.textContent || ""} – ${t(sortDir === "asc" ? ascKey : descKey)}`;
 }
-$("#syncNote .close").addEventListener("click", () => { syncNoteClosed = syncNoteKey; $("#syncNote").classList.add("hidden"); document.body.classList.remove("note-open"); });
+// closed by its ×: stays away for 10 minutes, whatever runs meanwhile (remembered across restarts)
+const NOTE_QUIET_MS = 10 * 60 * 1000;
+$("#syncNote .close").addEventListener("click", () => {
+  try { localStorage.setItem("medialect.noteQuietUntil", String(Date.now() + NOTE_QUIET_MS)); } catch (_) { /* private mode */ }
+  $("#syncNote").classList.add("hidden"); document.body.classList.remove("note-open");
+});
+const noteQuiet = () => { try { return Date.now() < Number(localStorage.getItem("medialect.noteQuietUntil") || 0); } catch (_) { return false; } };
 $("#cReset").addEventListener("click", () => {
   $("#q").value = "";
   for (const [id] of MULTI) { ms[id].sel.clear(); msRender(id); }
@@ -659,13 +663,13 @@ let syncRunning = false, progressTimer = null, progressTicks = 0;
 // nobody is reading or steering the list right now: it can be redrawn without the page jumping under the user
 const catalogIdle = () => !$("#tab-catalog").classList.contains("hidden") && cPage === 1 && scrollY < 300
   && !$("#catalog").contains(document.activeElement) && document.activeElement !== $("#q") && $$(".ms-panel").every((p) => p.classList.contains("hidden"));
-let syncNoteKey = "", syncNoteClosed = null;
+let syncNoteKey = "";
 function updateSyncNote(st) {
   const note = $("#syncNote");
   syncNoteKey = st.running.map((j) => j.id).join(",");
-  note.classList.toggle("hidden", !st.running.length || syncNoteClosed === syncNoteKey);
+  note.classList.toggle("hidden", !st.running.length || noteQuiet());
   document.body.classList.toggle("note-open", !note.classList.contains("hidden"));
-  if (!st.running.length) { syncNoteClosed = null; return; }
+  if (!st.running.length) return;
   const parts = st.running.map((j) => `${jobLabel(j)}${pctText(j)}`).join(" · ");
   note.querySelector("span").textContent = t(st.first ? "sync.noteFirst" : "sync.note", { p: parts });
   const known = st.running.map((j) => j.progress?.percent).filter((p) => p != null);

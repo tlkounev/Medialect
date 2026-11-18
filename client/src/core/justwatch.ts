@@ -35,6 +35,13 @@ export async function resumePending(): Promise<ResumeState | null> {
   return s && Date.now() / 1000 - s.started <= RESUME_MAX_AGE_S ? s : null;
 }
 
+class SchemaError extends SourceError {}
+
+// The offers are asked for the date JustWatch recorded them (dateCreated, the day the title came to the
+// service); if JustWatch ever rejects the field, the catalogue is fetched without it as before.
+const POPULAR_WITH_DATES = POPULAR_QUERY.replace("availableTo\n", "availableTo\n    dateCreated\n");
+let offerDates = POPULAR_WITH_DATES !== POPULAR_QUERY;
+
 async function gql(body: unknown): Promise<any> {
   let last: unknown;
   // mobile networks drop connections (cell handover, Wi-Fi <-> 5G, idle sockets): retry with growing pauses
@@ -44,9 +51,15 @@ async function gql(body: unknown): Promise<any> {
       const r = await http(GRAPHQL_URL, { json: body, headers: { Accept: "application/json" } });
       if (r.status === 429 || r.status >= 500) throw new SourceError(`JustWatch HTTP ${r.status}`);
       if (!r.ok) throw new SourceError(`JustWatch HTTP ${r.status}: ${r.text.slice(0, 200)}`);
-      if (r.data?.errors) throw new SourceError(`JustWatch: ${JSON.stringify(r.data.errors).slice(0, 300)}`);
+      if (r.data?.errors) {
+        const msg = JSON.stringify(r.data.errors).slice(0, 300);
+        // a field JustWatch does not know: asking again changes nothing
+        if (/Cannot query field|Unknown field|FieldUndefined/i.test(msg)) throw new SchemaError(`JustWatch: ${msg}`);
+        throw new SourceError(`JustWatch: ${msg}`);
+      }
       return r.data.data;
     } catch (e) {
+      if (e instanceof SchemaError) throw e;
       last = e;
       if (attempt < pauses.length) await env.sleep(pauses[attempt] * 1000);
     }
@@ -80,7 +93,7 @@ export async function listProviders(country: string): Promise<ProviderInfo[]> {
 
 export async function popularPage(country: string, language: string, count: number, offset: number, provider: string,
   lo: number, hi: number, otype: string): Promise<any[]> {
-  const data = await gql({
+  const ask = (query: string) => gql({
     operationName: "GetPopularTitles",
     variables: {
       first: count,
@@ -91,8 +104,15 @@ export async function popularPage(country: string, language: string, count: numb
       country: country.toUpperCase(), language,
       offset: offset || null,
     },
-    query: POPULAR_QUERY,
+    query,
   });
+  let data;
+  try { data = await ask(offerDates ? POPULAR_WITH_DATES : POPULAR_QUERY); }
+  catch (e) {
+    if (!(e instanceof SchemaError) || !offerDates) throw e;
+    offerDates = false;                           // JustWatch does not know the field: carry on without dates
+    data = await ask(POPULAR_QUERY);
+  }
   return (data.popularTitles?.edges || []).map((e: any) => e.node);
 }
 
@@ -133,6 +153,7 @@ async function storeEntry(ctx: SyncContext, node: any, selected: Map<string, str
       video: justwatchTech(o.videoTechnology, "video"), audio: justwatchTech(o.audioTechnology, "audio"),
       audio_langs: langs(o.audioLanguages), subtitle_langs: langs(o.subtitleLanguages), url: o.standardWebURL,
       extra: { jw_url: jwUrl, icon: pkg.icon ? IMAGES + pkg.icon : "" }, expires_on: o.availableTo ?? null,
+      added_at: typeof o.dateCreated === "string" && o.dateCreated ? o.dateCreated.slice(0, 19) : null,
     }, ctx.started);
   }
   const sc = c.scoring;

@@ -5,7 +5,6 @@
     <!-- a running synchronisation continues when the app is left (foreground service + notification) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Android 17 (target SDK 37): the user's own Emby/Jellyfin/Plex at home is unreachable without it -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />

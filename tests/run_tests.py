@@ -449,7 +449,8 @@ def main():
         # sort by date added on the platform/library; exact quality filter; quality facet
         cat = client.get("/api/catalog", params={"sort": "added", "page_size": 4}).json()
         same = lambda t: "Černobyl" if t == "Chernobyl" else t   # name = first server to create the title (jobs run in parallel)
-        assert [same(i["title"]) for i in cat["items"][:3]] == ["Černobyl", "Matrix", "Duna: Část druhá"], [(i["title"], [o["added_at"] for o in i["where"]]) for i in cat["items"]]
+        # the oldest known date of a title wins (Matrix: Emby 2026, but on a service since 2023)
+        assert [same(i["title"]) for i in cat["items"][:3]] == ["Černobyl", "Duna: Část druhá", "Pelíšky"], [(i["title"], [o["added_at"] for o in i["where"]]) for i in cat["items"]]
         cat = client.get("/api/catalog", params={"sort": "added", "provider": f"emby-{emby_id}"}).json()
         assert [same(i["title"]) for i in cat["items"]] == ["Černobyl", "Matrix", "Pelíšky", "Odyssea"], [i["title"] for i in cat["items"]]   # Odyssea: no date
         assert any(o["added_at"] == "2026-11-14T08:00:00" for o in cat["items"][0]["where"])

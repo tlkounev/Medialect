@@ -167,7 +167,10 @@ async def csfd(ctx: SyncContext) -> None:
            FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
            WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)
              AND (r.updated_at IS NULL OR r.updated_at < ?)
-           ORDER BY r.updated_at IS NOT NULL, csfd_id IS NULL,
+           ORDER BY r.updated_at IS NOT NULL,
+                    -- titles only on iVysílání last: matched by name only, the rest of the catalogue goes first
+                    NOT EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id AND a.provider != 'ivysilani'),
+                    csfd_id IS NULL,
                     NOT EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id AND a.kind='library'),
                     r.updated_at, t.id""", (refresh,))
     if not rows:

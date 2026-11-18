@@ -125,7 +125,7 @@ export async function catalog(f: CatalogQuery) {
   else if (sort === "year") orderSql = `t.year IS NULL, t.year ${dir}, t.title COLLATE NOCASE`;
   else if (sort === "added") {
     const pc = provs.length ? ` AND a.provider IN (${ph(provs.length)})` : "";
-    join = `LEFT JOIN (SELECT a.title_id, MAX(a.added_at) AS added FROM availability a WHERE a.added_at IS NOT NULL${pc} ` +
+    join = `LEFT JOIN (SELECT a.title_id, MIN(a.added_at) AS added FROM availability a WHERE a.added_at IS NOT NULL${pc} ` +
       "GROUP BY a.title_id) ad ON ad.title_id=t.id";
     jparams = [...provs];
     orderSql = `ad.added IS NULL, ad.added ${dir}, t.year DESC`;
