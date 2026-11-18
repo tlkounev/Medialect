@@ -260,7 +260,10 @@ export async function csfd(ctx: SyncContext): Promise<void> {
       (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id
     FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
     WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id) AND (r.updated_at IS NULL OR r.updated_at < ?)
-    ORDER BY r.updated_at IS NOT NULL, csfd_id IS NULL, r.updated_at, t.id`, [refresh]);
+    ORDER BY r.updated_at IS NOT NULL,
+      -- titles only on iVysílání last: matched by name only, the rest of the catalogue goes first
+      NOT EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id AND a.provider != 'ivysilani'),
+      csfd_id IS NULL, r.updated_at, t.id`, [refresh]);
   const budget = Number(cfg.csfd_daily_budget);
   let errors = 0;
   for (const [i, row] of rows.entries()) {

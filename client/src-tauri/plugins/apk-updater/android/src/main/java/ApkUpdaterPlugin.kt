@@ -1,10 +1,7 @@
 package com.plugin.apk_updater
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import android.view.View
@@ -70,7 +67,6 @@ class ApkUpdaterPlugin(private val activity: Activity) : Plugin(activity) {
             } else if (SyncService.instance != null) {
                 SyncService.update(activity)
             } else {
-                askNotifications()
                 ContextCompat.startForegroundService(activity, intent)
             }
             invoke.resolve()
@@ -80,15 +76,9 @@ class ApkUpdaterPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
-    // Android 13+: the progress notification needs the permission; asked once, the sync runs either way
-    private fun askNotifications() {
-        if (Build.VERSION.SDK_INT < 33) return
-        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
-        val prefs = activity.getSharedPreferences("medialect", Context.MODE_PRIVATE)
-        if (prefs.getBoolean("asked_notifications", false)) return
-        prefs.edit().putBoolean("asked_notifications", true).apply()
-        activity.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 4711)
-    }
+    // The sync runs as a foreground service without asking for the notification permission: on Android 13+
+    // its notice then stays out of the notification drawer (only the system's list of running apps shows it);
+    // Android 12 and older always show it.
 
     // Android 17: access to the home network (the user's media servers) needs a runtime permission.
     // Resolves { granted }; with ask=false (a sync running in the background) it only checks.

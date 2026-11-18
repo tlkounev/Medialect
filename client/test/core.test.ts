@@ -237,6 +237,19 @@ describe("app core", () => {
     expect((await api("GET", "/api/catalog?q=matrix")).items.length).toBe(1);
   });
 
+  it("JustWatch: the date an offer came to the service is kept; the oldest date of a title sorts it", async () => {
+    fake.catalog = [node("tm1", "Matrix", 1999, "MOVIE", [offer(NFX, { dateCreated: "2021-03-05" }), offer(OPL, { dateCreated: "2025-01-10" })], { imdb: "tt0133093" }),
+      node("tm9", "Nový film", 2026, "MOVIE", [offer(NFX, { dateCreated: "2026-11-01" })])];
+    const s = await settingsMod.load();
+    s.justwatch.enabled = true; s.justwatch.providers = ["nfx", "opl"]; s.justwatch.request_delay_s = 0;
+    await justwatch.sync(new SyncContext("justwatch", s));
+    expect(fake.jwBodies.find((b) => b.operationName === "GetPopularTitles").query).toContain("dateCreated");
+    const dates = (await env.db.all("SELECT provider, added_at FROM availability ORDER BY provider")).map((r) => `${r.provider}:${r.added_at}`);
+    expect(dates).toContain("netflix:2021-03-05");
+    const cat = await api("GET", "/api/catalog?sort=added&order=desc");
+    expect(cat.items.map((i: any) => i.title)).toEqual(["Nový film", "Matrix"]);   // Matrix counts from 2021
+  });
+
   it("keeps two works of the same name apart and repairs old mixes", async () => {
     const st = await import("../src/core/store");
     const drama = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2020, ids: { jw: "tsX1", tmdb_tv: "97547" } });
