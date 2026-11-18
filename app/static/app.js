@@ -1174,8 +1174,9 @@ $("#wizNext").addEventListener("click", async () => {
   try {
     await api("/api/settings", { method: "PUT", body });
     await api("/api/onboarding/done", { method: "POST" });
-    adminSub = "sync";
-    openAdmin();
+    $("#wizard").classList.add("hidden");
+    $("#adminPanel").classList.remove("hidden");
+    goTo("catalog");      // the catalogue fills in as the sync (started by saving the services) goes on
   } catch (e) { $("#wizMsg").textContent = e.message; }
   btn.disabled = false;
 });
