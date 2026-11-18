@@ -87,7 +87,7 @@ async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[di
     ratings: dict[int, list] = {}
     visible = await _visible()
     for r in await db.fetchall(
-            f"SELECT * FROM ratings WHERE title_id IN ({ph}) AND (display IS NOT NULL OR (source='csfd' AND url IS NOT NULL))", title_ids):
+            f"SELECT * FROM ratings WHERE title_id IN ({ph}) AND (display IS NOT NULL OR source='csfd')", title_ids):
         if not visible(r["source"]):
             continue
         ratings.setdefault(r["title_id"], []).append(

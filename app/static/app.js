@@ -319,9 +319,10 @@ function renderRating(r) {
   const icon = site ? `<img class="r-icon" src="https://icons.duckduckgo.com/ip3/${site}.ico" alt="${esc(name)}" loading="lazy" onerror="ratingIconFailed(this)">` : `<span class="r-name">${esc(name)}</span>`;
   const v = r.value;
   const band = v == null ? "" : v >= 70 ? " r-good" : v >= 30 ? " r-mid" : " r-low";
-  // on ČSFD but without a rating yet (rating not started or nobody voted): a lock, as on ČSFD itself
-  const locked = v == null && r.source === "csfd";
-  const inner = locked ? `${icon}<span class="r-lock">${ICON.lock}</span>`
+  // ČSFD without a number: on ČSFD but not rated yet (rating not started or nobody voted) = a lock, as on
+  // ČSFD itself; not found on ČSFD = a question mark
+  const none = v == null && r.source === "csfd";
+  const inner = none ? `${icon}<span class="r-lock">${r.url ? ICON.lock : "<b>?</b>"}</span>`
     : `${icon}${AUDIENCE.has(r.source) ? ICON.people : ""}<b>${esc(r.display)}</b>`;
   const title = `${name}${r.votes ? ` · ${fmtNum(r.votes)}×` : ""}`;
   const cls = `rating ${esc(r.source)}${band}`;
