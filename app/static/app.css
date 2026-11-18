@@ -174,7 +174,7 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 #saveSettings { font-weight: 600; padding: 10px 18px; }
 #saveSettings.attention { box-shadow: 0 0 0 3px rgba(79,140,255,.35); }
 #saveMsg.dirty { color: var(--warn); }
-.cat-info { color: var(--muted); font-size: 13px; }
+.cat-info { color: var(--muted); font-size: 13px; flex-basis: 100%; }
 
 @media (max-width: 640px) {
   /* phone: smaller type and tighter spacing, so the list shows more than one title */
