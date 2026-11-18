@@ -267,13 +267,19 @@ describe("app core", () => {
       if ((init?.headers as any)?.["X-Emby-Token"] !== "k") return new Response("", { status: 401 });
       if (u.pathname === "/System/Info") return j({ Id: "srv1", ServerName: "Doma", Version: "4.9" });
       if (u.pathname === "/Users") return j([{ Id: "u1", Policy: { IsAdministrator: true } }]);
+      if (u.pathname === "/Users/u1/Items/m4") {
+        return j({ Id: "m4", MediaSources: [{ MediaStreams: [{ Type: "Audio", Language: "eng" }] }, { MediaStreams: [{ Type: "Audio", Language: "cze" }] }] });
+      }
       const type = u.searchParams.get("IncludeItemTypes");
       const items = type === "Movie" ? [{ Id: "m1", Name: "Matrix", ProductionYear: 1999, ImageTags: { Primary: "t" },
           ProviderIds: { Imdb: "tt0133093", Csfd: "9499-matrix" },
           MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 3840, Height: 2160 }, { Type: "Audio", Language: "ces", Channels: 6 }] }] },
         // a second copy of the same film with another audio track: both tracks belong to the one title
         { Id: "m2", Name: "Matrix", ProductionYear: 1999, ProviderIds: { Imdb: "tt0133093" },
-          MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 1920, Height: 1080 }, { Type: "Audio", Language: "eng", Channels: 2 }] }] }]
+          MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 1920, Height: 1080 }, { Type: "Audio", Language: "eng", Channels: 2 }] }] },
+        // two rips in one folder: one item, the listing returns only the default version
+        { Id: "m4", Name: "Odyssea", ProductionYear: 2026, ProviderIds: { Imdb: "tt33764258" }, MediaSourceCount: 2,
+          MediaSources: [{ MediaStreams: [{ Type: "Audio", Language: "eng", Channels: 6 }] }] }]
         : type === "Series" ? [{ Id: "s1", Name: "Zrádci", ProductionYear: 2024, ProviderIds: { Imdb: "tt33321873" } }]
         : [{ Id: "e1", SeriesId: "s1", DateCreated: "2026-11-11T19:19:13", MediaSources: [{ MediaStreams: [{ Type: "Video", Width: 1920, Height: 1080 }] }] }];
       return j({ Items: items, TotalRecordCount: items.length });
@@ -307,6 +313,8 @@ describe("app core", () => {
     expect(lib.quality).toBe("UHD");
     expect(lib.audio_langs).toEqual(expect.arrayContaining(["cs", "en"]));        // tracks of both copies
     expect(lib.url).toContain("id=m1");                                           // link to the better copy
+    const od = (await api("GET", "/api/catalog?q=odyssea")).items[0].where[0];
+    expect(od.audio_langs).toEqual(["en", "cs"]);                                  // both versions of one item
     expect(lib.icon).toBe("https://emby.example/web/favicon.ico");                // the server's own logo
     expect(lib.url).toBe("https://emby.example/web/index.html#!/item?id=m1&serverId=srv1");
     expect(m.ids.csfd).toBe("9499");
