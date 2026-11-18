@@ -67,7 +67,7 @@ export async function hydrate(titleIds: number[]): Promise<any[]> {
   }
   const ratings = new Map<number, any[]>();
   const visible = await visibleNow();
-  for (const r of await db.all(`SELECT * FROM ratings WHERE title_id IN (${p}) AND display IS NOT NULL`, titleIds)) {
+  for (const r of await db.all(`SELECT * FROM ratings WHERE title_id IN (${p}) AND (display IS NOT NULL OR (source='csfd' AND url IS NOT NULL))`, titleIds)) {
     if (!visible(r.source)) continue;
     (ratings.get(r.title_id) || ratings.set(r.title_id, []).get(r.title_id)!)
       .push({ source: r.source, display: r.display, value: r.value, votes: r.votes, url: r.url });
