@@ -2,6 +2,7 @@
 "svc.moving": "用方向键移动，按 OK 确认", "svc.remove": "移除",
 "offer.details": "详情", "f.sort": "排序", "ui.help": "帮助",
 "nav.top": "回到顶部", "nav.pageUp": "上一页", "nav.pageDown": "下一页", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "最新优先", "sort.oldest": "最早优先", "sort.highest": "最高优先", "sort.lowest": "最低优先",
+"sub.updates": "更新",
 "nav.back": "返回", "f.filters": "筛选", "ui.close": "关闭",
 "app.download": "正在浏览器中下载版本 {v}，下载完成后打开文件进行安装。",
 "job.catalog": "片库",

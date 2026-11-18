@@ -2,6 +2,7 @@
 "svc.moving": "Siirrä nuolilla, vahvista OK:lla", "svc.remove": "Poista",
 "offer.details": "Tiedot", "f.sort": "Lajittelu", "ui.help": "Ohje",
 "nav.top": "Ylös", "nav.pageUp": "Sivu ylös", "nav.pageDown": "Sivu alas", "sort.az": "A → Ö", "sort.za": "Ö → A", "sort.newest": "Uusimmat ensin", "sort.oldest": "Vanhimmat ensin", "sort.highest": "Korkein ensin", "sort.lowest": "Matalin ensin",
+"sub.updates": "Päivitykset",
 "nav.back": "Takaisin", "f.filters": "Suodattimet", "ui.close": "Sulje",
 "app.download": "Versiota {v} ladataan selaimessa – avaa tiedosto latauksen jälkeen asentaaksesi sen.",
 "job.catalog": "Luettelo",

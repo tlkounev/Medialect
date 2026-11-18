@@ -2,6 +2,7 @@
 "svc.moving": "Flytt med pilene, bekreft med OK", "svc.remove": "Fjern",
 "offer.details": "Detaljer", "f.sort": "Sortering", "ui.help": "Hjelp",
 "nav.top": "Til toppen", "nav.pageUp": "Side opp", "nav.pageDown": "Side ned", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Nyeste først", "sort.oldest": "Eldste først", "sort.highest": "Høyeste først", "sort.lowest": "Laveste først",
+"sub.updates": "Oppdateringer",
 "nav.back": "Tilbake", "f.filters": "Filtre", "ui.close": "Lukk",
 "app.download": "Versjon {v} lastes ned i nettleseren – åpne filen etterpå for å installere den.",
 "job.catalog": "Katalog",

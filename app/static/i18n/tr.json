@@ -2,6 +2,7 @@
 "svc.moving": "Oklarla taşıyın, OK ile onaylayın", "svc.remove": "Kaldır",
 "offer.details": "Ayrıntılar", "f.sort": "Sıralama", "ui.help": "Yardım",
 "nav.top": "En üste", "nav.pageUp": "Bir sayfa yukarı", "nav.pageDown": "Bir sayfa aşağı", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Önce en yeni", "sort.oldest": "Önce en eski", "sort.highest": "Önce en yüksek", "sort.lowest": "Önce en düşük",
+"sub.updates": "Güncellemeler",
 "nav.back": "Geri", "f.filters": "Filtreler", "ui.close": "Kapat",
 "app.download": "{v} sürümü tarayıcıda indiriliyor – bitince dosyayı açıp yükleyin.",
 "job.catalog": "Katalog",

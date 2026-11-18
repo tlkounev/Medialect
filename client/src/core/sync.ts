@@ -53,6 +53,10 @@ export class SyncManager {
       await env.db.run("UPDATE sync_runs SET finished_at=?, status=?, message=?, items=? WHERE id=?",
         [now(), status, message, ctx.items, runId]);
     }
+    if (id !== "ratings" && status !== "error") {
+      const n = await store.mergeLibraryTwins();
+      if (n) console.info(`merge: ${n} catalogue titles joined with the same work in a library`);
+    }
     // new titles need ratings: run (or re-run) the ratings job after every source sync
     if (id === "ratings") {
       if (this.ratingsAgain) { this.ratingsAgain = false; this.trigger("ratings"); }
@@ -70,6 +74,8 @@ export class SyncManager {
     this.fullRunning = true;
     try {
       const fixed = await store.repairMixedTitles();
+      const twins = await store.mergeLibraryTwins();
+      if (twins) console.info(`merge: ${twins} catalogue titles joined with the same work in a library`);
       if (fixed) console.info(`repair: ${fixed} titles mixing two works dropped, the full sync recreates them`);
       const jobs = await this.jobs();
       for (const [id] of jobs) if (!this.running.has(id)) this.queued.add(id);

@@ -2,6 +2,7 @@
 "svc.moving": "Flytta med pilarna, bekräfta med OK", "svc.remove": "Ta bort",
 "offer.details": "Detaljer", "f.sort": "Sortering", "ui.help": "Hjälp",
 "nav.top": "Till toppen", "nav.pageUp": "Sida upp", "nav.pageDown": "Sida ned", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Nyaste först", "sort.oldest": "Äldsta först", "sort.highest": "Högsta först", "sort.lowest": "Lägsta först",
+"sub.updates": "Uppdateringar",
 "nav.back": "Tillbaka", "f.filters": "Filter", "ui.close": "Stäng",
 "app.download": "Version {v} hämtas i webbläsaren – öppna filen när den är klar för att installera.",
 "job.catalog": "Katalog",

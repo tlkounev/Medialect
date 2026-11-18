@@ -2,6 +2,7 @@
 "svc.moving": "Pindahkan dengan panah, konfirmasi dengan OK", "svc.remove": "Hapus",
 "offer.details": "Detail", "f.sort": "Urutan", "ui.help": "Bantuan",
 "nav.top": "Ke atas", "nav.pageUp": "Halaman ke atas", "nav.pageDown": "Halaman ke bawah", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Terbaru dulu", "sort.oldest": "Terlama dulu", "sort.highest": "Tertinggi dulu", "sort.lowest": "Terendah dulu",
+"sub.updates": "Pembaruan",
 "nav.back": "Kembali", "f.filters": "Filter", "ui.close": "Tutup",
 "app.download": "Mengunduh versi {v} di browser – buka file setelah selesai untuk memasangnya.",
 "job.catalog": "Katalog",

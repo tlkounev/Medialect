@@ -2,6 +2,7 @@
 "svc.moving": "Přesuň šipkami, potvrď OK", "svc.remove": "Odebrat",
 "offer.details": "Podrobnosti", "f.sort": "Řazení", "ui.help": "Nápověda",
 "nav.top": "Nahoru", "nav.pageUp": "O stránku výš", "nav.pageDown": "O stránku níž", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Od nejnovějších", "sort.oldest": "Od nejstarších", "sort.highest": "Od nejvyššího", "sort.lowest": "Od nejnižšího",
+"sub.updates": "Aktualizace",
 "nav.back": "Zpět", "f.filters": "Filtry", "ui.close": "Zavřít",
 "app.download": "Stahuji verzi {v} v prohlížeči – po stažení soubor otevři a nainstaluj.",
 "job.catalog": "Katalog",

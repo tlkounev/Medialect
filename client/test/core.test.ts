@@ -274,6 +274,29 @@ describe("app core", () => {
     expect(hyd.where.map((o: any) => o.provider)).toEqual(["netflix", "emby-abc"]);   // the user's order, not "library first"
   });
 
+  it("a series in the library and on a service is one title even when one id disagrees", async () => {
+    const st = await import("../src/core/store");
+    const lib = (title: string, ids: Record<string, string>) => st.upsertTitle({ type: "show", title, year: 2022, ids, library: true });
+    const jw = await st.upsertTitle({ type: "show", title: "Star Trek: Podivné nové světy", year: 2022, ids: { jw: "tsST", imdb: "tt12327578", tmdb_tv: "103516" } });
+    await st.upsertOffer(jw, { source: "justwatch", provider: "skyshowtime", provider_name: "SkyShowtime", kind: "stream", monetization: "flatrate" }, 1);
+    const emby = await lib("Star Trek: Podivné nové světy", { imdb: "tt12327578", tmdb_tv: "999999", tvdb: "382389" });
+    expect(emby).toBe(jw);
+    const kinds = await env.db.all("SELECT kind, value FROM title_ids WHERE title_id=? ORDER BY kind", [jw]);
+    expect(kinds.filter((k) => k.kind === "tmdb_tv").map((k) => k.value)).toEqual(["999999"]);   // one value: the library's
+    // titles kept apart by an older version are joined after the next synchronisation
+    const a = (await env.db.run("INSERT INTO titles(type, title, year, created_at, updated_at) VALUES('show','Andor',2022,1,1)")).lastId;
+    const b = (await env.db.run("INSERT INTO titles(type, title, year, created_at, updated_at) VALUES('show','Andor',2022,1,1)")).lastId;
+    for (const t of [a, b]) await env.db.run("INSERT INTO title_names(title_id, norm) VALUES(?, 'andor')", [t]);
+    await env.db.run("INSERT INTO title_ids(kind, value, title_id) VALUES('tmdb_tv','83867',?), ('tmdb_tv','111',?), ('jw','tsA',?)", [a, b, b]);
+    await st.upsertOffer(a, { source: "emby:x", provider: "emby-x", provider_name: "Doma", kind: "library", monetization: "library" }, 1);
+    await st.upsertOffer(b, { source: "justwatch", provider: "disneyplus", provider_name: "Disney+", kind: "stream", monetization: "flatrate" }, 1);
+    expect(await st.mergeLibraryTwins()).toBe(1);
+    expect((await env.db.all("SELECT provider FROM availability WHERE title_id=? ORDER BY provider", [a])).map((r) => r.provider)).toEqual(["disneyplus", "emby-x"]);
+    expect((await env.db.get("SELECT title_id FROM title_ids WHERE kind='jw' AND value='tsA'"))!.title_id).toBe(a);
+    expect(await env.db.get("SELECT 1 AS x FROM title_ids WHERE value='111'")).toBeFalsy();
+    expect(await st.repairMixedTitles()).toBe(0);      // nothing left with two values of one id
+  });
+
   it("keeps two works of the same name apart and repairs old mixes", async () => {
     const st = await import("../src/core/store");
     const drama = await st.upsertTitle({ type: "show", title: "Zrádci", year: 2020, ids: { jw: "tsX1", tmdb_tv: "97547" } });
