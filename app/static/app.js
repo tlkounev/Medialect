@@ -850,6 +850,16 @@ function servicePicker(box, items, selected, onChange) {
       tile.classList.add("placeholder");
     }
   };
+  // the tile whose place in the grid is under the finger; layout positions ignore the sliding animation,
+  // so a tile that is still moving away is not hit by mistake
+  const tileAt = (x, y) => {
+    for (const el of box.querySelectorAll(".svc.on")) {
+      const pr = (el.offsetParent || document.body).getBoundingClientRect();
+      const l = pr.left + el.offsetLeft, tp = pr.top + el.offsetTop;
+      if (x >= l && x < l + el.offsetWidth && y >= tp && y < tp + el.offsetHeight) return el;
+    }
+    return null;
+  };
   const moveGhost = (x, y) => { if (ghost) ghost.style.transform = `translate(${x - press.dx}px, ${y - press.dy}px) scale(1.06)`; };
   const dragTo = (x, y) => {
     if (!press) return;
@@ -861,8 +871,8 @@ function servicePicker(box, items, selected, onChange) {
     moveGhost(x, y);
     // near the screen edge the page scrolls along (the finger cannot scroll it while dragging)
     if (y < 70) scrollBy(0, -14); else if (y > innerHeight - 70) scrollBy(0, 14);
-    const over = document.elementFromPoint(x, y)?.closest(".svc.on");
-    if (over && box.contains(over) && over.dataset.sn !== dragging && move(dragging, order.indexOf(over.dataset.sn))) {
+    const over = tileAt(x, y);
+    if (over && over.dataset.sn !== dragging && move(dragging, order.indexOf(over.dataset.sn))) {
       flip();
       // tiles were still sliding under a resting finger: look again once they settle
       clearTimeout(press.recheck);
@@ -885,29 +895,39 @@ function servicePicker(box, items, selected, onChange) {
   document.addEventListener("mousemove", (e) => { if (press && !press.touch) { dragTo(e.clientX, e.clientY); if (dragging) e.preventDefault(); } });
   document.addEventListener("mouseup", () => { if (press && !press.touch) endDrag(true); });
   // Touch events keep going to the element the finger first touched, even after the drag re-renders the
-  // grid and that element leaves the page (then they no longer bubble), so they are listened on it directly.
+  // grid and that element leaves the page (then they no longer bubble), so they are also listened on it.
+  // The grid itself has a non-passive touchmove listener from the start: Android's compositor decides by
+  // the listeners present when the finger lands whether a touchmove may stop the page from scrolling.
+  const onTouchMove = (ev) => {
+    if (ev.mlSeen) return;
+    ev.mlSeen = true;
+    const tp = ev.touches[0];
+    if (!tp || !press?.touch) return;
+    dragTo(tp.clientX, tp.clientY);
+    if (dragging && ev.cancelable) ev.preventDefault();      // a running drag must not scroll the page
+  };
+  box.addEventListener("touchmove", onTouchMove, { passive: false });
   box.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 1) { endDrag(false); return; }
     pressAt(e.target, e.touches[0].clientX, e.touches[0].clientY, true);
     if (!press) return;
     const target = e.target;
-    const onMove = (ev) => {
-      const tp = ev.touches[0];
-      if (!tp || !press) return;
-      dragTo(tp.clientX, tp.clientY);
-      if (dragging && ev.cancelable) ev.preventDefault();  // a running drag must not scroll the page
+    const done = (ev) => {
+      if (ev.mlSeen) return;
+      ev.mlSeen = true;
+      target.removeEventListener("touchmove", onTouchMove);
+      target.removeEventListener("touchend", done);
+      target.removeEventListener("touchcancel", done);
+      box.removeEventListener("touchend", done);
+      box.removeEventListener("touchcancel", done);
+      // a cancelled touch (the system took the gesture over) keeps what the drag already did
+      if (press?.touch) endDrag(true);
     };
-    const done = (commit) => () => {
-      target.removeEventListener("touchmove", onMove);
-      target.removeEventListener("touchend", end);
-      target.removeEventListener("touchcancel", cancel);
-      if (press?.touch) endDrag(commit);
-    };
-    const end = done(true), cancel = done(false);
-    target.addEventListener("touchmove", onMove, { passive: false });
-    target.addEventListener("touchend", end);
-    target.addEventListener("touchcancel", cancel);
+    target.addEventListener("touchmove", onTouchMove, { passive: false });
+    for (const el of [target, box]) { el.addEventListener("touchend", done); el.addEventListener("touchcancel", done); }
   }, { passive: true });
+  // a long press must not open the context menu or start the system's text selection / drag and drop
+  document.addEventListener("contextmenu", (e) => { if (press?.touch && box.isConnected) e.preventDefault(); });
   box.addEventListener("contextmenu", (e) => { if (press?.touch) e.preventDefault(); });
   box.addEventListener("dragstart", (e) => e.preventDefault());
   render();
