@@ -154,6 +154,15 @@ def main():
         async def v101(): return "1.0.1"
         async def v102(): return "1.0.2"
         updates._latest_tag, updates._cache["at"] = v101, 0
+        # ČSFD: a revival of a long-running series is found under the original series, if its years reach it
+        import httpx
+
+        async def scrubs():
+            async with httpx.AsyncClient(headers={"User-Agent": "test"}) as c:
+                return (await ratings.csfd_find(c, "Scrubs", 2026, "show"), await ratings.csfd_find(c, "Scrubs", 2026),
+                        await ratings.csfd_rating(c, "777"))
+        show, movie, (value, _votes, _url, _imdb, years) = asyncio.run(scrubs())
+        assert show == ("777", True) and movie is None and value == 81 and years == (2001, 2026), (show, movie, value, years)
         assert asyncio.run(updates.status("1.0.1"))["state"] == "current"
         updates._latest_tag = v102
         updates._cache["at"] -= updates.CHECK_EVERY_S + 1

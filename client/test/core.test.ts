@@ -489,3 +489,12 @@ describe("service logos", () => {
     expect(clear.box).toEqual({ x: 10, y: 20, w: 30, h: 10 });
   });
 });
+
+describe("ČSFD series years", () => {
+  it("reads the range from the header's origin line", () => {
+    expect(ratings.csfdYears('<div class="origin">USA<span>, </span>(2001–2026)<span>, </span>73 h</div>')).toEqual([2001, 2026]);
+    expect(ratings.csfdYears('<div class="origin">USA, (2019– ), 50 min</div>')).toEqual([2019, null]);
+    expect(ratings.csfdYears('<div class="origin">USA, <span>(</span><span>2001</span>–<span>2026</span>)</div>')).toEqual([2001, 2026]);
+    expect(ratings.csfdYears('<div class="origin">USA, 1999, 136 min</div>')).toBeNull();
+  });
+});
