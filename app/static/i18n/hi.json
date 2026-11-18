@@ -3,6 +3,7 @@
 "offer.details": "विवरण", "f.sort": "क्रम", "ui.help": "सहायता",
 "nav.top": "ऊपर जाएँ", "nav.pageUp": "एक पेज ऊपर", "nav.pageDown": "एक पेज नीचे", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "नए पहले", "sort.oldest": "पुराने पहले", "sort.highest": "सबसे ऊँचा पहले", "sort.lowest": "सबसे कम पहले",
 "sub.updates": "अपडेट",
+"offer.server": "सर्वर", "srv.key.emby": "कुंजी Emby में व्यवस्थापक बनाता है: डैशबोर्ड (Manage Emby Server) → Advanced → API Keys → + New Api Key. इसे जैसे Medialect नाम दें और कॉपी करें।", "srv.key.jellyfin": "कुंजी Jellyfin में व्यवस्थापक बनाता है: डैशबोर्ड (Dashboard) → API Keys → +. इसे जैसे Medialect नाम दें और कॉपी करें।", "srv.key.plex": "टोकन Plex Web में मिलेगा: किसी भी शीर्षक पर ⋯ → Get Info → View XML; यह खुले पेज के पते में X-Plex-Token= के बाद है।",
 "nav.back": "वापस", "f.filters": "फ़िल्टर", "ui.close": "बंद करें",
 "app.download": "संस्करण {v} ब्राउज़र में डाउनलोड हो रहा है – पूरा होने पर फ़ाइल खोलकर इंस्टॉल करें।",
 "job.catalog": "कैटलॉग",

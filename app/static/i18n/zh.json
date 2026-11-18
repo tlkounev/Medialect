@@ -3,6 +3,7 @@
 "offer.details": "详情", "f.sort": "排序", "ui.help": "帮助",
 "nav.top": "回到顶部", "nav.pageUp": "上一页", "nav.pageDown": "下一页", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "最新优先", "sort.oldest": "最早优先", "sort.highest": "最高优先", "sort.lowest": "最低优先",
 "sub.updates": "更新",
+"offer.server": "服务器", "srv.key.emby": "密钥由 Emby 管理员创建：控制台 (Manage Emby Server) → Advanced → API Keys → + New Api Key。例如命名为 Medialect 并复制。", "srv.key.jellyfin": "密钥由 Jellyfin 管理员创建：控制台 (Dashboard) → API Keys → +。例如命名为 Medialect 并复制。", "srv.key.plex": "令牌在 Plex Web 中：任意作品的 ⋯ → Get Info → View XML；位于打开页面地址中 X-Plex-Token= 之后。",
 "nav.back": "返回", "f.filters": "筛选", "ui.close": "关闭",
 "app.download": "正在浏览器中下载版本 {v}，下载完成后打开文件进行安装。",
 "job.catalog": "片库",

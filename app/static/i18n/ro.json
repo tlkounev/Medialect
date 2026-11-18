@@ -3,6 +3,7 @@
 "offer.details": "Detalii", "f.sort": "Sortare", "ui.help": "Ajutor",
 "nav.top": "Sus", "nav.pageUp": "O pagină în sus", "nav.pageDown": "O pagină în jos", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Cele mai noi întâi", "sort.oldest": "Cele mai vechi întâi", "sort.highest": "Cel mai mare întâi", "sort.lowest": "Cel mai mic întâi",
 "sub.updates": "Actualizări",
+"offer.server": "server", "srv.key.emby": "Cheia o creează un administrator în Emby: Panou (Manage Emby Server) → Advanced → API Keys → + New Api Key. Denumește-o de ex. Medialect și copiaz-o.", "srv.key.jellyfin": "Cheia o creează un administrator în Jellyfin: Panou (Dashboard) → API Keys → +. Denumește-o de ex. Medialect și copiaz-o.", "srv.key.plex": "Tokenul se află în Plex Web: la orice titlu ⋯ → Get Info → View XML; este în adresa paginii deschise, după X-Plex-Token=.",
 "nav.back": "Înapoi", "f.filters": "Filtre", "ui.close": "Închide",
 "app.download": "Se descarcă versiunea {v} în browser – la final deschide fișierul pentru instalare.",
 "job.catalog": "Catalog",

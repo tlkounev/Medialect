@@ -3,6 +3,7 @@
 "offer.details": "Details", "f.sort": "Sort", "ui.help": "Help",
 "nav.top": "To the top", "nav.pageUp": "Page up", "nav.pageDown": "Page down", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Newest first", "sort.oldest": "Oldest first", "sort.highest": "Highest first", "sort.lowest": "Lowest first",
 "sub.updates": "Updates",
+"offer.server": "server", "srv.key.emby": "An administrator creates the key in Emby: Dashboard (Manage Emby Server) → Advanced → API Keys → + New Api Key. Name it e.g. Medialect and copy it.", "srv.key.jellyfin": "An administrator creates the key in Jellyfin: Dashboard → API Keys → +. Name it e.g. Medialect and copy it.", "srv.key.plex": "Find the token in Plex Web: on any title ⋯ → Get Info → View XML; it is in the address of the page that opens, after X-Plex-Token=.",
 "nav.back": "Back", "f.filters": "Filters", "ui.close": "Close",
 "app.download": "Downloading version {v} in the browser – open the file when it finishes to install it.",
 "job.catalog": "Catalogue",

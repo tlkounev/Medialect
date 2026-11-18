@@ -3,6 +3,7 @@
 "offer.details": "التفاصيل", "f.sort": "الترتيب", "ui.help": "مساعدة",
 "nav.top": "إلى الأعلى", "nav.pageUp": "صفحة لأعلى", "nav.pageDown": "صفحة لأسفل", "sort.az": "أ → ي", "sort.za": "ي → أ", "sort.newest": "الأحدث أولاً", "sort.oldest": "الأقدم أولاً", "sort.highest": "الأعلى أولاً", "sort.lowest": "الأدنى أولاً",
 "sub.updates": "التحديثات",
+"offer.server": "الخادم", "srv.key.emby": "ينشئ المسؤول المفتاح في Emby: لوحة التحكم (Manage Emby Server) ← Advanced ← API Keys ← + New Api Key. سمّه مثلاً Medialect وانسخه.", "srv.key.jellyfin": "ينشئ المسؤول المفتاح في Jellyfin: لوحة التحكم (Dashboard) ← API Keys ← +. سمّه مثلاً Medialect وانسخه.", "srv.key.plex": "تجد الرمز في Plex Web: عند أي عنوان ⋯ ← Get Info ← View XML؛ وهو في عنوان الصفحة المفتوحة بعد X-Plex-Token=.",
 "nav.back": "رجوع", "f.filters": "عوامل التصفية", "ui.close": "إغلاق",
 "app.download": "جارٍ تنزيل الإصدار {v} في المتصفح – افتح الملف بعد اكتمال التنزيل لتثبيته.",
 "job.catalog": "الكتالوج",

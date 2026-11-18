@@ -3,6 +3,7 @@
 "offer.details": "Részletek", "f.sort": "Rendezés", "ui.help": "Súgó",
 "nav.top": "Az elejére", "nav.pageUp": "Egy oldallal feljebb", "nav.pageDown": "Egy oldallal lejjebb", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Legújabb elöl", "sort.oldest": "Legrégebbi elöl", "sort.highest": "Legmagasabb elöl", "sort.lowest": "Legalacsonyabb elöl",
 "sub.updates": "Frissítések",
+"offer.server": "szerver", "srv.key.emby": "A kulcsot rendszergazda hozza létre az Embyben: Irányítópult (Manage Emby Server) → Advanced → API Keys → + New Api Key. Nevezd el pl. Medialect-nek és másold ki.", "srv.key.jellyfin": "A kulcsot rendszergazda hozza létre a Jellyfinben: Irányítópult (Dashboard) → API Keys → +. Nevezd el pl. Medialect-nek és másold ki.", "srv.key.plex": "A token a Plex Webben található: bármely címnél ⋯ → Get Info → View XML; a megnyíló oldal címében van, az X-Plex-Token= után.",
 "nav.back": "Vissza", "f.filters": "Szűrők", "ui.close": "Bezárás",
 "app.download": "A(z) {v} verzió letöltése a böngészőben – utána nyisd meg a fájlt a telepítéshez.",
 "job.catalog": "Katalógus",

@@ -223,8 +223,8 @@ function fillLogos(root) {
     window.MEDIALECT_LOGO(img.dataset.logo).then((s) => { img.src = s; }).catch(() => logoFailed(img, img.dataset.lib === "true"));
   }
 }
-window.logoFailed = (img, lib) => {
-  if (lib) { img.remove(); return; }
+window.logoFailed = (img) => {
+  if (img.closest(".ms-list")) { img.remove(); return; }    // the filter shows the name next to it anyway
   const name = document.createElement("span");
   name.className = "name";
   name.textContent = img.alt;
@@ -260,19 +260,20 @@ function renderOffer(o) {
   // audio, subtitles and dates are hidden until the caret opens them
   const fl = (c) => `${langFlag(c)} ${c}`.trim();
   const rows = [];
+  const lib = o.kind === "library";
+  if (lib) rows.push(`<span class="li" title="${esc(t("offer.server"))}">${ICON.server}${esc(o.provider_name)}</span>`);
   if (o.audio_langs?.length) rows.push(`<span class="li" title="${esc(t("offer.audio"))}">${ICON.audio}${esc(o.audio_langs.map(fl).join(", "))}</span>`);
   if (o.subtitle_langs?.length) rows.push(`<span class="li" title="${esc(t("offer.subs"))}">${ICON.subs}${esc(o.subtitle_langs.map(fl).join(", "))}</span>`);
   const dates = [];
   if (o.added_at) dates.push(t("offer.added", { d: fmtDate(o.added_at) }));
   if (o.expires_on) dates.push(t("offer.until", { d: fmtDate(o.expires_on) }));
   if (dates.length) rows.push(`<span class="li">${ICON.date}${esc(dates.join(" · "))}</span>`);
-  const lib = o.kind === "library";
-  // streaming services: logo only (name as tooltip, shown instead when the logo cannot load);
+  // streaming services and own servers: logo only (the server's name is in the details) (name as tooltip, shown instead when the logo cannot load);
   // own servers: their logo + the name from the settings
   // the app evens out the logos (same size, margins cut away) and fills them in after rendering
   const src = window.MEDIALECT_LOGO ? "" : ` src="${esc(o.icon)}"`;
   const logo = o.icon ? `<img class="svc-logo"${src} data-logo="${esc(o.icon)}" data-lib="${lib}" alt="${esc(o.provider_name)}" title="${esc(o.provider_name)}" loading="lazy" onerror="logoFailed(this, ${lib})">` : "";
-  const head = `<span class="prov">${logo}${lib || !o.icon ? `<span class="name">${esc(o.provider_name)}</span>` : ""}</span>${mon ? `<span class="muted mon">${esc(mon)}</span>` : ""}
+  const head = `<span class="prov">${logo}${!o.icon ? `<span class="name">${esc(o.provider_name)}</span>` : ""}</span>${mon ? `<span class="muted mon">${esc(mon)}</span>` : ""}
     <span class="tags">${tags.join("")}</span>`;
   // the box starts playback in the service's app; the caret only opens the details
   const main = o.url
@@ -311,7 +312,7 @@ function renderTitle(ti) {
   const ratings = (ti.ratings || []).map(renderRating).join("");
   const meta = [ti.type === "movie" ? t("type.movie") : t("type.show"), ti.year].filter(Boolean).join(" · ");
   const sub = ti.original_title && ti.original_title !== ti.title ? ti.original_title : "";
-  const img = ti.poster ? `<img loading="lazy" src="${esc(ti.poster)}" alt="">` : `<div class="noimg"></div>`;
+  const img = ti.poster ? `<img loading="lazy" src="${esc(ti.poster)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'), { className: 'noimg' }))">` : `<div class="noimg"></div>`;
   return `<article class="title">${img}<div>
     <h3>${esc(ti.title)} <span class="meta">${esc(meta)}</span></h3>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}
     <div class="ratings">${ratings}</div>
@@ -409,6 +410,9 @@ const ICON = {
   date: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>'),
   people: svg('<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-4-5.6"/>'),
   sort: svg('<path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/>'),
+  server: svg('<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>'),
+  movie: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>'),
+  show: svg('<rect x="2" y="5" width="20" height="13" rx="2"/><path d="M8 21h8M12 18v3"/>'),
 };
 const FILTER_ICON = { cProvider: ICON.service, cType: ICON.type, cQuality: ICON.quality, cVideo: ICON.video,
   cAudio: ICON.audio, cLang: ICON.lang, cSub: ICON.subs };
@@ -424,9 +428,10 @@ function msLabel(id) {
 function msRender(id) {
   const m = ms[id];
   $(`#${id} .ms-list`).innerHTML = m.items.map((i) => `<label><input type="checkbox" value="${esc(i.value)}" ${m.sel.has(i.value) ? "checked" : ""}>
-    <span>${esc(i.label)}</span>${i.count != null ? `<small>${fmtNum(i.count)}</small>` : ""}</label>`).join("")
+    <span class="ms-item">${i.html || esc(i.label)}</span>${i.count != null ? `<small>${fmtNum(i.count)}</small>` : ""}</label>`).join("")
     || `<span class="muted">–</span>`;
   msLabel(id);
+  fillLogos($(`#${id} .ms-list`));
 }
 function msSet(id, items) {
   const m = ms[id];
@@ -454,11 +459,20 @@ async function loadFacets() {
     }
   }
   const [{ items }, f] = await Promise.all([api("/api/providers"), api("/api/facets")]);
-  msSet("cProvider", items.map((p) => ({ value: p.provider, label: p.name, count: p.titles })));
-  msSet("cType", [{ value: "movie", label: t("f.movies") }, { value: "show", label: t("f.shows") }]);
-  msSet("cQuality", f.quality.map((q) => ({ value: q.value, label: QUALITY_LABEL[q.value] || q.value, count: q.titles })));
-  msSet("cVideo", f.video.map((x) => ({ value: x.value, label: x.value, count: x.titles })));
-  msSet("cAudio", f.audio.map((x) => ({ value: x.value, label: x.value, count: x.titles })));
+  // the same logos and badges as at the titles; services in the user's order (the server sends them sorted)
+  const logoHtml = (p) => {
+    const lib = p.kind === "library";
+    if (!p.icon) return `${lib ? ICON.server : ""}${esc(p.name)}`;
+    const src = window.MEDIALECT_LOGO ? "" : ` src="${esc(p.icon)}"`;
+    return `<img class="svc-logo sm"${src} data-logo="${esc(p.icon)}" data-lib="${lib}" alt="" onerror="this.remove()">${esc(p.name)}`;
+  };
+  msSet("cProvider", items.map((p) => ({ value: p.provider, label: p.name, html: logoHtml(p), count: p.titles })));
+  msSet("cType", [{ value: "movie", label: t("f.movies"), html: `${ICON.movie}${esc(t("f.movies"))}` },
+    { value: "show", label: t("f.shows"), html: `${ICON.show}${esc(t("f.shows"))}` }]);
+  msSet("cQuality", f.quality.map((q) => ({ value: q.value, label: QUALITY_LABEL[q.value] || q.value,
+    html: `<span class="tag q-${esc(q.value)}">${esc(QUALITY_LABEL[q.value] || q.value)}</span>`, count: q.titles })));
+  msSet("cVideo", f.video.map((x) => ({ value: x.value, label: x.value, html: codecBadge(x.value, "video"), count: x.titles })));
+  msSet("cAudio", f.audio.map((x) => ({ value: x.value, label: x.value, html: codecBadge(x.value, "audio"), count: x.titles })));
   const langs = (arr) => arr.map((x) => ({ value: x.value, label: langLabel(x.value), name: langName(x.value), count: x.titles }))
     .sort((a, b) => a.name.localeCompare(b.name, uiLang));
   msSet("cLang", langs(f.audio_langs));
@@ -1120,9 +1134,16 @@ function fillServer(node, srv) {
 }
 function addServerRow(srv = {}) {
   const node = $("#serverTpl").content.firstElementChild.cloneNode(true);
+  // where the key is found depends on the server type
+  const keyHelp = () => {
+    const el = $(".key-help", node), type = $("[data-k=type]", node).value || "emby";
+    el.dataset.i18n = `srv.key.${type}`; el.textContent = t(el.dataset.i18n);
+  };
+  $("[data-k=type]", node).addEventListener("change", keyHelp);
   applyI18n(node);
   helpToggles(node);
   fillServer(node, srv);
+  keyHelp();
   const res = $(".result", node);
   const say = (text, cls = "muted") => { res.textContent = text; res.className = `${cls} result`; };
   $$("[data-k]", node).forEach((el) => el.addEventListener("input", () => say(node.dataset.id ? t("srv.unsaved") : t("srv.new"))));
