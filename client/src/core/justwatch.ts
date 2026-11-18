@@ -152,10 +152,11 @@ async function storeEntry(ctx: SyncContext, node: any, selected: Map<string, str
 
 export async function sync(ctx: SyncContext): Promise<void> {
   const cfg = ctx.settings.justwatch;
-  if (!cfg.providers?.length) { ctx.note("Nejsou vybrané žádné služby."); return; }
+  const wanted = (cfg.providers || []).filter((sn) => sn !== "ivy");   // iVysílání has its own source
+  if (!wanted.length) { ctx.note("Nejsou vybrané žádné služby."); return; }
   const delayMs = Math.max(0, Number(cfg.request_delay_s ?? 0.5)) * 1000;
   const names = new Map((await listProviders(ctx.settings.country)).map((p) => [p.short_name, p.name]));
-  const selected = new Map(cfg.providers.map((sn) => [sn, names.get(sn) || sn]));
+  const selected = new Map(wanted.map((sn) => [sn, names.get(sn) || sn]));
   // continue an interrupted run of the same country and language; done windows are not fetched again
   const scope = `${ctx.settings.country}|${ctx.settings.language}`;
   let state = await resumePending();

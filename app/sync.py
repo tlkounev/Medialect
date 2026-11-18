@@ -9,7 +9,7 @@ import traceback
 
 from . import ratings, settings as settings_mod, store
 from .db import db
-from .sources import justwatch, streaming_availability
+from .sources import ivysilani, justwatch, streaming_availability
 from .sources.base import SourceError, SyncContext
 from .sources.emby import EmbyLike
 from .sources.plex import Plex
@@ -36,8 +36,10 @@ class SyncManager:
         for srv in s["servers"]:
             if srv.get("enabled", True) and srv.get("url"):
                 out.append((f"server:{srv['id']}", srv.get("name") or srv["type"], server_client(srv).sync))
-        if s["justwatch"].get("enabled") and s["justwatch"].get("providers"):
+        if s["justwatch"].get("enabled") and [p for p in s["justwatch"].get("providers") or [] if p != ivysilani.SHORT_NAME]:
             out.append(("justwatch", "JustWatch", justwatch.sync))
+        if ivysilani.selected(s):
+            out.append(("ivysilani", "iVysílání", ivysilani.sync))
         sa = s["streaming_availability"]
         if sa.get("enabled") and sa.get("api_key") and sa.get("catalogs"):
             out.append(("sa", "Streaming Availability", streaming_availability.sync))

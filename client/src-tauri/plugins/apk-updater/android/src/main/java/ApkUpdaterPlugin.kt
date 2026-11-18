@@ -41,10 +41,15 @@ class ApkUpdaterPlugin(private val activity: Activity) : Plugin(activity) {
     init {
         // Android 15+ draws apps edge to edge: keep the WebView out from under the status and navigation bars
         // (the gap shows the dark window background)
+        // The keyboard shrinks the WebView too (instead of panning the whole page up), so the top bar and
+        // the search field stay in place while typing.
+        @Suppress("DEPRECATION")
+        activity.window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         val content = activity.findViewById<View>(android.R.id.content)
         ViewCompat.setOnApplyWindowInsetsListener(content) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
             insets
         }
         ViewCompat.requestApplyInsets(content)

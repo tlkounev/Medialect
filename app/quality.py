@@ -115,25 +115,35 @@ def merge_tags(*lists: list[str] | None) -> list[str]:
 
 
 # --- languages ---------------------------------------------------------
-_LANG3 = {
-    "cze": "cs", "ces": "cs", "slo": "sk", "slk": "sk", "eng": "en", "ger": "de", "deu": "de",
-    "fre": "fr", "fra": "fr", "spa": "es", "ita": "it", "pol": "pl", "hun": "hu", "rus": "ru",
-    "ukr": "uk", "jpn": "ja", "kor": "ko", "chi": "zh", "zho": "zh", "por": "pt", "dut": "nl",
-    "nld": "nl", "swe": "sv", "nor": "no", "nob": "no", "dan": "da", "fin": "fi", "tur": "tr",
-    "gre": "el", "ell": "el", "heb": "he", "ara": "ar", "hin": "hi", "tha": "th", "rum": "ro",
-    "ron": "ro", "bul": "bg", "hrv": "hr", "srp": "sr", "slv": "sl", "vie": "vi", "ind": "id",
-}
+_LANG3 = {"afr": "af", "alb": "sq", "amh": "am", "ara": "ar", "arm": "hy", "aze": "az", "baq": "eu", "bel": "be", "ben": "bn", "bos": "bs", "bul": "bg", "bur": "my", "cat": "ca", "ces": "cs", "chi": "zh", "cmn": "zh", "cym": "cy", "cze": "cs", "dan": "da", "deu": "de", "dut": "nl", "ell": "el", "eng": "en", "est": "et", "eus": "eu", "fao": "fo", "fas": "fa", "fil": "tl", "fin": "fi", "fra": "fr", "fre": "fr", "geo": "ka", "ger": "de", "gla": "gd", "gle": "ga", "glg": "gl", "gre": "el", "gsw": "de", "guj": "gu", "heb": "he", "hin": "hi", "hrv": "hr", "hun": "hu", "hye": "hy", "ice": "is", "ind": "id", "isl": "is", "ita": "it", "jpn": "ja", "kan": "kn", "kat": "ka", "kaz": "kk", "khm": "km", "kor": "ko", "lao": "lo", "lat": "la", "lav": "lv", "lit": "lt", "ltz": "lb", "mac": "mk", "mal": "ml", "mar": "mr", "may": "ms", "mkd": "mk", "mlt": "mt", "mon": "mn", "msa": "ms", "mya": "my", "nep": "ne", "nld": "nl", "nno": "no", "nob": "no", "nor": "no", "pan": "pa", "per": "fa", "pol": "pl", "por": "pt", "ron": "ro", "rum": "ro", "rus": "ru", "sin": "si", "slk": "sk", "slo": "sk", "slv": "sl", "sme": "se", "som": "so", "spa": "es", "sqi": "sq", "srp": "sr", "swa": "sw", "swe": "sv", "tam": "ta", "tel": "te", "tgl": "tl", "tha": "th", "tur": "tr", "ukr": "uk", "urd": "ur", "uzb": "uz", "vie": "vi", "wel": "cy", "xho": "xh", "yid": "yi", "yue": "zh", "zho": "zh", "zul": "zu"}
+_LANG2_ALIAS = {"fil": "tl", "in": "id", "iw": "he", "ji": "yi", "jw": "jv", "mo": "ro", "nb": "no", "nn": "no", "sh": "sr"}
+_LANG_NAMES = {"bahasa indonesia": "id", "bahasa melayu": "ms", "tieng viet": "vi", "afrikaans": "af", "albanian": "sq", "amharic": "am", "arabic": "ar", "armenian": "hy", "azerbaijani": "az", "azerbaycan": "az", "bangla": "bn", "basque": "eu", "belarusian": "be", "bengali": "bn", "bengali bangla": "bn", "bokmal": "no", "bosanski": "bs", "bosnian": "bs", "brazilian portuguese": "pt", "bulgarian": "bg", "burmese": "my", "canadian french": "fr", "cantonese": "zh", "castellano": "es", "castilian": "es", "catala": "ca", "catalan": "ca", "cesky": "cs", "cestina": "cs", "chinese": "zh", "chinese mandarin cantonese": "zh", "chinese simplified": "zh", "chinese traditional": "zh", "croatian": "hr", "cymraeg": "cy", "czech": "cs", "danish": "da", "dansk": "da", "deutsch": "de", "dutch": "nl", "dutch flemish": "nl", "eesti": "et", "english": "en", "espanol": "es", "estonian": "et", "european spanish": "es", "euskara": "eu", "faroese": "fo", "farsi": "fa", "filipino": "tl", "finnish": "fi", "flemish": "nl", "francais": "fr", "french": "fr", "gaeilge": "ga", "gaelic": "gd", "gaelic scottish gaelic": "gd", "galego": "gl", "galician": "gl", "georgian": "ka", "german": "de", "greek": "el", "gujarati": "gu", "hebrew": "he", "hindi": "hi", "hrvatski": "hr", "hungarian": "hu", "icelandic": "is", "indonesia": "id", "indonesian": "id", "irish": "ga", "islenska": "is", "italian": "it", "italiano": "it", "japanese": "ja", "kannada": "kn", "kazakh": "kk", "khmer": "km", "kiswahili": "sw", "korean": "ko", "lao": "lo", "latin": "la", "latin american spanish": "es", "latina": "la", "latvian": "lv", "latviesu": "lv", "lietuviu": "lt", "lithuanian": "lt", "luxembourgish": "lb", "macedonian": "mk", "magyar": "hu", "malay": "ms", "malayalam": "ml", "maltese": "mt", "mandarin": "zh", "marathi": "mr", "melayu": "ms", "moldavian": "ro", "mongolian": "mn", "nederlands": "nl", "nepali": "ne", "norsk": "no", "northern": "se", "northern sami sami": "se", "norwegian": "no", "norwegian bokmal nynorsk": "no", "nynorsk": "no", "ozbek": "uz", "panjabi": "pa", "persian": "fa", "persian farsi": "fa", "polish": "pl", "polski": "pl", "portugues": "pt", "portuguese": "pt", "portuguese brazilian": "pt", "punjabi": "pa", "punjabi panjabi": "pa", "romana": "ro", "romanian": "ro", "romanian moldavian": "ro", "russian": "ru", "russkij": "ru", "sami": "se", "scottish": "gd", "serbian": "sr", "shqip": "sq", "simplified chinese": "zh", "sinhala": "si", "sinhala sinhalese": "si", "sinhalese": "si", "slovak": "sk", "slovencina": "sk", "slovene": "sl", "slovenian": "sl", "slovenian slovene": "sl", "slovenscina": "sl", "slovensky": "sk", "somali": "so", "spanish": "es", "spanish castilian": "es", "spanish latin american": "es", "srpski": "sr", "suomi": "fi", "svenska": "sv", "swahili": "sw", "swedish": "sv", "tagalog": "tl", "tagalog filipino": "tl", "tamil": "ta", "telugu": "te", "thai": "th", "traditional chinese": "zh", "turkce": "tr", "turkish": "tr", "ukrainian": "uk", "urdu": "ur", "uzbek": "uz", "vietnamese": "vi", "vlaams": "nl", "welsh": "cy", "xhosa": "xh", "yiddish": "yi", "zulu": "zu", "ελληνικά": "el", "беларуская": "be", "български": "bg", "македонски": "mk", "русский": "ru", "српски": "sr", "українська": "uk", "қазақ": "kk", "հայերեն": "hy", "עברית": "he", "اردو": "ur", "العربية": "ar", "فارسی": "fa", "हिन्दी": "hi", "বাংলা": "bn", "தமிழ்": "ta", "తెలుగు": "te", "ไทย": "th", "ქართული": "ka", "中文": "zh", "日本語": "ja", "普通话": "zh", "粤语": "zh", "한국어": "ko"}
+
+
+def _fold(text: str) -> str:
+    """lower case without accents (keeps non-Latin scripts)"""
+    t = unicodedata.normalize("NFKD", text.strip().lower())
+    return "".join(ch for ch in t if not unicodedata.combining(ch))
 
 
 def lang(code: str | None) -> str | None:
+    """One ISO 639-1 code for a language, whatever form the source uses: "cs", "cze", "ces", "cs-CZ",
+    "Czech", "Čeština", "Czech (Forced)" all give "cs". Unknown names are dropped."""
     if not code:
         return None
-    c = code.strip().lower().replace("_", "-").split("-")[0]
-    if c in ("und", "zxx", "mis", "mul", ""):
+    t = re.sub(r"[\(\[].*?[\)\]]", " ", _fold(code)).replace("_", "-").strip(" -.,")
+    if not t:
         return None
-    if len(c) == 3:
-        return _LANG3.get(c, c)
-    return c
+    if t in _LANG_NAMES:
+        return _LANG_NAMES[t]
+    c = re.split(r"[-\s]", t)[0]
+    if c in ("und", "zxx", "mis", "mul", "unk", "unknown", "original", "other", ""):
+        return None
+    if len(c) == 2 and c.isascii() and c.isalpha():
+        return _LANG2_ALIAS.get(c, c)
+    if len(c) == 3 and c.isascii() and c.isalpha():
+        return _LANG3.get(c) or _LANG2_ALIAS.get(c) or c
+    return _LANG_NAMES.get(c)
 
 
 def langs(codes) -> list[str]:

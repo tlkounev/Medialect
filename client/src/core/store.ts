@@ -48,7 +48,7 @@ function cleanIds(info: TitleInfo): Record<string, string> {
 const namesOf = (info: TitleInfo) =>
   [...new Set([info.title, info.original_title, ...(info.extra_names || [])].filter(Boolean).map((n) => norm(n)))].filter(Boolean);
 
-const OWN_KINDS = ["jw", "sa"];
+const OWN_KINDS = ["jw", "sa", "ct"];
 // ids that name exactly one work: a title never holds two different values of one of these kinds
 const STRONG_KINDS = ["imdb", "tmdb_movie", "tmdb_tv", "tvdb"];
 const yearsClash = (a?: number | null, b?: number | null) => !!(a && b && Math.abs(a - b) > 2);

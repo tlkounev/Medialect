@@ -81,7 +81,7 @@ describe("app core", () => {
     expect(s0.ratings.csfd).toBe(false);
 
     const provs = await api("GET", "/api/justwatch/providers?country=cz");
-    expect(provs.items.map((p: any) => p.short_name)).toEqual(["nfx", "dnp", "mub", "opl"].sort((a, b) =>
+    expect(provs.items.map((p: any) => p.short_name)).toEqual(["nfx", "dnp", "mub", "opl", "ivy"].sort((a, b) =>
       provs.items.find((p: any) => p.short_name === a).name.localeCompare(provs.items.find((p: any) => p.short_name === b).name)));
     expect(provs.items.some((p: any) => p.short_name === "itu")).toBe(false);      // rent/buy only
     expect(fake.jwBodies[0].variables.country).toBe("CZ");
@@ -255,6 +255,50 @@ describe("app core", () => {
     await env.db.run("INSERT INTO title_ids(kind, value, title_id) VALUES('tmdb_tv', '999999', ?)", [reality]);
     expect(await st.repairMixedTitles()).toBe(1);
     expect(await env.db.get("SELECT 1 AS x FROM titles WHERE id=?", [reality])).toBeFalsy();
+  });
+
+  it("iVysílání: listed as a Czech service, its films and series join the catalogue by name and year", async () => {
+    const ivy = await import("../src/core/ivysilani");
+    const st = await import("../src/core/store");
+    const pelisky = await st.upsertTitle({ type: "movie", title: "Pelíšky", year: 1999, ids: { jw: "tm3" } });
+    const shows: Record<string, any[]> = {
+      "3947": [{ id: "10123", slug: "10123-pelisky", title: "Pelíšky", year: "1999" },
+               { id: "10124", slug: "10124-vrchni-prchni", title: "Vrchní, prchni!", year: "1980" }],
+      "3976": [{ id: "20001", slug: "20001-nemocnice-na-kraji-mesta", title: "Nemocnice na kraji města", year: "1977–1981" }],
+    };
+    const bodies: any[] = [];
+    const prev = env.fetch;
+    env.fetch = async (url: string, init?: RequestInit) => {
+      if (new URL(url).host !== "api.ceskatelevize.cz") return prev(url, init);
+      const body = JSON.parse(String(init?.body)); bodies.push({ body, headers: init?.headers });
+      const all = shows[body.variables.categoryId] || [];
+      return new Response(JSON.stringify({ data: { showFindByGenre: {
+        items: all.slice(body.variables.offset, body.variables.offset + body.variables.limit), totalCount: all.length } } }),
+        { headers: { "content-type": "application/json" } });
+    };
+    const listed = await api("GET", "/api/justwatch/providers?country=CZ");
+    expect(listed.items.map((p: any) => p.short_name)).toContain("ivy");
+    expect((await api("GET", "/api/justwatch/providers?country=DE")).items.map((p: any) => p.short_name)).not.toContain("ivy");
+    expect(ivy.selected({ country: "CZ", justwatch: { providers: ["nfx", "ivy"] } })).toBe(true);
+    const { SyncContext } = await import("../src/core/context");
+    const ctx = new SyncContext("ivysilani", { country: "CZ" } as any);
+    await ivy.sync(ctx);
+    expect(ctx.items).toBe(3);
+    expect(bodies[0].body.variables).toMatchObject({ limit: 40, offset: 0, categoryId: "3947" });
+    expect((bodies[0].headers as any).Referer).toBe("https://www.ceskatelevize.cz/");
+    const offer = await env.db.get("SELECT title_id, url, monetization FROM availability WHERE provider='ivysilani' AND url LIKE '%pelisky%'");
+    expect(offer).toMatchObject({ title_id: pelisky, url: "https://www.ceskatelevize.cz/porady/10123-pelisky/", monetization: "free" });
+    expect((await env.db.get("SELECT year FROM titles t JOIN title_ids i ON i.title_id=t.id WHERE i.kind='ct' AND i.value='20001'"))!.year).toBe(1977);
+    // a title gone from iVysílání loses its offer on the next run
+    shows["3947"].pop();
+    await ivy.sync(new SyncContext("ivysilani", { country: "CZ" } as any));
+    expect((await env.db.get("SELECT COUNT(*) AS n FROM availability WHERE provider='ivysilani'"))!.n).toBe(2);
+  });
+
+  it("languages: codes, three-letter codes and names end up as one code", async () => {
+    const { lang, langs } = await import("../src/core/quality");
+    expect(["cs", "cze", "ces", "cs-CZ", "Czech", "Čeština", "Czech (Forced)"].map(lang)).toEqual(Array(7).fill("cs"));
+    expect(langs(["eng", "English", "en-US", "und", "Unknown", "nob", "nb", "Brazilian Portuguese", "pt-BR"])).toEqual(["en", "no", "pt"]);
   });
 
   it("media servers: Emby library is added, tested, synchronised and removed", async () => {

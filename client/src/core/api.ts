@@ -4,6 +4,7 @@ import { now } from "./db";
 import * as queries from "./queries";
 import * as settingsMod from "./settings";
 import { listProviders } from "./justwatch";
+import * as ivysilani from "./ivysilani";
 import { manager } from "./sync";
 import { testServer } from "./servers";
 
@@ -73,9 +74,11 @@ export async function handle(method: string, path: string, q: URLSearchParams, b
     case "PUT /api/settings": {
       const before = await settingsMod.load();
       const saved = await settingsMod.save(body || {});
-      const changed = [...(saved.justwatch.providers || [])].sort().join() !== [...(before.justwatch.providers || [])].sort().join()
-        || saved.country !== before.country || !before.justwatch.enabled;
-      if (saved.justwatch.enabled && saved.justwatch.providers.length && changed) manager.trigger("justwatch");
+      // iVysílání has its own source: picking it alone does not start JustWatch again
+      const jw = (s: typeof saved) => (s.justwatch.providers || []).filter((p) => p !== ivysilani.SHORT_NAME).sort().join();
+      const changed = jw(saved) !== jw(before) || saved.country !== before.country || !before.justwatch.enabled;
+      if (saved.justwatch.enabled && jw(saved) && changed) manager.trigger("justwatch");
+      if (ivysilani.selected(saved) && !ivysilani.selected(before)) manager.trigger("ivysilani");
       await manager.triggerNewServers();
       return settingsMod.masked(saved);
     }
@@ -97,7 +100,8 @@ export async function handle(method: string, path: string, q: URLSearchParams, b
     }
     case "GET /api/justwatch/providers": {
       const s = await settingsMod.load();
-      try { return { items: await listProviders(q.get("country") || s.country) }; }
+      const c = q.get("country") || s.country;
+      try { return { items: await ivysilani.register(c, await listProviders(c)) }; }
       catch (e) { throw new ApiError(502, `JustWatch nedostupný: ${(e as Error).message}`); }
     }
     case "GET /api/sync/status":

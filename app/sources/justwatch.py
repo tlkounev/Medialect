@@ -140,12 +140,13 @@ async def _store_entry(ctx: SyncContext, entry, selected: dict[str, str]) -> Non
 
 async def sync(ctx: SyncContext) -> None:
     cfg = ctx.settings["justwatch"]
-    if not cfg.get("providers"):
+    wanted = [sn for sn in cfg.get("providers") or [] if sn != "ivy"]   # iVysílání has its own source
+    if not wanted:
         ctx.note("Nejsou vybraní žádní poskytovatelé.")
         return
     delay = float(cfg.get("request_delay_s", 1.0))
     packages = {p["short_name"]: p["name"] for p in await list_providers(ctx.settings["country"])}
-    selected = {sn: packages.get(sn, sn) for sn in cfg["providers"]}
+    selected = {sn: packages.get(sn, sn) for sn in wanted}
 
     # continue an interrupted run of the same country and language; done windows are not fetched again
     scope = f"{ctx.settings['country']}|{ctx.settings['language']}"
