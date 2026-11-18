@@ -37,8 +37,6 @@ async function boot() {
     // desktop/mobile app: no login, "Administrace" is just the settings
     document.body.classList.add("local");
     DEFAULT_SORT = "year";        // no source in the app knows when a service added a title
-    $("[data-tab=admin]").dataset.i18n = "sub.settings";
-    applyI18n();
   }
   loadVersion(true);
   setAdmin(st.logged_in, false);
@@ -51,17 +49,38 @@ async function boot() {
 
 function buildLangPicker() {
   const sel = $("#uiLang");
-  sel.innerHTML = UI_LANGS.map(([c, n]) => `<option value="${c}">${esc(`${langFlag(c)} ${n}`.trim())}</option>`).join("");
+  sel.innerHTML = UI_LANGS.map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join("");
   sel.value = uiLang;
+  // the bar shows only the flag; the names are in the list it opens
+  $("#langBtn").textContent = langFlag(uiLang) || uiLang.toUpperCase();
+  $("#langList").innerHTML = UI_LANGS.map(([c, n]) => `<button type="button" role="menuitem" data-lang="${c}" class="${c === uiLang ? "on" : ""}">
+    <span class="flag">${langFlag(c)}</span><span>${esc(n)}</span></button>`).join("");
 }
+function langMenu(open) {
+  $("#langList").classList.toggle("hidden", !open);
+  $("#langBtn").setAttribute("aria-expanded", String(open));
+  if (open) ($("#langList button.on") || $("#langList button"))?.focus();
+}
+$("#langBtn").addEventListener("click", (e) => { e.stopPropagation(); langMenu($("#langList").classList.contains("hidden")); });
+$("#langList").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-lang]");
+  if (!b) return;
+  langMenu(false);
+  const sel = $("#uiLang");
+  if (sel.value === b.dataset.lang) return;
+  sel.value = b.dataset.lang;
+  sel.dispatchEvent(new Event("change"));
+});
+document.addEventListener("click", (e) => { if (!e.target.closest(".lang-menu")) langMenu(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#langList").classList.contains("hidden")) { langMenu(false); $("#langBtn").focus(); } });
 $("#uiLang").addEventListener("change", async (e) => {
   await initI18n(appVersion, e.target.value);
   applyI18n();
+  buildLangPicker();
   renderLogin();
   loadVersion();
   facetsLoaded = false;   // option labels are translated: rebuild them, keep the choice
-  const tab = $$("header nav button").find((b) => b.classList.contains("active"))?.dataset.tab || "catalog";
-  openTab(tab);
+  openTab(currentTab);
   pollProgress();
   loadDataBy();
 });
@@ -118,9 +137,11 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 
 /* ---------- tabs ---------- */
 let statusTimer = null, adminSub = "settings", lastBadge = [[], 0];
+let currentTab = "catalog";
 function openTab(name) {
   if (!$(`#tab-${name}`)) name = "catalog";
-  $$("header nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  currentTab = name;
+  $("#openSettings").classList.toggle("on", name === "admin");
   $$("main > section").forEach((s) => s.classList.toggle("hidden", s.id !== `tab-${name}`));
   history.replaceState(null, "", `#${name}`);
   clearInterval(statusTimer);
@@ -140,14 +161,17 @@ async function openAdmin() {
 function openSub(name) {
   adminSub = name;
   clearInterval(statusTimer);
-  $$(".subnav button").forEach((b) => b.classList.toggle("active", b.dataset.sub === name));
+  $$(".subnav button[data-sub]").forEach((b) => b.classList.toggle("active", b.dataset.sub === name));
   $("#sub-sync").classList.toggle("hidden", name !== "sync");
   $("#sub-settings").classList.toggle("hidden", name !== "settings");
   if (name === "sync") { loadStatus(); statusTimer = setInterval(loadStatus, 5000); }
   if (name === "settings") loadSettings();
 }
-$$("header nav button").forEach((b) => b.addEventListener("click", () => openTab(b.dataset.tab)));
-$$(".subnav button").forEach((b) => b.addEventListener("click", () => openSub(b.dataset.sub)));
+$("#openSettings").addEventListener("click", () => openTab(currentTab === "admin" ? "catalog" : "admin"));
+$("#home").addEventListener("click", (e) => { if (!e.target.closest("a")) openTab("catalog"); });
+$("#home").addEventListener("keydown", (e) => { if (e.key === "Enter") openTab("catalog"); });
+$$(".subnav [data-back]").forEach((b) => b.addEventListener("click", () => openTab("catalog")));
+$$(".subnav button[data-sub]").forEach((b) => b.addEventListener("click", () => openSub(b.dataset.sub)));
 
 /* ---------- rendering ---------- */
 function fillLogos(root) {
@@ -169,34 +193,38 @@ function renderOffer(o) {
   for (const v of o.video || []) tags.push(`<span class="tag ${/DV|HDR|HLG/.test(v) ? "hdr" : ""}">${esc(v)}</span>`);
   for (const a of o.audio || []) tags.push(`<span class="tag ${/Atmos|DTS:X/.test(a) ? "aud" : ""}">${esc(a)}</span>`);
   const mon = { free: t("offer.free"), ads: t("offer.ads"), addon: t("offer.addon") }[o.monetization] || "";
-  const info = [];
+  // audio and subtitles: an icon instead of the word, flags with the code
   const fl = (c) => `${langFlag(c)} ${c}`.trim();
-  if (o.audio_langs?.length) info.push(`${t("offer.audio")}: ${o.audio_langs.map(fl).join(", ")}`);
-  if (o.subtitle_langs?.length) info.push(`${t("offer.subs")}: ${o.subtitle_langs.slice(0, 8).map(fl).join(", ")}${o.subtitle_langs.length > 8 ? "…" : ""}`);
-  if (o.added_at) info.push(t("offer.added", { d: fmtDate(o.added_at) }));
-  if (o.expires_on) info.push(t("offer.until", { d: fmtDate(o.expires_on) }));
+  const rows = [];
+  if (o.audio_langs?.length) rows.push(`<span class="li" title="${esc(t("offer.audio"))}">${ICON.audio}${esc(o.audio_langs.map(fl).join(", "))}</span>`);
+  if (o.subtitle_langs?.length) rows.push(`<span class="li" title="${esc(t("offer.subs"))}">${ICON.subs}${esc(o.subtitle_langs.slice(0, 8).map(fl).join(", "))}${o.subtitle_langs.length > 8 ? "…" : ""}</span>`);
+  const dates = [];
+  if (o.added_at) dates.push(t("offer.added", { d: fmtDate(o.added_at) }));
+  if (o.expires_on) dates.push(t("offer.until", { d: fmtDate(o.expires_on) }));
+  if (dates.length) rows.push(`<span class="li">${esc(dates.join(" · "))}</span>`);
   const lib = o.kind === "library";
   // streaming services: logo only (name as tooltip, shown instead when the logo cannot load);
   // own servers: their logo + the name from the settings
   // the app evens out the logos (same size, margins cut away) and fills them in after rendering
   const src = window.MEDIALECT_LOGO ? "" : ` src="${esc(o.icon)}"`;
   const logo = o.icon ? `<img class="svc-logo"${src} data-logo="${esc(o.icon)}" data-lib="${lib}" alt="${esc(o.provider_name)}" title="${esc(o.provider_name)}" loading="lazy" onerror="logoFailed(this, ${lib})">` : "";
-  return `<div class="offer ${o.kind}">
-    <span class="prov">${logo}${lib || !o.icon ? `<span class="name">${esc(o.provider_name)}</span>` : ""}</span>${mon ? `<span class="muted">${esc(mon)}</span>` : ""}
-    ${tags.join("")}<span class="langs">${esc(info.join(" · "))}</span>
-    ${o.url ? `<a class="play" href="${esc(o.url)}" target="_blank" rel="noopener">${esc(t("offer.play"))}</a>` : ""}
-  </div>`;
+  const body = `<span class="prov">${logo}${lib || !o.icon ? `<span class="name">${esc(o.provider_name)}</span>` : ""}</span>${mon ? `<span class="muted mon">${esc(mon)}</span>` : ""}
+    <span class="tags">${tags.join("")}</span><span class="langs">${rows.join("")}</span>`;
+  // the whole box starts playback in the service's app
+  return o.url
+    ? `<a class="offer ${o.kind}" href="${esc(o.url)}" target="_blank" rel="noopener" title="${esc(`${t("offer.play")} – ${o.provider_name}`)}">${body}</a>`
+    : `<div class="offer ${o.kind}">${body}</div>`;
 }
 function renderTitle(ti) {
   const ratings = (ti.ratings || []).map((r) => {
     const inner = `${esc(RATING_LABEL[r.source] || r.source)} <b>${esc(r.display)}</b>`;
     return r.url ? `<a class="rating" href="${esc(r.url)}" target="_blank" rel="noopener">${inner}</a>` : `<span class="rating">${inner}</span>`;
   }).join("");
-  const sub = [ti.type === "movie" ? t("type.movie") : t("type.show"), ti.year,
-    ti.original_title && ti.original_title !== ti.title ? ti.original_title : null].filter(Boolean).join(" · ");
+  const meta = [ti.type === "movie" ? t("type.movie") : t("type.show"), ti.year].filter(Boolean).join(" · ");
+  const sub = ti.original_title && ti.original_title !== ti.title ? ti.original_title : "";
   const img = ti.poster ? `<img loading="lazy" src="${esc(ti.poster)}" alt="">` : `<div class="noimg"></div>`;
   return `<article class="title">${img}<div>
-    <h3>${esc(ti.title)}</h3><div class="sub">${esc(sub)}</div>
+    <h3>${esc(ti.title)} <span class="meta">${esc(meta)}</span></h3>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}
     <div class="ratings">${ratings}</div>
     <div class="offers">${(ti.where || []).map(renderOffer).join("")}</div>
   </div></article>`;
@@ -212,11 +240,26 @@ const FILTER_KEY = "medialect.filters";
 let DEFAULT_SORT = "added";
 const ms = {};                                   // id -> { items: [{value,label,count}], sel: Set }
 
+const FILTERS_OPEN_KEY = "medialect.filtersOpen";
+function showFilters(open) {
+  $("#filters").classList.toggle("hidden", !open);
+  $("#fToggle").setAttribute("aria-expanded", String(open));
+  $("#fToggle").classList.toggle("on", open);
+  try { localStorage.setItem(FILTERS_OPEN_KEY, open ? "1" : ""); } catch (_) { /* private mode */ }
+}
+$("#fToggle").addEventListener("click", () => showFilters($("#filters").classList.contains("hidden")));
+try { if (localStorage.getItem(FILTERS_OPEN_KEY)) showFilters(true); } catch (_) { /* private mode */ }
+function filterCount() {
+  const n = MULTI.filter(([id]) => ms[id]?.sel.size).length + ($("#cSort").value && $("#cSort").value !== DEFAULT_SORT ? 1 : 0);
+  $("#fCount").textContent = n || "";
+  $("#fCount").classList.toggle("hidden", !n);
+}
 function savedFilters() { try { return JSON.parse(localStorage.getItem(FILTER_KEY) || "{}"); } catch (_) { return {}; } }
 function saveFilters() {
   const f = { cSort: $("#cSort").value };
   for (const [id] of MULTI) f[id] = [...ms[id].sel];
   try { localStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch (_) { /* private mode */ }
+  filterCount();
 }
 function setOptions(sel, items) {
   const keep = sel.value;
@@ -250,12 +293,26 @@ function msBuild(id, allKey) {
   });
   root.querySelector(".ms-clear").addEventListener("click", () => { ms[id].sel.clear(); msRender(id); filtersChanged(); });
 }
+const svg = (d) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICON = {
+  service: svg('<rect x="2" y="5" width="20" height="13" rx="2"/><path d="M8 21h8"/>'),
+  type: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>'),
+  quality: svg('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10v4M9 10v4M6 12h3M13 10v4h2a2 2 0 0 0 0-4z"/>'),
+  video: svg('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+  audio: svg('<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>'),
+  lang: svg('<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15 9h7M18.5 7v2M16 15l2.5-6 2.5 6M16.8 13h3.4"/>'),
+  subs: svg('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 10.5a2 2 0 1 0 0 3M17 10.5a2 2 0 1 0 0 3"/>'),
+};
+const FILTER_ICON = { cProvider: ICON.service, cType: ICON.type, cQuality: ICON.quality, cVideo: ICON.video,
+  cAudio: ICON.audio, cLang: ICON.lang, cSub: ICON.subs };
 function msLabel(id) {
   const m = ms[id], chosen = m.items.filter((i) => m.sel.has(i.value));
   const btn = $(`#${id} .ms-btn`);
-  btn.textContent = !chosen.length ? t(m.allKey) : chosen.length === 1 ? chosen[0].label : `${chosen[0].label} +${chosen.length - 1}`;
+  const text = !chosen.length ? t(m.allKey) : chosen.length === 1 ? chosen[0].label : `${chosen[0].label} +${chosen.length - 1}`;
+  btn.innerHTML = `${FILTER_ICON[id] || ""}<span>${esc(text)}</span>`;
   btn.classList.toggle("on", chosen.length > 0);
-  btn.title = chosen.map((i) => i.label).join(", ");
+  btn.title = chosen.map((i) => i.label).join(", ") || t(m.allKey);
+  filterCount();
 }
 function msRender(id) {
   const m = ms[id];
@@ -336,6 +393,7 @@ async function loadCatalog() {
 }
 $("#q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { cPage = 1; loadCatalog(); }, 250); });
 $("#cSort").addEventListener("change", () => { cPage = 1; saveFilters(); loadCatalog(); });
+$("#syncNote .close").addEventListener("click", () => { syncNoteClosed = syncNoteKey; $("#syncNote").classList.add("hidden"); });
 $("#cReset").addEventListener("click", () => {
   $("#q").value = "";
   for (const [id] of MULTI) { ms[id].sel.clear(); msRender(id); }
@@ -393,10 +451,12 @@ let syncRunning = false, progressTimer = null, progressTicks = 0;
 // nobody is reading or steering the list right now: it can be redrawn without the page jumping under the user
 const catalogIdle = () => !$("#tab-catalog").classList.contains("hidden") && cPage === 1 && scrollY < 300
   && !$("#catalog").contains(document.activeElement) && document.activeElement !== $("#q") && $$(".ms-panel").every((p) => p.classList.contains("hidden"));
+let syncNoteKey = "", syncNoteClosed = null;
 function updateSyncNote(st) {
   const note = $("#syncNote");
-  note.classList.toggle("hidden", !st.running.length);
-  if (!st.running.length) return;
+  syncNoteKey = st.running.map((j) => j.id).join(",");
+  note.classList.toggle("hidden", !st.running.length || syncNoteClosed === syncNoteKey);
+  if (!st.running.length) { syncNoteClosed = null; return; }
   const parts = st.running.map((j) => `${jobLabel(j)}${pctText(j)}`).join(" · ");
   note.querySelector("span").textContent = t(st.first ? "sync.noteFirst" : "sync.note", { p: parts });
   const known = st.running.map((j) => j.progress?.percent).filter((p) => p != null);
@@ -453,60 +513,144 @@ function fillChoices() {
     .map(({ c }) => `<option value="${c}">${esc(langLabel(c))}</option>`).join("");
 }
 
-/* Service picker: tiles (icon, name below), a click selects/deselects, the chosen ones come first in
-   the user's order, which can be changed with ‹ › (remote/touch) or by dragging (mouse). The order
-   decides which service is listed first for each title in the catalogue. */
+/* Service picker: tiles (icon, name below). A tap/click selects or deselects (× also removes).
+   The chosen ones come first in the user's order, which decides which service is listed first for each
+   title in the catalogue. Reordering: hold a tile and drag it (touch), drag it (mouse), or on a remote/
+   keyboard press OK on a chosen tile, move it with the arrows and confirm with OK. */
 function servicePicker(box, items, selected, onChange) {
   let order = selected.filter((sn) => items.some((p) => p.short_name === sn));
+  let moving = null;   // remote/keyboard move mode: short_name of the tile being moved
+  let dragging = null; // pointer drag: short_name of the dragged tile
+  let rendering = false;
   const byName = (a, b) => a.name.localeCompare(b.name, uiLang);
-  const render = (focusSn, focusPart) => {
+  const hint = document.createElement("div");
+  hint.className = "svc-hint"; hint.setAttribute("aria-live", "polite");
+  const render = (focusSn) => {
+    rendering = true;
     const chosen = order.map((sn) => items.find((p) => p.short_name === sn));
     const others = items.filter((p) => !order.includes(p.short_name)).sort(byName);
     box.innerHTML = [...chosen, ...others].map((p) => {
       const pos = order.indexOf(p.short_name);
       const on = pos >= 0;
-      return `<div class="svc${on ? " on" : " other"}" data-sn="${esc(p.short_name)}"${on ? ' draggable="true"' : ""}>
+      const cls = `svc${on ? " on" : " other"}${p.short_name === moving ? " moving" : ""}${p.short_name === dragging ? " dragging" : ""}`;
+      return `<div class="${cls}" data-sn="${esc(p.short_name)}">
         <button type="button" class="svc-main" aria-pressed="${on}" title="${esc(p.name)}">
-          ${p.icon ? `<img src="${esc(p.icon)}" alt="">` : `<span class="svc-noicon">${esc(p.name.slice(0, 2))}</span>`}
+          ${p.icon ? `<img src="${esc(p.icon)}" alt="" draggable="false">` : `<span class="svc-noicon">${esc(p.name.slice(0, 2))}</span>`}
           <span class="svc-name">${esc(p.name)}</span>${on ? `<span class="svc-pos">${pos + 1}</span>` : ""}
         </button>
-        ${on ? `<div class="svc-move"><button type="button" data-move="-1" aria-label="‹" ${pos === 0 ? "disabled" : ""}>‹</button><button type="button" data-move="1" aria-label="›" ${pos === order.length - 1 ? "disabled" : ""}>›</button></div>` : ""}
+        ${on ? `<button type="button" class="svc-x" data-remove title="${esc(t("svc.remove"))}" aria-label="${esc(t("svc.remove"))} ${esc(p.name)}">×</button>` : ""}
       </div>`;
     }).join("");
-    if (focusSn) {
-      const tile = box.querySelector(`.svc[data-sn="${CSS.escape(focusSn)}"]`);
-      const target = tile && (focusPart ? tile.querySelector(`[data-move="${focusPart}"]:not([disabled])`) : null) || tile?.querySelector(".svc-main");
-      target?.focus({ preventScroll: false });
-    }
+    hint.textContent = moving ? t("svc.moving") : "";
+    hint.classList.toggle("hidden", !moving);
+    if (!hint.isConnected) box.after(hint);
+    if (focusSn) box.querySelector(`.svc[data-sn="${CSS.escape(focusSn)}"] .svc-main`)?.focus({ preventScroll: false });
+    rendering = false;
   };
-  const changed = (sn, part) => { render(sn, part); onChange?.(order); };
+  const changed = (sn) => { render(sn); onChange?.(order); };
+  const move = (sn, to) => {
+    const i = order.indexOf(sn);
+    to = Math.max(0, Math.min(order.length - 1, to));
+    if (i < 0 || to === i) return false;
+    order.splice(i, 1); order.splice(to, 0, sn);
+    return true;
+  };
+  const columns = () => {
+    const tiles = [...box.querySelectorAll(".svc")];
+    const top = tiles[0]?.offsetTop;
+    return Math.max(1, tiles.filter((el) => el.offsetTop === top).length);
+  };
+  let swallowClick = false;
   box.onclick = (e) => {
+    if (swallowClick) { swallowClick = false; e.preventDefault(); return; }
     const tile = e.target.closest(".svc");
     if (!tile) return;
     const sn = tile.dataset.sn;
-    const mv = e.target.closest("[data-move]");
-    if (mv) {
-      const i = order.indexOf(sn), j = i + Number(mv.dataset.move);
-      if (i < 0 || j < 0 || j >= order.length) return;
-      [order[i], order[j]] = [order[j], order[i]];
-      changed(sn, mv.dataset.move);
-    } else if (e.target.closest(".svc-main")) {
-      order = order.includes(sn) ? order.filter((x) => x !== sn) : [...order, sn];
+    if (e.target.closest("[data-remove]")) {
+      moving = null;
+      order = order.filter((x) => x !== sn);
       changed(sn);
+      return;
+    }
+    if (!e.target.closest(".svc-main")) return;
+    const keyboard = e.detail === 0; // OK on a remote / Enter on a keyboard
+    if (keyboard && order.includes(sn)) {
+      moving = moving === sn ? null : sn; // OK starts moving, the next OK confirms
+      render(sn);
+      return;
+    }
+    moving = null;
+    order = order.includes(sn) ? order.filter((x) => x !== sn) : [...order, sn];
+    changed(sn);
+  };
+  box.onkeydown = (e) => {
+    if (!moving) return;
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns(), ArrowDown: columns() }[e.key];
+    if (step) {
+      e.preventDefault(); e.stopPropagation();
+      const s = document.dir === "rtl" && Math.abs(step) === 1 ? -step : step;
+      if (move(moving, order.indexOf(moving) + s)) changed(moving); else render(moving);
+    } else if (e.key === "Escape" || e.key === "GoBack" || e.key === "BrowserBack") {
+      e.preventDefault(); e.stopPropagation();
+      const sn = moving; moving = null; render(sn);
     }
   };
-  let dragged = null;
-  box.ondragstart = (e) => { dragged = e.target.closest(".svc.on")?.dataset.sn || null; e.dataTransfer?.setData("text/plain", dragged || ""); };
-  box.ondragover = (e) => { if (dragged && e.target.closest(".svc.on")) e.preventDefault(); };
-  box.ondrop = (e) => {
-    const target = e.target.closest(".svc.on")?.dataset.sn;
-    if (!dragged || !target || target === dragged) return;
-    e.preventDefault();
-    order = order.filter((x) => x !== dragged);
-    order.splice(order.indexOf(target), 0, dragged);
-    changed(dragged);
-    dragged = null;
+  box.addEventListener("focusout", (e) => {
+    if (moving && !rendering && !box.contains(e.relatedTarget)) { moving = null; hint.classList.add("hidden"); box.querySelector(".svc.moving")?.classList.remove("moving"); }
+  });
+
+  /* dragging: touch needs a short hold first (so the page still scrolls), the mouse starts on movement.
+     Touch uses touch events, not pointer events: Chrome cancels a touch pointer as soon as it decides
+     to scroll, while a touchmove that is prevented keeps coming. */
+  let press = null;
+  const HOLD_MS = 300, SLOP = 8;
+  const pressAt = (target, x, y, touch) => {
+    const tile = target.closest?.(".svc.on");
+    if (!tile || !box.contains(tile) || target.closest("[data-remove]")) return;
+    press = { sn: tile.dataset.sn, x, y, touch, before: [...order] };
+    if (touch) press.timer = setTimeout(() => { if (press) startDrag(); }, HOLD_MS);
   };
+  const startDrag = () => {
+    dragging = press.sn; moving = null;
+    navigator.vibrate?.(15);
+    box.querySelector(`.svc[data-sn="${CSS.escape(dragging)}"]`)?.classList.add("dragging");
+  };
+  const dragTo = (x, y) => {
+    if (!press) return;
+    if (!dragging) {
+      if (Math.hypot(x - press.x, y - press.y) <= SLOP) return;
+      if (press.touch) { endDrag(false); return; } // moved before the hold ended: the user is scrolling
+      startDrag();
+    }
+    const over = document.elementFromPoint(x, y)?.closest(".svc.on");
+    if (over && box.contains(over) && over.dataset.sn !== dragging && move(dragging, order.indexOf(over.dataset.sn))) render();
+  };
+  const endDrag = (commit) => {
+    if (press?.timer) clearTimeout(press.timer);
+    if (dragging) {
+      swallowClick = true; setTimeout(() => { swallowClick = false; }, 250);
+      const sn = dragging; dragging = null;
+      if (!commit) order = press.before;
+      if (commit && order.join() !== press.before.join()) changed(sn); else render();
+    }
+    press = null;
+  };
+  box.addEventListener("mousedown", (e) => { if (e.button === 0) pressAt(e.target, e.clientX, e.clientY, false); });
+  document.addEventListener("mousemove", (e) => { if (press && !press.touch) { dragTo(e.clientX, e.clientY); if (dragging) e.preventDefault(); } });
+  document.addEventListener("mouseup", () => { if (press && !press.touch) endDrag(true); });
+  box.addEventListener("touchstart", (e) => { if (e.touches.length === 1) pressAt(e.target, e.touches[0].clientX, e.touches[0].clientY, true); else endDrag(false); }, { passive: true });
+  // listened on the document: the touched tile is re-rendered during the drag and touch events keep
+  // targeting the detached element; once a drag runs, the finger must not scroll the page
+  document.addEventListener("touchmove", (e) => {
+    if (!press?.touch || !box.isConnected) return;
+    const tp = e.touches[0];
+    dragTo(tp.clientX, tp.clientY);
+    if (dragging && e.cancelable) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener("touchend", () => { if (press?.touch) endDrag(true); });
+  document.addEventListener("touchcancel", () => { if (press?.touch) endDrag(false); });
+  box.addEventListener("contextmenu", (e) => { if (press?.touch) e.preventDefault(); });
+  box.addEventListener("dragstart", (e) => e.preventDefault());
   render();
   return { value: () => [...order] };
 }
@@ -705,3 +849,10 @@ $("#pwForm").addEventListener("submit", async (e) => {
 });
 
 boot();
+
+/* the search bar sticks right below the top bar, whose height changes with the layout */
+{
+  const hdr = document.querySelector("#app > header");
+  const setHdr = () => document.documentElement.style.setProperty("--hdr", `${hdr.offsetHeight}px`);
+  if (hdr) { setHdr(); new ResizeObserver(setHdr).observe(hdr); }
+}
