@@ -39,11 +39,12 @@
     </div>
     <section id="tab-catalog">
       <div class="searchbar">
-        <input id="q" type="search" data-i18n-ph="search.ph" autofocus>
+        <input id="q" type="search" enterkeyhint="search" data-i18n-ph="search.ph" autofocus>
         <button type="button" id="fToggle" class="icon-btn" aria-expanded="false" aria-controls="filters" data-i18n-title="f.filters" data-i18n-aria="f.filters">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
           <span id="fCount" class="count hidden"></span>
         </button>
+        <button type="button" id="cReset" class="reset hidden" data-i18n-title="f.reset"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg><span data-i18n="f.reset">Zrušit filtry</span></button>
       </div>
       <div class="filters hidden" id="filters">
         <div class="ms" id="cProvider" data-i18n-title="aria.provider"></div>
@@ -54,12 +55,17 @@
         <div class="ms" id="cLang" data-i18n-title="aria.audioLang"></div>
         <div class="ms" id="cSub" data-i18n-title="aria.sub"></div>
         <select id="cSort" class="hidden" data-i18n-aria="aria.sort"></select><div class="ms" id="cSortBox"></div>
-        <button type="button" id="cReset" class="ghost" data-i18n="f.reset">Zrušit filtry</button>
       </div>
       <div id="syncNote" class="sync-note hidden" role="status"><button type="button" class="close" data-i18n-title="ui.close" data-i18n-aria="ui.close">×</button><span></span><div class="bar"><i></i></div></div>
       <div id="cInfo" class="muted"></div>
       <div id="catalog" class="results"></div>
-      <div class="pager"><button id="cPrev" class="ghost" data-i18n="pager.prev"></button><button id="cNext" class="ghost" data-i18n="pager.next"></button></div>
+      <div id="more" class="more-loading hidden"><span class="spinner" aria-hidden="true"></span></div>
+      <div id="fab" class="fab hidden">
+        <button type="button" id="fabTop" data-i18n-title="nav.top" data-i18n-aria="nav.top"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14M12 20V9M6 14l6-6 6 6"/></svg></button>
+        <button type="button" id="fabUp" data-i18n-title="nav.pageUp" data-i18n-aria="nav.pageUp"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
+        <span id="fabPage" class="fab-page"></span>
+        <button type="button" id="fabDown" data-i18n-title="nav.pageDown" data-i18n-aria="nav.pageDown"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+      </div>
       <p id="dataBy" class="muted data-by"></p>
     </section>
 
@@ -157,10 +163,6 @@
                 <label class="web-only field"><span data-i18n="set.r.refresh"></span><input name="ratings.refresh_days" type="number" min="1"><small data-i18n="set.r.refresh.h"></small></label>
               </fieldset>
             </form>
-            <div class="savebar">
-              <button type="submit" form="settingsForm" id="saveSettings" data-i18n="set.save">Uložit nastavení katalogu</button>
-              <span id="saveMsg" class="muted"></span>
-            </div>
           </section>
 
           <!-- media servers: each row has its own buttons -->
@@ -200,6 +202,11 @@
               </form>
             </fieldset>
           </section>
+          <!-- one save for the catalogue settings and the media servers; stays at the bottom of the screen -->
+          <div class="savebar global">
+            <button type="submit" form="settingsForm" id="saveSettings" data-i18n="set.save">Uložit</button>
+            <span id="saveMsg" class="muted"></span>
+          </div>
         </div>
 
         <div id="sub-sync" class="hidden">
@@ -229,7 +236,6 @@
       <label class="chk"><input data-k="enabled" type="checkbox" checked> <span data-i18n="set.enabled"></span></label>
     </div>
     <div class="server-actions">
-      <button type="button" class="save" data-i18n="srv.save"></button>
       <button type="button" class="ghost test" data-i18n="srv.test"></button>
       <button type="button" class="ghost danger remove" data-i18n="srv.remove"></button>
       <span class="muted result"></span>

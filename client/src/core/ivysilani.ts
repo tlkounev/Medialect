@@ -16,13 +16,16 @@ const CATEGORIES: [string, "movie" | "show", string][] = [["3947", "movie", "fil
 const PAGE = 40;              // the API answers 400 above 40
 const DELAY_MS = 400;
 
-const QUERY = `query GetCategoryById($limit: PaginationAmount!, $offset: Int!, $categoryId: String!,
+// The API is not documented: the richer variants ask for a picture in the field names ČT's own pages use;
+// when the API rejects one, the next (and finally the bare list without pictures) is used.
+const LIST = (extra: string) => `query GetCategoryById($limit: PaginationAmount!, $offset: Int!, $categoryId: String!,
   $order: OrderByDirection, $orderBy: CategoryOrderByType) {
   showFindByGenre(limit: $limit, offset: $offset, categoryId: $categoryId, order: $order, orderBy: $orderBy) {
-    items { id slug title year __typename }
+    items { id slug title year ${extra} __typename }
     totalCount
   }
 }`;
+export const QUERIES = [LIST("images { card(width: 480) }"), LIST("imageUrl(width: 480, height: 270)"), LIST("")];
 
 export const providerInfo = (): ProviderInfo =>
   ({ short_name: SHORT_NAME, name: NAME, technical_name: PROVIDER, icon: ICON, monetization_types: ["FREE"] });
@@ -49,41 +52,49 @@ export function yearOf(v: unknown): number | null {
   return m ? Number(m[0]) : null;
 }
 
-async function page(category: string, offset: number): Promise<[any[], number]> {
-  const json = { operationName: "GetCategoryById", query: QUERY,
-    variables: { categoryId: category, limit: PAGE, offset, order: "asc", orderBy: "alphabet" } };
+export function picture(it: any): string | null {
+  const url: string | undefined = (it?.images && typeof it.images === "object" ? it.images.card : undefined) || it?.imageUrl;
+  if (!url) return null;
+  return url.startsWith("//") ? `https:${url}` : url;
+}
+
+async function page(category: string, offset: number, variant: { i: number }): Promise<[any[], number]> {
   let last = "";
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 4;) {
+    const json = { operationName: "GetCategoryById", query: QUERIES[variant.i],
+      variables: { categoryId: category, limit: PAGE, offset, order: "asc", orderBy: "alphabet" } };
     try {
       const r = await http(API, { json, headers: { Referer: "https://www.ceskatelevize.cz/", Origin: "https://www.ceskatelevize.cz" } });
-      if (r.ok) {
-        const found = r.data?.data?.showFindByGenre;
-        if (!found) throw new SourceError(`iVysílání: neočekávaná odpověď ${JSON.stringify(r.data?.errors || r.text).slice(0, 200)}`);
-        return [found.items || [], Number(found.totalCount || 0)];
-      }
+      const found = r.data?.data?.showFindByGenre;
+      if (found) return [found.items || [], Number(found.totalCount || 0)];
+      if (r.data?.errors && variant.i < QUERIES.length - 1) { variant.i++; continue; }   // a field the API does not know
+      if (r.data?.errors) throw new SourceError(`iVysílání: neočekávaná odpověď ${JSON.stringify(r.data.errors).slice(0, 200)}`);
       last = `HTTP ${r.status}`;
     } catch (e) {
       if ((e as Error).message?.startsWith("iVysílání:")) throw e;
       last = (e as Error).message || String(e);
     }
-    await env.sleep(3000 * (attempt + 1));
+    attempt++;
+    await env.sleep(3000 * attempt);
   }
   throw new SourceError(`iVysílání nedostupné: ${last}`);
 }
 
 export async function sync(ctx: SyncContext): Promise<void> {
   const started = Date.now() / 1000;
+  const variant = { i: await env.db.kvGet<number>("ivysilani.query", 0) };
   for (const [i, [category, type, label]] of CATEGORIES.entries()) {
     ctx.step(i, CATEGORIES.length);
     let offset = 0, total: number | null = null;
     while (total === null || offset < total) {
       ctx.progress(`iVysílání – ${label}`, total ? offset / total : 0);
-      const [items, count] = await page(category, offset);
+      const [items, count] = await page(category, offset, variant);
       total = count;
       if (!items.length) break;
       for (const it of items) {
         if (!it?.id || !it?.title) continue;
-        const tid = await store.upsertTitle({ type, title: String(it.title).trim(), year: yearOf(it.year), ids: { ct: String(it.id) } });
+        const tid = await store.upsertTitle({ type, title: String(it.title).trim(), year: yearOf(it.year), poster: picture(it),
+          ids: { ct: String(it.id) } });
         await store.upsertOffer(tid, { source: PROVIDER, provider: PROVIDER, provider_name: NAME, kind: "stream", monetization: "free",
           url: `${WEB}${it.slug || it.id}/`, audio_langs: ["cs"] }, started);
         ctx.items++;
@@ -92,6 +103,7 @@ export async function sync(ctx: SyncContext): Promise<void> {
       await env.sleep(DELAY_MS);
     }
   }
+  await env.db.kvSet("ivysilani.query", variant.i);
   const removed = await store.removeStale(PROVIDER, started);
   ctx.note(`iVysílání: ${ctx.items} pořadů${removed ? `, ${removed} už nedostupných odebráno` : ""}`);
 }

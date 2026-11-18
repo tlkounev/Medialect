@@ -1,6 +1,7 @@
 {
 "svc.moving": "Mueve con las flechas, confirma con OK", "svc.remove": "Quitar",
 "offer.details": "Detalles", "f.sort": "Orden", "ui.help": "Ayuda",
+"nav.top": "Arriba", "nav.pageUp": "Página arriba", "nav.pageDown": "Página abajo", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Más recientes primero", "sort.oldest": "Más antiguos primero", "sort.highest": "Mayor primero", "sort.lowest": "Menor primero",
 "nav.back": "Atrás", "f.filters": "Filtros", "ui.close": "Cerrar",
 "app.download": "Descargando la versión {v} en el navegador; al terminar, abre el archivo para instalarla.",
 "job.catalog": "Catálogo",
@@ -38,7 +39,7 @@
 "job.ratings": "Notas",
 "set.title": "Ajustes del catálogo",
 "set.intro": "De dónde se llena el catálogo y de dónde vienen las notas. Los cambios se aplican al pulsar «Guardar ajustes del catálogo» abajo.",
-"set.save": "Guardar ajustes del catálogo", "set.saved": "Guardado.", "set.unsaved": "Tienes cambios sin guardar.", "set.loading": "Cargando…",
+"set.save": "Guardar", "set.saved": "Guardado.", "set.unsaved": "Tienes cambios sin guardar.", "set.loading": "Cargando…",
 "set.enabled": "Activado",
 "set.general": "General",
 "set.country": "País", "set.country.h": "País cuya oferta de servicios de streaming se carga. Los catálogos varían según el país.",

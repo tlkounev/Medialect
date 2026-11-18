@@ -1,6 +1,7 @@
 {
 "svc.moving": "Sposta con le frecce, conferma con OK", "svc.remove": "Rimuovi",
 "offer.details": "Dettagli", "f.sort": "Ordinamento", "ui.help": "Aiuto",
+"nav.top": "In cima", "nav.pageUp": "Pagina su", "nav.pageDown": "Pagina giù", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Più recenti prima", "sort.oldest": "Meno recenti prima", "sort.highest": "Più alto prima", "sort.lowest": "Più basso prima",
 "nav.back": "Indietro", "f.filters": "Filtri", "ui.close": "Chiudi",
 "app.download": "Download della versione {v} nel browser: al termine apri il file per installarla.",
 "job.catalog": "Catalogo",
@@ -38,7 +39,7 @@
 "job.ratings": "Voti",
 "set.title": "Impostazioni del catalogo",
 "set.intro": "Da dove arrivano il catalogo e i voti. Le modifiche si applicano solo dopo «Salva impostazioni del catalogo» in basso.",
-"set.save": "Salva impostazioni del catalogo", "set.saved": "Salvato.", "set.unsaved": "Hai modifiche non salvate.", "set.loading": "Caricamento…",
+"set.save": "Salva", "set.saved": "Salvato.", "set.unsaved": "Hai modifiche non salvate.", "set.loading": "Caricamento…",
 "set.enabled": "Attivo",
 "set.general": "Generale",
 "set.country": "Paese", "set.country.h": "Paese di cui caricare l’offerta dei servizi di streaming. I cataloghi variano da paese a paese.",

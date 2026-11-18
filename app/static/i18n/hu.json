@@ -1,6 +1,7 @@
 {
 "svc.moving": "Mozgasd a nyilakkal, erősítsd meg OK-val", "svc.remove": "Eltávolítás",
 "offer.details": "Részletek", "f.sort": "Rendezés", "ui.help": "Súgó",
+"nav.top": "Az elejére", "nav.pageUp": "Egy oldallal feljebb", "nav.pageDown": "Egy oldallal lejjebb", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Legújabb elöl", "sort.oldest": "Legrégebbi elöl", "sort.highest": "Legmagasabb elöl", "sort.lowest": "Legalacsonyabb elöl",
 "nav.back": "Vissza", "f.filters": "Szűrők", "ui.close": "Bezárás",
 "app.download": "A(z) {v} verzió letöltése a böngészőben – utána nyisd meg a fájlt a telepítéshez.",
 "job.catalog": "Katalógus",
@@ -38,7 +39,7 @@
 "job.ratings": "Értékelések",
 "set.title": "Katalógus beállításai",
 "set.intro": "Honnan töltődik a katalógus és honnan jönnek az értékelések. A változások csak a lenti „Katalógus beállításainak mentése” gomb után lépnek életbe.",
-"set.save": "Katalógus beállításainak mentése", "set.saved": "Mentve.", "set.unsaved": "Nem mentett változásaid vannak.", "set.loading": "Betöltés…",
+"set.save": "Mentés", "set.saved": "Mentve.", "set.unsaved": "Nem mentett változásaid vannak.", "set.loading": "Betöltés…",
 "set.enabled": "Bekapcsolva",
 "set.general": "Általános",
 "set.country": "Ország", "set.country.h": "Melyik ország streamingkínálata töltődjön be. A katalógusok országonként eltérnek.",

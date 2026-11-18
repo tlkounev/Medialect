@@ -1,6 +1,7 @@
 {
 "svc.moving": "Premakni s puščicami, potrdi z OK", "svc.remove": "Odstrani",
 "offer.details": "Podrobnosti", "f.sort": "Razvrščanje", "ui.help": "Pomoč",
+"nav.top": "Na vrh", "nav.pageUp": "Stran navzgor", "nav.pageDown": "Stran navzdol", "sort.az": "A → Ž", "sort.za": "Ž → A", "sort.newest": "Najnovejše najprej", "sort.oldest": "Najstarejše najprej", "sort.highest": "Najvišja najprej", "sort.lowest": "Najnižja najprej",
 "nav.back": "Nazaj", "f.filters": "Filtri", "ui.close": "Zapri",
 "app.download": "Različica {v} se prenaša v brskalniku – po prenosu odpri datoteko in jo namesti.",
 "job.catalog": "Katalog",
@@ -38,7 +39,7 @@
 "job.ratings": "Ocene",
 "set.title": "Nastavitve kataloga",
 "set.intro": "Od kod se polni katalog in od kod prihajajo ocene. Spremembe veljajo šele po gumbu »Shrani nastavitve kataloga« spodaj.",
-"set.save": "Shrani nastavitve kataloga", "set.saved": "Shranjeno.", "set.unsaved": "Imaš neshranjene spremembe.", "set.loading": "Nalaganje…",
+"set.save": "Shrani", "set.saved": "Shranjeno.", "set.unsaved": "Imaš neshranjene spremembe.", "set.loading": "Nalaganje…",
 "set.enabled": "Vklopljeno",
 "set.general": "Splošno",
 "set.country": "Država", "set.country.h": "Za katero državo se naloži ponudba pretočnih storitev. Katalogi se razlikujejo glede na državo.",

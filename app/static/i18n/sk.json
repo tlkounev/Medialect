@@ -1,6 +1,7 @@
 {
 "svc.moving": "Presuň šípkami, potvrď OK", "svc.remove": "Odobrať",
 "offer.details": "Podrobnosti", "f.sort": "Zoradenie", "ui.help": "Pomocník",
+"nav.top": "Hore", "nav.pageUp": "O stranu vyššie", "nav.pageDown": "O stranu nižšie", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Od najnovších", "sort.oldest": "Od najstarších", "sort.highest": "Od najvyššieho", "sort.lowest": "Od najnižšieho",
 "nav.back": "Späť", "f.filters": "Filtre", "ui.close": "Zavrieť",
 "app.download": "Sťahujem verziu {v} v prehliadači – po stiahnutí súbor otvor a nainštaluj.",
 "job.catalog": "Katalóg",
@@ -38,7 +39,7 @@
 "job.ratings": "Hodnotenia",
 "set.title": "Nastavenia katalógu",
 "set.intro": "Odkiaľ sa katalóg plní a odkiaľ sa berú hodnotenia. Zmeny sa prejavia až po stlačení tlačidla „Uložiť nastavenia katalógu“ dole.",
-"set.save": "Uložiť nastavenia katalógu", "set.saved": "Uložené.", "set.unsaved": "Máš neuložené zmeny.", "set.loading": "Načítavam…",
+"set.save": "Uložiť", "set.saved": "Uložené.", "set.unsaved": "Máš neuložené zmeny.", "set.loading": "Načítavam…",
 "set.enabled": "Zapnuté",
 "set.general": "Všeobecné",
 "set.country": "Krajina", "set.country.h": "Pre ktorú krajinu sa načítava ponuka streamovacích služieb. Katalógy sa líšia podľa krajiny.",

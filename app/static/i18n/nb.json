@@ -1,6 +1,7 @@
 {
 "svc.moving": "Flytt med pilene, bekreft med OK", "svc.remove": "Fjern",
 "offer.details": "Detaljer", "f.sort": "Sortering", "ui.help": "Hjelp",
+"nav.top": "Til toppen", "nav.pageUp": "Side opp", "nav.pageDown": "Side ned", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Nyeste først", "sort.oldest": "Eldste først", "sort.highest": "Høyeste først", "sort.lowest": "Laveste først",
 "nav.back": "Tilbake", "f.filters": "Filtre", "ui.close": "Lukk",
 "app.download": "Versjon {v} lastes ned i nettleseren – åpne filen etterpå for å installere den.",
 "job.catalog": "Katalog",
@@ -38,7 +39,7 @@
 "job.ratings": "Vurderinger",
 "set.title": "Kataloginnstillinger",
 "set.intro": "Hvor katalogen og vurderingene hentes fra. Endringer gjelder først etter «Lagre kataloginnstillinger» nederst.",
-"set.save": "Lagre kataloginnstillinger", "set.saved": "Lagret.", "set.unsaved": "Du har ulagrede endringer.", "set.loading": "Laster…",
+"set.save": "Lagre", "set.saved": "Lagret.", "set.unsaved": "Du har ulagrede endringer.", "set.loading": "Laster…",
 "set.enabled": "På",
 "set.general": "Generelt",
 "set.country": "Land", "set.country.h": "Hvilket lands utvalg av strømmetjenester som hentes. Katalogene varierer fra land til land.",

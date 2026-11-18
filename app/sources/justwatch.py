@@ -28,6 +28,7 @@ KEEP_MONETIZATION = {"FLATRATE": "flatrate", "FREE": "free", "ADS": "ads", "FAST
 RESUME_KEY = "jw.resume"
 RESUME_MAX_AGE_S = 48 * 3600     # an older unfinished run is started again (its data would be stale)
 MAX_FAILED_WINDOWS = 3
+PARALLEL = 3                     # services fetched at the same time
 RETRY_SCALE = 1.0                # tests make the pauses between retries short           # this many unreachable windows in a row: the network is gone, stop
 
 
@@ -163,13 +164,22 @@ async def sync(ctx: SyncContext) -> None:
         state[kind].append(key)
         await db.kv_set(RESUME_KEY, state)
 
+    # several services are fetched at the same time (each with its own pause between requests); they start
+    # in the user's order, so the most important ones are complete first
     seen: set[str] = set()
-    failed = failures = 0
-    total = len(selected)
-    slots = total * 2  # every provider × (films, series) is one equal share of the progress
-    for idx, (provider, pname) in enumerate(selected.items(), 1):   # the user's order = priority
+    failed = 0
+    items = list(selected.items())
+    share: dict[str, float] = {}        # service -> its finished share (0–1)
+    doing: dict[str, str] = {}          # service -> what it fetches right now
+
+    def report() -> None:
+        ctx.progress(" · ".join(doing.values()), sum(share.values()) / len(items))
+
+    async def one(provider: str, pname: str) -> None:
+        nonlocal failed
+        failures = 0
+        share[provider] = 0.0
         for t_idx, otype in enumerate(("MOVIE", "SHOW")):
-            base = ((idx - 1) * 2 + t_idx) / slots
             wins = _windows()
             queue = [(lo, hi, 1 / len(wins)) for lo, hi in wins]
             done = 0.0
@@ -184,7 +194,9 @@ async def sync(ctx: SyncContext) -> None:
                     queue[:0] = [(mid + 1, hi, w / 2), (lo, mid, w / 2)]
                     continue
                 kind = "filmy" if otype == "MOVIE" else "seriály"
-                ctx.progress(f"{pname} ({idx}/{total}): {kind} {lo}–{hi}", base + done / slots)
+                doing[provider] = f"{pname}: {kind} {lo}–{hi}"
+                share[provider] = (t_idx + done) / 2
+                report()
                 try:
                     entries, capped = await _fetch_window(ctx, provider, otype, lo, hi, delay)
                     failures = 0
@@ -214,7 +226,28 @@ async def sync(ctx: SyncContext) -> None:
                     seen.add(e.entry_id)
                     await _store_entry(ctx, e, selected)
                 await mark("done", key)
-        ctx.note(f"{pname}: hotovo ({len(seen)} titulů celkem).")
+        share[provider] = 1.0
+        doing.pop(provider, None)
+        report()
+        ctx.note(f"{pname}: hotovo.")
+
+    pending = iter(items)
+    errors: list[BaseException] = []
+
+    async def worker() -> None:
+        for provider, pname in pending:
+            if errors:
+                return
+            try:
+                await one(provider, pname)
+            except Exception as e:  # noqa: BLE001 - the first error ends the run after the others stop
+                errors.append(e)
+                return
+
+    await asyncio.gather(*(worker() for _ in range(max(1, min(PARALLEL, len(items))))))
+    if errors:
+        raise errors[0]
+    ctx.note(f"Celkem {len(seen)} titulů.")
 
     if failed:
         ctx.note(f"Nestaženo {failed} částí, doplní se automaticky.")

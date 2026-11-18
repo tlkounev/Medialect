@@ -1,6 +1,7 @@
 {
 "svc.moving": "Flyt med pilene, bekræft med OK", "svc.remove": "Fjern",
 "offer.details": "Detaljer", "f.sort": "Sortering", "ui.help": "Hjælp",
+"nav.top": "Til toppen", "nav.pageUp": "Side op", "nav.pageDown": "Side ned", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Nyeste først", "sort.oldest": "Ældste først", "sort.highest": "Højeste først", "sort.lowest": "Laveste først",
 "nav.back": "Tilbage", "f.filters": "Filtre", "ui.close": "Luk",
 "app.download": "Version {v} hentes i browseren – åbn filen bagefter for at installere den.",
 "job.catalog": "Katalog",
@@ -38,7 +39,7 @@
 "job.ratings": "Bedømmelser",
 "set.title": "Katalogindstillinger",
 "set.intro": "Hvor kataloget og bedømmelserne kommer fra. Ændringer træder i kraft efter „Gem katalogindstillinger“ nederst.",
-"set.save": "Gem katalogindstillinger", "set.saved": "Gemt.", "set.unsaved": "Du har ændringer, der ikke er gemt.", "set.loading": "Indlæser…",
+"set.save": "Gem", "set.saved": "Gemt.", "set.unsaved": "Du har ændringer, der ikke er gemt.", "set.loading": "Indlæser…",
 "set.enabled": "Til",
 "set.general": "Generelt",
 "set.country": "Land", "set.country.h": "Hvilket lands udbud af streamingtjenester der hentes. Katalogerne varierer fra land til land.",

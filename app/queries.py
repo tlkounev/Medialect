@@ -201,8 +201,11 @@ async def catalog(provider: str | None = None, ttype: str | None = None, min_qua
         jparams = [p for p in provider.split(",") if p] if provider else []
         order_sql = f"ad.added IS NULL, ad.added {direction}, t.year DESC"
     else:
-        order_sql = f"r.value IS NULL, r.value {direction}, t.year DESC"
-        join, jparams = "LEFT JOIN ratings r ON r.title_id=t.id AND r.source=?", [sort]
+        # sorted by a rating: only titles that have it (the rest would only pile up at the end)
+        order_sql = f"r.value {direction}, r.votes DESC, t.year DESC"
+        join, jparams = "JOIN ratings r ON r.title_id=t.id AND r.source=? AND r.value IS NOT NULL", [sort]
+        where += " AND EXISTS (SELECT 1 FROM ratings rr WHERE rr.title_id=t.id AND rr.source=? AND rr.value IS NOT NULL)"
+        params.append(sort)
     if nq:
         # search: exact name first, then names starting with the query, then the chosen sort
         rel = ("(SELECT MAX(n.norm = ?) FROM title_names n WHERE n.title_id=t.id) DESC, "

@@ -1,6 +1,7 @@
 {
 "svc.moving": "Přesuň šipkami, potvrď OK", "svc.remove": "Odebrat",
 "offer.details": "Podrobnosti", "f.sort": "Řazení", "ui.help": "Nápověda",
+"nav.top": "Nahoru", "nav.pageUp": "O stránku výš", "nav.pageDown": "O stránku níž", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Od nejnovějších", "sort.oldest": "Od nejstarších", "sort.highest": "Od nejvyššího", "sort.lowest": "Od nejnižšího",
 "nav.back": "Zpět", "f.filters": "Filtry", "ui.close": "Zavřít",
 "app.download": "Stahuji verzi {v} v prohlížeči – po stažení soubor otevři a nainstaluj.",
 "job.catalog": "Katalog",
@@ -38,7 +39,7 @@
 "job.ratings": "Hodnocení",
 "set.title": "Nastavení katalogu",
 "set.intro": "Odkud se katalog plní a odkud se berou hodnocení. Změny se projeví až po stisknutí tlačítka „Uložit nastavení katalogu“ dole.",
-"set.save": "Uložit nastavení katalogu", "set.saved": "Uloženo.", "set.unsaved": "Máš neuložené změny.", "set.loading": "Načítám…",
+"set.save": "Uložit", "set.saved": "Uloženo.", "set.unsaved": "Máš neuložené změny.", "set.loading": "Načítám…",
 "set.enabled": "Zapnuto",
 "set.general": "Obecné",
 "set.country": "Země", "set.country.h": "Pro kterou zemi se načítá nabídka streamovacích služeb. Katalogy se liší podle země.",

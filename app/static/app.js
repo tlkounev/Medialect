@@ -146,7 +146,7 @@ function openTab(name) {
   history.replaceState(history.state, "", `#${name}`);
   clearInterval(statusTimer);
   updateSyncBadge(...lastBadge);
-  if (name === "catalog") loadFacets().catch(() => {}).then(loadCatalog);
+  if (name === "catalog") loadFacets().catch(() => {}).then(() => loadCatalog());
   if (name === "admin") {
     if (isAdmin) openAdmin(); else $("#authPass").focus();
   }
@@ -301,8 +301,9 @@ function renderRating(r) {
   const band = v == null ? "" : v >= 70 ? " r-good" : v >= 30 ? " r-mid" : " r-low";
   const inner = `${icon}${AUDIENCE.has(r.source) ? ICON.people : ""}<b>${esc(r.display)}</b>`;
   const title = `${name}${r.votes ? ` · ${fmtNum(r.votes)}×` : ""}`;
-  return r.url ? `<a class="rating${band}" href="${esc(r.url)}" target="_blank" rel="noopener" title="${esc(title)}">${inner}</a>`
-    : `<span class="rating${band}" title="${esc(title)}">${inner}</span>`;
+  const cls = `rating ${esc(r.source)}${band}`;
+  return r.url ? `<a class="${cls}" href="${esc(r.url)}" target="_blank" rel="noopener" title="${esc(title)}">${inner}</a>`
+    : `<span class="${cls}" title="${esc(title)}">${inner}</span>`;
 }
 function renderTitle(ti) {
   const ratings = (ti.ratings || []).map(renderRating).join("");
@@ -336,13 +337,15 @@ function showFilters(open) {
 $("#fToggle").addEventListener("click", () => showFilters($("#filters").classList.contains("hidden")));
 try { if (localStorage.getItem(FILTERS_OPEN_KEY)) showFilters(true); } catch (_) { /* private mode */ }
 function filterCount() {
-  const n = MULTI.filter(([id]) => ms[id]?.sel.size).length + ($("#cSort").value && $("#cSort").value !== DEFAULT_SORT ? 1 : 0);
+  const sortSet = ($("#cSort").value && $("#cSort").value !== DEFAULT_SORT) || sortDir !== defaultDir($("#cSort").value || DEFAULT_SORT);
+  const n = MULTI.filter(([id]) => ms[id]?.sel.size).length + (sortSet ? 1 : 0);
   $("#fCount").textContent = n || "";
   $("#fCount").classList.toggle("hidden", !n);
+  $("#cReset").classList.toggle("hidden", !n && !$("#q").value.trim());
 }
 function savedFilters() { try { return JSON.parse(localStorage.getItem(FILTER_KEY) || "{}"); } catch (_) { return {}; } }
 function saveFilters() {
-  const f = { cSort: $("#cSort").value };
+  const f = { cSort: $("#cSort").value, cOrder: sortDir };
   for (const [id] of MULTI) f[id] = [...ms[id].sel];
   try { localStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch (_) { /* private mode */ }
   filterCount();
@@ -422,7 +425,7 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") document.d
 
 let filterTimer = null;
 function filtersChanged() {
-  cPage = 1; saveFilters();
+  saveFilters();
   clearTimeout(filterTimer); filterTimer = setTimeout(loadCatalog, 250);
 }
 
@@ -446,43 +449,119 @@ async function loadFacets() {
   msSet("cLang", langs(f.audio_langs));
   msSet("cSub", langs(f.subtitle_langs));
   const local = document.body.classList.contains("local");
-  setOptions($("#cSort"), [...(local ? [] : [{ value: "added", label: t("sort.added") }]), { value: "year", label: t("sort.year") },
-    { value: "title", label: t("sort.title") },
+  setOptions($("#cSort"), [...(local ? [] : [{ value: "added", label: t("sort.added") }]), { value: "title", label: t("sort.title") },
+    { value: "year", label: t("sort.year") },
     ...f.ratings.map((r) => ({ value: r.value, label: t("sort.rating", { name: RATING_LABEL[r.value] || r.value }) }))]);
   if (!facetsLoaded) {
     const saved = savedFilters();
     const sel = $("#cSort");
     sel.value = saved.cSort && [...sel.options].some((o) => o.value === saved.cSort) ? saved.cSort : DEFAULT_SORT;
+    sortDir = saved.cOrder === "asc" || saved.cOrder === "desc" ? saved.cOrder : defaultDir(sel.value);
     facetsLoaded = true;
   }
   sortRender();
 }
-let catalogTotal = null;
-async function loadCatalog() {
+let catalogTotal = null, catalogPages = 1, catalogBusy = false;
+/* The catalogue grows as it is scrolled: the next page is added when the end comes near. Page marks
+   let the floating buttons jump a page up or down. */
+async function loadCatalog(append = false) {
   const seq = ++catalogSeq;
+  if (!append) cPage = 1;
   const q = $("#q").value.trim();
   const sort = $("#cSort").value || DEFAULT_SORT;
-  const params = new URLSearchParams({ page: cPage, page_size: 40, sort, order: sort === "title" ? "asc" : "desc" });
+  const params = new URLSearchParams({ page: cPage, page_size: 40, sort, order: sortDir });
   if (q.length >= 2) params.set("q", q);
   for (const [id, key] of MULTI) if (ms[id] && ms[id].sel.size) params.set(key, [...ms[id].sel].join(","));
+  catalogBusy = true;
   try {
     const data = await api(`/api/catalog?${params}`);
     if (seq !== catalogSeq) return;
-    const pages = Math.max(1, Math.ceil(data.total / data.page_size));
+    catalogPages = Math.max(1, Math.ceil(data.total / data.page_size));
     let info = t("cat.count", { n: fmtNum(data.total) });
-    if (data.total > data.page_size) info += ` · ${t("cat.page", { p: data.page, n: pages })}`;
     if (sort === "added") info += ` · ${t("cat.addedNote")}`;
     $("#cInfo").textContent = info;
     catalogTotal = data.total;
-    $("#catalog").innerHTML = data.items.length ? data.items.map(renderTitle).join("") : `<p class="muted">${esc(t(syncRunning ? "cat.loading" : "cat.none"))}</p>`;
+    const html = data.items.map(renderTitle).join("");
+    if (append) {
+      $("#catalog").insertAdjacentHTML("beforeend", `<div class="page-mark" data-page="${cPage}">${esc(t("cat.page", { p: cPage, n: catalogPages }))}</div>${html}`);
+    } else {
+      $("#catalog").innerHTML = data.items.length ? `<div class="page-mark first" data-page="1"></div>${html}`
+        : `<p class="muted">${esc(t(syncRunning ? "cat.loading" : "cat.none"))}</p>`;
+    }
     fillLogos($("#catalog"));
-    $("#cPrev").disabled = cPage <= 1;
-    $("#cNext").disabled = cPage >= pages;
-    $(".pager").classList.toggle("hidden", pages <= 1);
-  } catch (e) { $("#catalog").innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+    $("#more").classList.toggle("hidden", cPage >= catalogPages);
+    fabUpdate();
+  } catch (e) {
+    if (seq !== catalogSeq) return;
+    if (append) { cPage--; $("#more").textContent = e.message; } else $("#catalog").innerHTML = `<p class="err">${esc(e.message)}</p>`;
+  } finally { if (seq === catalogSeq) catalogBusy = false; }
+  if (seq === catalogSeq) moreIfNear();
 }
-$("#q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { cPage = 1; loadCatalog(); }, 250); });
-$("#cSort").addEventListener("change", () => { cPage = 1; saveFilters(); sortRender(); loadCatalog(); });
+function loadMore() {
+  if (catalogBusy || cPage >= catalogPages || currentTab !== "catalog") return false;
+  cPage++;
+  loadCatalog(true);
+  return true;
+}
+function moreIfNear() {
+  const r = $("#more").getBoundingClientRect();
+  if (!$("#more").classList.contains("hidden") && r.top < innerHeight + 800) loadMore();
+}
+addEventListener("scroll", () => { moreIfNear(); fabUpdate(); }, { passive: true });
+
+/* floating buttons once the list is long: to the top, one page up, one page down */
+const pageMarks = () => $$("#catalog .page-mark");
+function currentPage() {
+  const top = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hdr")) || 0) + 70;
+  let page = 1;
+  for (const m of pageMarks()) if (m.getBoundingClientRect().top <= top + 1) page = Number(m.dataset.page);
+  return page;
+}
+function goPage(n) {
+  const m = $(`#catalog .page-mark[data-page="${n}"]`);
+  if (n <= 1 || !m) { scrollTo({ top: 0, behavior: "smooth" }); return; }
+  const off = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hdr")) || 0) + 60;
+  scrollTo({ top: m.getBoundingClientRect().top + scrollY - off, behavior: "smooth" });
+}
+function fabUpdate() {
+  const show = currentTab === "catalog" && scrollY > innerHeight * 1.2;
+  $("#fab").classList.toggle("hidden", !show);
+  if (!show) return;
+  const p = currentPage();
+  $("#fabPage").textContent = `${p}/${catalogPages}`;
+  $("#fabUp").disabled = p <= 1 && scrollY < 10;
+  $("#fabDown").disabled = p >= catalogPages;
+}
+$("#fabTop").addEventListener("click", () => scrollTo({ top: 0, behavior: "smooth" }));
+$("#fabUp").addEventListener("click", () => {
+  const p = currentPage(), m = $(`#catalog .page-mark[data-page="${p}"]`);
+  // inside a page: to its start first; at its start: to the page before
+  const atStart = m && Math.abs(m.getBoundingClientRect().top - ((parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hdr")) || 0) + 60)) < 30;
+  goPage(atStart || p === 1 ? p - 1 : p);
+});
+$("#fabDown").addEventListener("click", async () => {
+  const p = currentPage();
+  if (!$(`#catalog .page-mark[data-page="${p + 1}"]`)) {
+    if (!loadMore()) return;
+    for (let i = 0; i < 50 && catalogBusy; i++) await new Promise((r) => setTimeout(r, 100));
+  }
+  goPage(p + 1);
+});
+// the on-screen keyboard closes when the list is scrolled by finger or its search key is pressed
+$("#q").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  clearTimeout(searchTimer); loadCatalog();
+  $("#q").blur();
+});
+document.addEventListener("touchmove", () => { if (document.activeElement === $("#q")) $("#q").blur(); }, { passive: true });
+$("#q").addEventListener("input", () => { filterCount(); clearTimeout(searchTimer); searchTimer = setTimeout(() => loadCatalog(), 250); });
+$("#cSort").addEventListener("change", () => { sortDir = defaultDir($("#cSort").value); saveFilters(); sortRender(); loadCatalog(); });
+let sortDir = "desc";
+// newest / highest first, names from A
+const defaultDir = (sort) => (sort === "title" ? "asc" : "desc");
+const DIR_LABEL = (sort) => (sort === "title" ? ["sort.az", "sort.za"] : sort === "year" || sort === "added" ? ["sort.oldest", "sort.newest"]
+  : ["sort.lowest", "sort.highest"]);
 /* sorting: a dropdown like the filters, labelled "Sorting" (the hidden <select> keeps the value) */
 function sortRender() {
   const root = $("#cSortBox"), sel = $("#cSort");
@@ -504,27 +583,33 @@ function sortRender() {
     panel.addEventListener("click", (e) => e.stopPropagation());
     panel.addEventListener("change", (e) => {
       if (!e.target.matches("input[type=radio]")) return;
+      if (e.target.name === "cDirR") {
+        sortDir = e.target.value;
+        saveFilters(); sortRender(); loadCatalog();
+        return;
+      }
       sel.value = e.target.value;
       sel.dispatchEvent(new Event("change"));
-      document.dispatchEvent(new Event("click"));   // close it
     });
   }
-  root.querySelector(".ms-list").innerHTML = [...sel.options].map((o) => `<label><input type="radio" name="cSortR" value="${esc(o.value)}" ${o.value === sel.value ? "checked" : ""}><span>${esc(o.textContent)}</span></label>`).join("");
+  const [ascKey, descKey] = DIR_LABEL(sel.value);
+  root.querySelector(".ms-list").innerHTML = [...sel.options].map((o) => `<label><input type="radio" name="cSortR" value="${esc(o.value)}" ${o.value === sel.value ? "checked" : ""}><span>${esc(o.textContent)}</span></label>`).join("")
+    + `<div class="ms-sep"></div>`
+    + [["desc", descKey], ["asc", ascKey]].map(([v, k]) => `<label><input type="radio" name="cDirR" value="${v}" ${v === sortDir ? "checked" : ""}><span>${esc(t(k))}</span></label>`).join("");
   const btn = root.querySelector(".ms-btn");
   btn.innerHTML = `${ICON.sort}<span>${esc(t("f.sort"))}</span>`;
-  btn.classList.toggle("on", !!sel.value && sel.value !== DEFAULT_SORT);
-  btn.title = `${t("f.sort")}: ${sel.selectedOptions[0]?.textContent || ""}`;
+  btn.classList.toggle("on", (!!sel.value && sel.value !== DEFAULT_SORT) || sortDir !== defaultDir(sel.value));
+  btn.title = `${t("f.sort")}: ${sel.selectedOptions[0]?.textContent || ""} – ${t(sortDir === "asc" ? ascKey : descKey)}`;
 }
-$("#syncNote .close").addEventListener("click", () => { syncNoteClosed = syncNoteKey; $("#syncNote").classList.add("hidden"); });
+$("#syncNote .close").addEventListener("click", () => { syncNoteClosed = syncNoteKey; $("#syncNote").classList.add("hidden"); document.body.classList.remove("note-open"); });
 $("#cReset").addEventListener("click", () => {
   $("#q").value = "";
   for (const [id] of MULTI) { ms[id].sel.clear(); msRender(id); }
   $("#cSort").value = DEFAULT_SORT;
+  sortDir = defaultDir(DEFAULT_SORT);
   sortRender();
-  cPage = 1; saveFilters(); loadCatalog();
+  saveFilters(); loadCatalog();
 });
-$("#cPrev").addEventListener("click", () => { cPage--; loadCatalog(); scrollTo(0, 0); });
-$("#cNext").addEventListener("click", () => { cPage++; loadCatalog(); scrollTo(0, 0); });
 
 /* ---------- synchronisation status ---------- */
 const fmtTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString(uiLang) : "–");
@@ -579,6 +664,7 @@ function updateSyncNote(st) {
   const note = $("#syncNote");
   syncNoteKey = st.running.map((j) => j.id).join(",");
   note.classList.toggle("hidden", !st.running.length || syncNoteClosed === syncNoteKey);
+  document.body.classList.toggle("note-open", !note.classList.contains("hidden"));
   if (!st.running.length) { syncNoteClosed = null; return; }
   const parts = st.running.map((j) => `${jobLabel(j)}${pctText(j)}`).join(" · ");
   note.querySelector("span").textContent = t(st.first ? "sync.noteFirst" : "sync.note", { p: parts });
@@ -598,7 +684,7 @@ async function pollProgress() {
     // and every ~20 s during the first download as long as the viewer is not in the middle of the list
     const tick = syncRunning && st.first && ++progressTicks % 5 === 0 && catalogIdle();
     if ((syncRunning && !catalogTotal) || (was && !syncRunning) || tick) {
-      loadFacets().catch(() => {}).then(loadCatalog);
+      loadFacets().catch(() => {}).then(() => loadCatalog());
       loadDataBy();
     }
   } catch (_) { /* ignore */ }
@@ -659,7 +745,7 @@ function servicePicker(box, items, selected, onChange) {
       return `<div class="${cls}" data-sn="${esc(p.short_name)}">
         <button type="button" class="svc-main" aria-pressed="${on}" title="${esc(p.name)}">
           ${p.icon ? `<img src="${esc(p.icon)}" alt="" draggable="false">` : `<span class="svc-noicon">${esc(p.name.slice(0, 2))}</span>`}
-          <span class="svc-name">${esc(p.name)}</span>${on ? `<span class="svc-pos">${pos + 1}</span>` : ""}
+          <span class="svc-name">${esc(p.name)}</span>
         </button>
         ${on ? `<button type="button" class="svc-x" data-remove title="${esc(t("svc.remove"))}" aria-label="${esc(t("svc.remove"))} ${esc(p.name)}">×</button>` : ""}
       </div>`;
@@ -764,6 +850,16 @@ function servicePicker(box, items, selected, onChange) {
       tile.classList.add("placeholder");
     }
   };
+  // the tile whose place in the grid is under the finger; layout positions ignore the sliding animation,
+  // so a tile that is still moving away is not hit by mistake
+  const tileAt = (x, y) => {
+    for (const el of box.querySelectorAll(".svc.on")) {
+      const pr = (el.offsetParent || document.body).getBoundingClientRect();
+      const l = pr.left + el.offsetLeft, tp = pr.top + el.offsetTop;
+      if (x >= l && x < l + el.offsetWidth && y >= tp && y < tp + el.offsetHeight) return el;
+    }
+    return null;
+  };
   const moveGhost = (x, y) => { if (ghost) ghost.style.transform = `translate(${x - press.dx}px, ${y - press.dy}px) scale(1.06)`; };
   const dragTo = (x, y) => {
     if (!press) return;
@@ -775,8 +871,8 @@ function servicePicker(box, items, selected, onChange) {
     moveGhost(x, y);
     // near the screen edge the page scrolls along (the finger cannot scroll it while dragging)
     if (y < 70) scrollBy(0, -14); else if (y > innerHeight - 70) scrollBy(0, 14);
-    const over = document.elementFromPoint(x, y)?.closest(".svc.on");
-    if (over && box.contains(over) && over.dataset.sn !== dragging && move(dragging, order.indexOf(over.dataset.sn))) {
+    const over = tileAt(x, y);
+    if (over && over.dataset.sn !== dragging && move(dragging, order.indexOf(over.dataset.sn))) {
       flip();
       // tiles were still sliding under a resting finger: look again once they settle
       clearTimeout(press.recheck);
@@ -799,29 +895,39 @@ function servicePicker(box, items, selected, onChange) {
   document.addEventListener("mousemove", (e) => { if (press && !press.touch) { dragTo(e.clientX, e.clientY); if (dragging) e.preventDefault(); } });
   document.addEventListener("mouseup", () => { if (press && !press.touch) endDrag(true); });
   // Touch events keep going to the element the finger first touched, even after the drag re-renders the
-  // grid and that element leaves the page (then they no longer bubble), so they are listened on it directly.
+  // grid and that element leaves the page (then they no longer bubble), so they are also listened on it.
+  // The grid itself has a non-passive touchmove listener from the start: Android's compositor decides by
+  // the listeners present when the finger lands whether a touchmove may stop the page from scrolling.
+  const onTouchMove = (ev) => {
+    if (ev.mlSeen) return;
+    ev.mlSeen = true;
+    const tp = ev.touches[0];
+    if (!tp || !press?.touch) return;
+    dragTo(tp.clientX, tp.clientY);
+    if (dragging && ev.cancelable) ev.preventDefault();      // a running drag must not scroll the page
+  };
+  box.addEventListener("touchmove", onTouchMove, { passive: false });
   box.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 1) { endDrag(false); return; }
     pressAt(e.target, e.touches[0].clientX, e.touches[0].clientY, true);
     if (!press) return;
     const target = e.target;
-    const onMove = (ev) => {
-      const tp = ev.touches[0];
-      if (!tp || !press) return;
-      dragTo(tp.clientX, tp.clientY);
-      if (dragging && ev.cancelable) ev.preventDefault();  // a running drag must not scroll the page
+    const done = (ev) => {
+      if (ev.mlSeen) return;
+      ev.mlSeen = true;
+      target.removeEventListener("touchmove", onTouchMove);
+      target.removeEventListener("touchend", done);
+      target.removeEventListener("touchcancel", done);
+      box.removeEventListener("touchend", done);
+      box.removeEventListener("touchcancel", done);
+      // a cancelled touch (the system took the gesture over) keeps what the drag already did
+      if (press?.touch) endDrag(true);
     };
-    const done = (commit) => () => {
-      target.removeEventListener("touchmove", onMove);
-      target.removeEventListener("touchend", end);
-      target.removeEventListener("touchcancel", cancel);
-      if (press?.touch) endDrag(commit);
-    };
-    const end = done(true), cancel = done(false);
-    target.addEventListener("touchmove", onMove, { passive: false });
-    target.addEventListener("touchend", end);
-    target.addEventListener("touchcancel", cancel);
+    target.addEventListener("touchmove", onTouchMove, { passive: false });
+    for (const el of [target, box]) { el.addEventListener("touchend", done); el.addEventListener("touchcancel", done); }
   }, { passive: true });
+  // a long press must not open the context menu or start the system's text selection / drag and drop
+  document.addEventListener("contextmenu", (e) => { if (press?.touch && box.isConnected) e.preventDefault(); });
   box.addEventListener("contextmenu", (e) => { if (press?.touch) e.preventDefault(); });
   box.addEventListener("dragstart", (e) => e.preventDefault());
   render();
@@ -879,8 +985,14 @@ $("#settingsForm").addEventListener("submit", async (e) => {
   for (const el of $$("[name]", e.target)) setPath(body, el.name, el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value.trim());
   if (jwPicker) body.justwatch.providers = jwPicker.value();
   body.streaming_availability.catalogs = $$("#saCatalogs input:checked").map((i) => i.value);
+  $("#saveMsg").textContent = t("srv.saving");
   try {
+    // media servers first (each row reports its own result), then the catalogue settings
+    const rows = $$("#servers .server").filter((n) => n.dataset.dirty || !n.dataset.id);
+    const filled = rows.filter((n) => $("[data-k=url]", n).value.trim());
+    const ok = (await Promise.all(filled.map((n) => n.saveNow()))).every(Boolean);
     current = await api("/api/settings", { method: "PUT", body });
+    if (!ok) { markDirty(true); $("#saveMsg").textContent = t("srv.error"); return; }
     await loadSettings();
     $("#saveMsg").textContent = t("set.saved");
   } catch (err) { $("#saveMsg").textContent = err.message; }
@@ -978,14 +1090,19 @@ function addServerRow(srv = {}) {
   const res = $(".result", node);
   const say = (text, cls = "muted") => { res.textContent = text; res.className = `${cls} result`; };
   $$("[data-k]", node).forEach((el) => el.addEventListener("input", () => say(node.dataset.id ? t("srv.unsaved") : t("srv.new"))));
-  $(".save", node).addEventListener("click", async () => {
+  // changes are saved by the one save button of the settings
+  $$("[data-k]", node).forEach((el) => el.addEventListener("input", () => { node.dataset.dirty = "1"; markDirty(true); }));
+  $$("[data-k]", node).forEach((el) => el.addEventListener("change", () => { node.dataset.dirty = "1"; markDirty(true); }));
+  node.saveNow = async () => {
     say(t("srv.saving"));
     try {
       const saved = await api("/api/servers", { method: "POST", body: readServer(node) });
       fillServer(node, saved);
+      delete node.dataset.dirty;
       say(t("srv.saved"), "ok");
-    } catch (e) { say(`${t("srv.error")}: ${e.message}`, "err"); }
-  });
+      return true;
+    } catch (e) { say(`${t("srv.error")}: ${e.message}`, "err"); return false; }
+  };
   $(".test", node).addEventListener("click", async () => {
     say(t("srv.testing"));
     try {

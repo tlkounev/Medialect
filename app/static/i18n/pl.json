@@ -1,6 +1,7 @@
 {
 "svc.moving": "Przesuń strzałkami, potwierdź OK", "svc.remove": "Usuń",
 "offer.details": "Szczegóły", "f.sort": "Sortowanie", "ui.help": "Pomoc",
+"nav.top": "Na górę", "nav.pageUp": "Strona w górę", "nav.pageDown": "Strona w dół", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Od najnowszych", "sort.oldest": "Od najstarszych", "sort.highest": "Od najwyższej", "sort.lowest": "Od najniższej",
 "nav.back": "Wstecz", "f.filters": "Filtry", "ui.close": "Zamknij",
 "app.download": "Pobieranie wersji {v} w przeglądarce – po zakończeniu otwórz plik, aby ją zainstalować.",
 "job.catalog": "Katalog",
@@ -38,7 +39,7 @@
 "job.ratings": "Oceny",
 "set.title": "Ustawienia katalogu",
 "set.intro": "Skąd pochodzi katalog i oceny. Zmiany zaczną obowiązywać po kliknięciu „Zapisz ustawienia katalogu” na dole.",
-"set.save": "Zapisz ustawienia katalogu", "set.saved": "Zapisano.", "set.unsaved": "Masz niezapisane zmiany.", "set.loading": "Wczytywanie…",
+"set.save": "Zapisz", "set.saved": "Zapisano.", "set.unsaved": "Masz niezapisane zmiany.", "set.loading": "Wczytywanie…",
 "set.enabled": "Włączone",
 "set.general": "Ogólne",
 "set.country": "Kraj", "set.country.h": "Dla jakiego kraju wczytywana jest oferta serwisów streamingowych. Katalogi różnią się w zależności od kraju.",

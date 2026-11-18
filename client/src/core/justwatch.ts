@@ -12,7 +12,7 @@ export const GRAPHQL_URL = "https://apis.justwatch.com/graphql";
 const IMAGES = "https://images.justwatch.com";
 const DETAILS = "https://justwatch.com";
 const SOURCE = "justwatch";
-export const tuning = { PAGE: 50, CAP: 1999, RETRY_S: [3, 10, 20, 40] };
+export const tuning = { PAGE: 50, CAP: 1999, RETRY_S: [3, 10, 20, 40], PARALLEL: 3 };
 const KEEP: Record<string, string> = { FLATRATE: "flatrate", FREE: "free", ADS: "ads", FAST: "free" };
 
 const RESUME_KEY = "jw.resume";
@@ -170,13 +170,19 @@ export async function sync(ctx: SyncContext): Promise<void> {
     await env.db.kvSet(RESUME_KEY, st);
   };
 
+  // several services are fetched at the same time (each with its own pause between requests); they start
+  // in the user's order, so the most important ones are complete first
   const seen = new Set<string>();
-  let idx = 0, failures = 0, failed = 0;
-  const slots = selected.size * 2; // every service × (films, series) is one equal share of the progress
-  for (const [provider, pname] of selected) {   // the user's order = priority
-    idx++;
+  let failed = 0;
+  const list = [...selected];
+  const share = new Map<string, number>();          // service -> its finished share (0–1)
+  const doing = new Map<string, string>();          // service -> what it fetches right now
+  const report = () => ctx.progress([...doing.values()].join(" · "),
+    [...share.values()].reduce((a, b) => a + b, 0) / list.length);
+  async function one(provider: string, pname: string): Promise<void> {
+    let failures = 0;
+    share.set(provider, 0);
     for (const [tIdx, otype] of ["MOVIE", "SHOW"].entries()) {
-      const base = ((idx - 1) * 2 + tIdx) / slots;
       const wins = windows();
       const queue: [number, number, number][] = wins.map(([lo, hi]) => [lo, hi, 1 / wins.length]);
       let done = 0;
@@ -190,7 +196,9 @@ export async function sync(ctx: SyncContext): Promise<void> {
           continue;
         }
         const kind = otype === "MOVIE" ? "filmy" : "seriály";
-        ctx.progress(`${pname} (${idx}/${selected.size}): ${kind} ${lo}–${hi}`, base + done / slots);
+        doing.set(provider, `${pname}: ${kind} ${lo}–${hi}`);
+        share.set(provider, (tIdx + done) / 2);
+        report();
         let entries: any[], capped: boolean;
         try {
           [entries, capped] = await fetchWindow(ctx, provider, otype, lo, hi, delayMs);
@@ -222,8 +230,21 @@ export async function sync(ctx: SyncContext): Promise<void> {
         await mark("done", key);
       }
     }
-    ctx.note(`${pname}: hotovo (${seen.size} titulů celkem).`);
+    share.set(provider, 1);
+    doing.delete(provider);
+    report();
+    ctx.note(`${pname}: hotovo.`);
   }
+  let next = 0, error: unknown = null;
+  const worker = async () => {
+    while (next < list.length && !error) {
+      const [provider, pname] = list[next++];
+      try { await one(provider, pname); } catch (e) { error ??= e; }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(tuning.PARALLEL, list.length)) }, worker));
+  if (error) throw error;
+  ctx.note(`Celkem ${seen.size} titulů.`);
   if (failed) { ctx.note(`Nestaženo ${failed} částí, doplní se automaticky.`); return; }
   await env.db.run("DELETE FROM kv WHERE key=?", [RESUME_KEY]);
   // offers not seen since the run began (including its interrupted part) have left the service

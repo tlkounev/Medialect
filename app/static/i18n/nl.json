@@ -1,6 +1,7 @@
 {
 "svc.moving": "Verplaats met de pijlen, bevestig met OK", "svc.remove": "Verwijderen",
 "offer.details": "Details", "f.sort": "Sorteren", "ui.help": "Help",
+"nav.top": "Naar boven", "nav.pageUp": "Pagina omhoog", "nav.pageDown": "Pagina omlaag", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Nieuwste eerst", "sort.oldest": "Oudste eerst", "sort.highest": "Hoogste eerst", "sort.lowest": "Laagste eerst",
 "nav.back": "Terug", "f.filters": "Filters", "ui.close": "Sluiten",
 "app.download": "Versie {v} wordt in de browser gedownload – open het bestand daarna om te installeren.",
 "job.catalog": "Catalogus",
@@ -38,7 +39,7 @@
 "job.ratings": "Scores",
 "set.title": "Catalogusinstellingen",
 "set.intro": "Waar de catalogus en de scores vandaan komen. Wijzigingen gelden pas na „Catalogusinstellingen opslaan” onderaan.",
-"set.save": "Catalogusinstellingen opslaan", "set.saved": "Opgeslagen.", "set.unsaved": "Je hebt niet-opgeslagen wijzigingen.", "set.loading": "Laden…",
+"set.save": "Opslaan", "set.saved": "Opgeslagen.", "set.unsaved": "Je hebt niet-opgeslagen wijzigingen.", "set.loading": "Laden…",
 "set.enabled": "Aan",
 "set.general": "Algemeen",
 "set.country": "Land", "set.country.h": "Voor welk land het aanbod van streamingdiensten wordt geladen. Catalogi verschillen per land.",

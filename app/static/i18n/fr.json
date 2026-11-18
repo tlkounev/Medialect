@@ -1,6 +1,7 @@
 {
 "svc.moving": "Déplacez avec les flèches, validez avec OK", "svc.remove": "Retirer",
 "offer.details": "Détails", "f.sort": "Tri", "ui.help": "Aide",
+"nav.top": "En haut", "nav.pageUp": "Page précédente", "nav.pageDown": "Page suivante", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Plus récents d'abord", "sort.oldest": "Plus anciens d'abord", "sort.highest": "Meilleure note d'abord", "sort.lowest": "Moins bonne note d'abord",
 "nav.back": "Retour", "f.filters": "Filtres", "ui.close": "Fermer",
 "app.download": "Téléchargement de la version {v} dans le navigateur – ouvrez le fichier à la fin pour l'installer.",
 "job.catalog": "Catalogue",
@@ -38,7 +39,7 @@
 "job.ratings": "Notes",
 "set.title": "Paramètres du catalogue",
 "set.intro": "D’où viennent le catalogue et les notes. Les modifications s’appliquent après « Enregistrer les paramètres du catalogue » en bas.",
-"set.save": "Enregistrer les paramètres du catalogue", "set.saved": "Enregistré.", "set.unsaved": "Modifications non enregistrées.", "set.loading": "Chargement…",
+"set.save": "Enregistrer", "set.saved": "Enregistré.", "set.unsaved": "Modifications non enregistrées.", "set.loading": "Chargement…",
 "set.enabled": "Activé",
 "set.general": "Général",
 "set.country": "Pays", "set.country.h": "Pays dont l’offre des services de streaming est chargée. Les catalogues varient selon le pays.",

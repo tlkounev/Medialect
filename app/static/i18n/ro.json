@@ -1,6 +1,7 @@
 {
 "svc.moving": "Mută cu săgețile, confirmă cu OK", "svc.remove": "Elimină",
 "offer.details": "Detalii", "f.sort": "Sortare", "ui.help": "Ajutor",
+"nav.top": "Sus", "nav.pageUp": "O pagină în sus", "nav.pageDown": "O pagină în jos", "sort.az": "A → Z", "sort.za": "Z → A", "sort.newest": "Cele mai noi întâi", "sort.oldest": "Cele mai vechi întâi", "sort.highest": "Cel mai mare întâi", "sort.lowest": "Cel mai mic întâi",
 "nav.back": "Înapoi", "f.filters": "Filtre", "ui.close": "Închide",
 "app.download": "Se descarcă versiunea {v} în browser – la final deschide fișierul pentru instalare.",
 "job.catalog": "Catalog",
@@ -38,7 +39,7 @@
 "job.ratings": "Note",
 "set.title": "Setările catalogului",
 "set.intro": "De unde se umple catalogul și de unde vin notele. Modificările se aplică doar după butonul „Salvează setările catalogului” de jos.",
-"set.save": "Salvează setările catalogului", "set.saved": "Salvat.", "set.unsaved": "Ai modificări nesalvate.", "set.loading": "Se încarcă…",
+"set.save": "Salvează", "set.saved": "Salvat.", "set.unsaved": "Ai modificări nesalvate.", "set.loading": "Se încarcă…",
 "set.enabled": "Activat",
 "set.general": "General",
 "set.country": "Țară", "set.country.h": "Pentru ce țară se încarcă oferta serviciilor de streaming. Cataloagele diferă de la o țară la alta.",

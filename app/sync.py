@@ -94,10 +94,12 @@ class SyncManager:
             jobs = await self.jobs()
             self.queued.update(j for j, _, _ in jobs if j not in self.running)
             try:
+                # the sources (own servers, JustWatch, iVysílání) download at the same time; ratings follow
+                await asyncio.gather(*(self.run_job(job_id, fn) for job_id, _label, fn in jobs
+                                       if job_id != "ratings" and job_id not in self.running))
                 for job_id, _label, fn in jobs:
-                    if job_id in self.running:
-                        continue  # already started on its own
-                    await self.run_job(job_id, fn)
+                    if job_id == "ratings" and job_id not in self.running:
+                        await self.run_job(job_id, fn)
             finally:
                 self.queued.clear()
             # a run with no source configured yet (fresh install) does not count as a full sync
