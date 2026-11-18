@@ -126,7 +126,10 @@ async def _csfd_get(c, url: str, **kw) -> tuple[str, str]:
     return r.text, str(r.url)
 
 
-async def csfd_find(c, title: str, year: int | None) -> str | None:
+async def csfd_find(c, title: str, year: int | None, ttype: str = "movie") -> tuple[str, bool] | None:
+    """(ČSFD id, check) or None. check = a long-running series found by its start year: it is the title
+    only if the years on its page reach the title's year (the 2026 "Scrubs" is series 10 of
+    "Scrubs: Doktůrci (2001–2026)" on ČSFD)."""
     page, _ = await _csfd_get(c, f"{CSFD}/hledat/", params={"q": title})
     results = _csfd_search_results(page)
     if not results:
@@ -136,19 +139,36 @@ async def csfd_find(c, title: str, year: int | None) -> str | None:
         # exact year wins; a ±1 year difference is accepted only with the same name
         for cid, y, _name in results:
             if y == year:
-                return cid
+                return cid, False
         for cid, y, name in results:
             if y and abs(y - year) == 1 and norm(name) == wanted:
-                return cid
+                return cid, False
+        if ttype == "show":
+            for cid, y, name in results:
+                n = norm(name)
+                if y and y < year and (n == wanted or n.startswith(wanted + " ")):
+                    return cid, True
         return None
     for cid, _y, name in results:
         if norm(name) == wanted:
-            return cid
+            return cid, False
     return None
 
 
-async def csfd_rating(c, csfd_id: str) -> tuple[int | None, int | None, str, str | None]:
-    """(rating %, votes, url, IMDb id linked from the page)."""
+_TAG = r"(?:<[^>]+>\s*)*"
+_YEARS = re.compile(rf"\(\s*{_TAG}(\d{{4}})\s*{_TAG}[–-]\s*{_TAG}(\d{{4}})?")
+_ORIGIN = re.compile(r'class="origin"[^>]*>([\s\S]{0,400})')
+
+
+def csfd_years(page: str) -> tuple[int, int | None] | None:
+    """The years of a series on a ČSFD page: "(2001–2026)" or "(2019– )" in the header's origin line."""
+    o = _ORIGIN.search(page)
+    m = _YEARS.search(o.group(1) if o else page) or _YEARS.search(page)
+    return (int(m.group(1)), int(m.group(2)) if m.group(2) else None) if m else None
+
+
+async def csfd_rating(c, csfd_id: str) -> tuple:
+    """(rating %, votes, url, IMDb id linked from the page, series years)."""
     page, url = await _csfd_get(c, f"{CSFD}/film/{csfd_id}/prehled/")
     if 'class="film-rating-average' not in page and "film-header" not in page:
         raise SourceError(f"ČSFD: neočekávaná stránka filmu {csfd_id}")
@@ -156,7 +176,7 @@ async def csfd_rating(c, csfd_id: str) -> tuple[int | None, int | None, str, str
     v = _VOTES.search(page)
     votes = int(re.sub(r"\D", "", v.group(1))) if v and re.sub(r"\D", "", v.group(1)) else None
     imdb = _IMDB_LINK.search(page)
-    return (int(m.group(1)) if m else None), votes, url, (imdb.group(1) if imdb else None)
+    return (int(m.group(1)) if m else None), votes, url, (imdb.group(1) if imdb else None), csfd_years(page)
 
 
 CSFD_FOCUS_KEY = "ratings.focus"     # titles the user has on screen right now: rated before the rest
@@ -167,7 +187,7 @@ async def _csfd_queue(refresh: float) -> list:
     rank, rank_params = await queries.rank_sql()
     focus = json.dumps((await db.kv_get(CSFD_FOCUS_KEY, {})).get("ids") or [])
     return await db.fetchall(
-        """SELECT t.id, t.title, t.original_title, t.year,
+        """SELECT t.id, t.type, t.title, t.original_title, t.year,
                   (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id
            FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
            WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)
@@ -179,6 +199,11 @@ async def _csfd_queue(refresh: float) -> list:
 
 async def csfd(ctx: SyncContext) -> None:
     cfg = ctx.settings["ratings"]
+    if not await db.kv_get("migrate.csfd_series_v1", False):
+        # revivals of long-running series were "not found" before: search those series again
+        await db.execute("DELETE FROM ratings WHERE source='csfd' AND value IS NULL AND url IS NULL "
+                         "AND title_id IN (SELECT id FROM titles WHERE type='show')")
+        await db.kv_set("migrate.csfd_series_v1", True)
     refresh = time.time() - float(cfg.get("refresh_days", 14)) * 86400
     rows = await _csfd_queue(refresh)
     if not rows:
@@ -209,20 +234,26 @@ async def csfd(ctx: SyncContext) -> None:
                 ctx.note(f"ČSFD: denní limit {budget} titulů vyčerpán, pokračuje se zítra.")
                 return
             try:
-                cid = row["csfd_id"]
+                cid, check = row["csfd_id"], False
                 if not cid:
                     for name in dict.fromkeys(n for n in (row["title"], row["original_title"]) if n):
-                        cid = await csfd_find(c, name, row["year"])
+                        found = await csfd_find(c, name, row["year"], row["type"])
                         await asyncio.sleep(CSFD_DELAY_S)
-                        if cid:
-                            await store.add_title_id(row["id"], "csfd", cid)
+                        if found:
+                            cid, check = found
                             break
                 if not cid:
                     await store.set_rating(row["id"], "csfd", None, None)  # really not on ČSFD (valid search page)
                     continue
-                value, votes, url, imdb = await csfd_rating(c, cid)
+                value, votes, url, imdb, years = await csfd_rating(c, cid)
+                if check and not (years and years[0] <= row["year"] <= (years[1] or 9999)):
+                    await store.set_rating(row["id"], "csfd", None, None)  # a series of that name, not running that year
+                    continue
+                if not row["csfd_id"]:
+                    await store.add_title_id(row["id"], "csfd", cid)
                 await store.set_rating(row["id"], "csfd", value, f"{value} %" if value is not None else None, votes, url)
-                if imdb and not await db.fetchone(
+                # the IMDb id of a whole long-running series is not attached to a later revival
+                if imdb and not check and not await db.fetchone(
                         "SELECT 1 FROM title_ids WHERE title_id=? AND kind='imdb'", (row["id"],)):
                     await store.add_title_id(row["id"], "imdb", imdb)  # lets the IMDb dataset rate it too
                 ctx.items += 1

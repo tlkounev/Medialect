@@ -212,6 +212,13 @@ CSFD_FILM = """<div class="film-header"><h1>Pelíšky</h1></div>
 <div class="rating-average-withtabs"><div class="film-rating-average">  89%  </div></div>
 IMDBLINK
 <section class="box ratings-list"><header><h3>Hodnocení <span class="counter">(97 852)</span></h3></header></section>"""
+# a revival listed under the original series: "Scrubs" (2026) = series 10 of "Scrubs: Doktůrci (2001–2026)"
+CSFD_SEARCH_SCRUBS = """<section class="main-movies"><div class="box-content">
+<article class="article"><h3><a href="/film/777-scrubs-dokturci/" class="film-title-name">Scrubs: Doktůrci</a>
+<span class="info">(2001)</span> <span class="info">(seriál)</span></h3></article></div></section>"""
+CSFD_SERIES = """<div class="film-header"><h1>Scrubs: Doktůrci</h1>
+<div class="origin">USA<span>, </span>(2001–2026)<span>, </span>182 h</div></div>
+<div class="film-rating-average">81%</div>"""
 ANUBIS = """<html><body><script id="anubis_challenge" type="application/json">{"rules":{"algorithm":"fast"}}</script></body></html>"""
 CSFD_STATE = {"blocked": False}
 
@@ -220,6 +227,8 @@ CSFD_STATE = {"blocked": False}
 async def csfd_search(q: str, request: Request):
     if CSFD_STATE["blocked"] or "Mozilla" in request.headers.get("user-agent", ""):
         return Response(ANUBIS, media_type="text/html")
+    if q.startswith("Scrubs"):
+        return Response(CSFD_SEARCH_SCRUBS, media_type="text/html")
     return Response(CSFD_SEARCH, media_type="text/html")
 
 
@@ -227,6 +236,8 @@ async def csfd_search(q: str, request: Request):
 async def csfd_film(fid: str, request: Request):
     if CSFD_STATE["blocked"] or "Mozilla" in request.headers.get("user-agent", ""):
         return Response(ANUBIS, media_type="text/html")
+    if fid == "777":
+        return Response(CSFD_SERIES, media_type="text/html")
     page = CSFD_FILM.replace("IMDBLINK", '<a href="https://www.imdb.com/title/tt0167331/" class="button-imdb">IMDb</a>'
                              if fid == "6648" else "")
     return Response(page.replace("89%", "91%") if fid == "9499" else page, media_type="text/html")

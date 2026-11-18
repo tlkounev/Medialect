@@ -338,6 +338,8 @@ body:not(.local) .app-only { display: none !important; }
 .fab { position: fixed; inset-inline-end: 14px; bottom: 16px; z-index: 30; display: grid; justify-items: center; gap: 6px;
   padding: 6px; border-radius: 26px; background: rgba(23,27,36,.92); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0,0,0,.45); }
 .fab.hidden { display: none; }
+.fab { transition: opacity .35s; }
+.fab.idle { opacity: 0; pointer-events: none; }
 .fab button { width: 42px; height: 42px; padding: 0; display: grid; place-items: center; border-radius: 50%;
   background: transparent; border: 0; color: var(--text); }
 .fab button:hover, .fab button:focus-visible { background: rgba(79,140,255,.2); }

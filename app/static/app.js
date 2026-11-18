@@ -601,10 +601,20 @@ function goPage(n) {
   const off = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hdr")) || 0) + 60;
   scrollTo({ top: m.getBoundingClientRect().top + scrollY - off, behavior: "smooth" });
 }
+// the buttons appear while the list moves and fade away 3 s after it stops (or after the last tap on them)
+let fabTimer = null;
+function fabWake() {
+  $("#fab").classList.remove("idle");
+  clearTimeout(fabTimer);
+  fabTimer = setTimeout(() => $("#fab").classList.add("idle"), 3000);
+}
+$("#fab").addEventListener("pointerdown", fabWake);
+$("#fab").addEventListener("focusin", fabWake);
 function fabUpdate() {
   const show = currentTab === "catalog" && scrollY > innerHeight * 1.2;
   $("#fab").classList.toggle("hidden", !show);
   if (!show) return;
+  fabWake();
   const p = currentPage();
   $("#fabPage").textContent = `${p}/${catalogPages}`;
   $("#fabUp").disabled = p <= 1 && scrollY < 10;
