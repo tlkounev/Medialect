@@ -273,7 +273,7 @@ function renderOffer(o) {
   // the app evens out the logos (same size, margins cut away) and fills them in after rendering
   const src = window.MEDIALECT_LOGO ? "" : ` src="${esc(o.icon)}"`;
   const logo = o.icon ? `<img class="svc-logo"${src} data-logo="${esc(o.icon)}" data-lib="${lib}" alt="${esc(o.provider_name)}" title="${esc(o.provider_name)}" loading="lazy" onerror="logoFailed(this, ${lib})">` : "";
-  if (mon) tags.unshift(`<span class="tag mon">${esc(mon)}</span>`);
+  if (mon) tags.splice(o.quality ? 1 : 0, 0, `<span class="tag mon">${esc(mon)}</span>`);   // right after the resolution
   const head = `<span class="prov">${logo}${!o.icon ? `<span class="name">${esc(o.provider_name)}</span>` : ""}</span>
     <span class="tags">${tags.join("")}</span>`;
   // the box starts playback in the service's app; the caret only opens the details
@@ -289,6 +289,7 @@ $("#catalog").addEventListener("click", (e) => {
   e.preventDefault();
   const box = more.parentElement.querySelector(".langs");
   const open = box.classList.toggle("hidden") === false;
+  more.parentElement.classList.toggle("open", open);
   more.setAttribute("aria-expanded", String(open));
 });
 // ratings: the site's icon instead of its name, coloured like ČSFD (red ≥ 70 %, blue 30–69 %, grey below)
