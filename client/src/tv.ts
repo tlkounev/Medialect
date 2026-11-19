@@ -4,7 +4,8 @@
 // past the last one to the next title). Up/down always land on the leftmost control of the next row.
 
 const FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea, [tabindex]:not([tabindex='-1'])";
-const SKIP = "#home, #home *, .rating";         // the logo is not a button on TV, ratings are not stops
+// the logo is not a button on TV, ratings are not stops; the floating sync note is reached with Right only
+const SKIP = "#home, #home *, .rating, #syncNote *";
 const DIRS: Record<string, [number, number]> = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
 
 export function isTv(): boolean {
@@ -77,10 +78,22 @@ function next(from: Element | null, dx: number, dy: number): HTMLElement | null 
   const n = near.getBoundingClientRect(), mid = n.top + n.height / 2;
   const row = ahead.filter((el) => { const b = el.getBoundingClientRect(); return b.top <= mid && b.bottom >= mid; });
   const rtl = document.dir === "rtl";
-  return row.reduce((m, el) => {
+  const pick = row.reduce((m, el) => {
     const b = el.getBoundingClientRect(), r = m.getBoundingClientRect();
     return (rtl ? b.right > r.right : b.left < r.left) ? el : m;
   }, row[0]);
+  // up into the top bar lands on the settings button (the language is one step left of it)
+  if (dy < 0 && pick.closest("header")) return row.find((el) => el.id === "openSettings") || pick;
+  return pick;
+}
+
+/** In the top bar, the sticky search bar or another fixed layer: always on screen, so focusing it must not scroll. */
+function pinned(el: Element): boolean {
+  for (let e: Element | null = el; e && e !== document.body; e = e.parentElement) {
+    const p = getComputedStyle(e).position;
+    if (p === "fixed" || p === "sticky") return true;
+  }
+  return false;
 }
 
 const TEXT_TYPES = ["text", "search", "number", "password", "email", "url", "tel", ""];
@@ -99,8 +112,12 @@ function unlock(el: HTMLInputElement | HTMLTextAreaElement): void {
   el.dataset.tvEdit = "1";
   el.readOnly = false;
   el.blur();
-  el.focus();                       // re-focus as an editable field: now Android shows the keyboard
+  el.focus();                       // re-focus as an editable field
   el.click();
+  // Google TV does not open the keyboard for a field focused with the remote: ask Android for it
+  if ((window as any).__TAURI_INTERNALS__) {
+    import("@tauri-apps/api/core").then(({ invoke }) => invoke("plugin:apk-updater|show_keyboard")).catch(console.error);
+  }
 }
 
 function focusStart(tries = 25): void {
@@ -109,17 +126,19 @@ function focusStart(tries = 25): void {
   else if (tries) setTimeout(() => focusStart(tries - 1), 200);
 }
 /** Back on the catalogue (from the settings): the first title, at the top of the list. */
-function focusFirstTitle(tries = 30): void {
+function focusFirstTitle(tries = 100): void {
   const first = document.querySelector<HTMLElement>("#catalog .title");
   if (first && visible(first)) { scrollTo(0, 0); first.focus({ preventScroll: true }); }
   else if (tries) setTimeout(() => focusFirstTitle(tries - 1), 150);
 }
 const lost = () => { const a = document.activeElement; return !a || a === document.body || !visible(a); };
 
-function move(target: HTMLElement, dy: number): void {
+function move(target: HTMLElement, dy: number, instant: boolean): void {
   target.focus({ preventScroll: true });
-  // vertical moves keep the target in the middle so headings and the rows around it stay visible
-  target.scrollIntoView({ block: dy ? "center" : "nearest", inline: "nearest", behavior: "smooth" });
+  if (pinned(target)) return;       // the top bar and the search bar stay where they are, the list does not jump
+  // vertical moves keep the target in the middle so headings and the rows around it stay visible;
+  // a held key scrolls at once (a smooth scroll started again on every repeat only shakes)
+  target.scrollIntoView({ block: dy ? "center" : "nearest", inline: "nearest", behavior: instant ? "auto" : "smooth" });
 }
 
 export function enableTvNavigation(): void {
@@ -167,7 +186,19 @@ export function enableTvNavigation(): void {
     }
   }, true);
 
+  // until the first key press, focus belongs to the first title: Android itself may put it on the first
+  // control of the page (the language) when the app window gets focus
+  let pressed = false, lastMove = 0;
+  let lastTitle: HTMLElement | null = null;
+  document.addEventListener("focusin", (e) => {
+    const el = e.target as HTMLElement;
+    if (el.matches?.("#catalog .title")) lastTitle = el;
+    else if (!pressed && el.closest?.("header, .catbar, #q")) setTimeout(() => focusFirstTitle(), 0);
+  });
+  addEventListener("focus", () => { if (!pressed) focusFirstTitle(); });
+
   document.addEventListener("keydown", (e) => {
+    pressed = true;
     const active = document.activeElement as HTMLElement | null;
     const editing = isText(active) && !active.readOnly;
     // the service picker moves a tile with the arrows itself
@@ -183,12 +214,23 @@ export function enableTvNavigation(): void {
       // while typing, left/right move the cursor; up/down leave the field
       if (editing && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
       const [dx, dy] = DIRS[e.key];
-      const target = next(active && active !== document.body ? active : null, dx, dy);
       e.preventDefault();
+      // a held key: one step at a time, not faster than the page can follow
+      const now = performance.now();
+      if (e.repeat && now - lastMove < 110) return;
+      lastMove = now;
+      const note = document.querySelector<HTMLElement>("#syncNote:not(.hidden) .close");
+      // from the note back to the title we came from
+      let target = active && active === note && lastTitle?.isConnected && visible(lastTitle) ? lastTitle
+        : next(active && active !== document.body ? active : null, dx, dy);
+      // Right with nothing more in the row: the close button of the floating sync note
+      if (!target && dx > 0 && note && visible(note) && active !== note) target = note;
+      if (!target && active === note) target = lastTitle?.isConnected && visible(lastTitle) ? lastTitle : startTarget();
       if (editing) active!.blur();
-      if (target) move(target, dy);
-      else if (dy) window.scrollBy({ top: dy * window.innerHeight * 0.6, behavior: "smooth" });   // reveal headings at the edges
-      if (target && dy < 0 && !next(target, 0, -1)) window.scrollTo({ top: 0, behavior: "smooth" });
+      const smooth = !e.repeat;
+      if (target) move(target, dy, !smooth);
+      else if (dy) window.scrollBy({ top: dy * window.innerHeight * 0.6, behavior: smooth ? "smooth" : "auto" });   // reveal headings at the edges
+      if (target && dy < 0 && !pinned(target) && !next(target, 0, -1)) window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
       return;
     }
     if (e.key === "Enter" && isText(active) && active.readOnly && active.dataset.tvLock) {
@@ -203,5 +245,5 @@ export function enableTvNavigation(): void {
     }
   }, true);
   // start on the first title under the search field
-  setTimeout(() => { if (lost() || document.activeElement?.id === "q") focusFirstTitle(); }, 300);
+  setTimeout(() => { if (!pressed) focusFirstTitle(); }, 300);
 }

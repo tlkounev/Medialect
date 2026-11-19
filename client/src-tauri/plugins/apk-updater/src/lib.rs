@@ -46,6 +46,29 @@ impl<R: Runtime> ApkUpdater<R> {
         }
     }
 
+    pub fn show_keyboard(&self) -> Result<()> {
+        #[cfg(mobile)]
+        {
+            self.0.run_mobile_plugin::<()>("showKeyboard", ()).map_err(Into::into)
+        }
+        #[cfg(not(mobile))]
+        {
+            Ok(())
+        }
+    }
+
+    pub fn open_link(&self, req: OpenLinkRequest) -> Result<serde_json::Value> {
+        #[cfg(mobile)]
+        {
+            self.0.run_mobile_plugin::<serde_json::Value>("openLink", req).map_err(Into::into)
+        }
+        #[cfg(not(mobile))]
+        {
+            let _ = req;
+            Err(Error::Unsupported)
+        }
+    }
+
     pub fn background(&self, req: BackgroundRequest) -> Result<()> {
         #[cfg(mobile)]
         {
@@ -103,6 +126,25 @@ async fn probe(host: String, port: u16) -> Result<String> {
 }
 
 #[derive(Debug, Deserialize, serde::Serialize)]
+pub struct OpenLinkRequest {
+    pub url: String,
+    pub name: String,
+}
+
+/// Google TV: open the keyboard for the field focused with the remote.
+#[tauri::command]
+async fn show_keyboard<R: Runtime>(app: tauri::AppHandle<R>) -> Result<()> {
+    app.state::<ApkUpdater<R>>().show_keyboard()
+}
+
+/// Opens a streaming link; where nothing can open it (a TV without a browser or without the service's
+/// link support), opens the service's app found by its name. { opened: "link" | "app" | "none", app? }
+#[tauri::command]
+async fn open_link<R: Runtime>(app: tauri::AppHandle<R>, url: String, name: String) -> Result<serde_json::Value> {
+    app.state::<ApkUpdater<R>>().open_link(OpenLinkRequest { url, name })
+}
+
+#[derive(Debug, Deserialize, serde::Serialize)]
 pub struct LocalNetworkRequest {
     pub ask: bool,
 }
@@ -114,7 +156,7 @@ async fn local_network<R: Runtime>(app: tauri::AppHandle<R>, ask: bool) -> Resul
 
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("apk-updater")
-        .invoke_handler(tauri::generate_handler![background, sleep, probe, local_network])
+        .invoke_handler(tauri::generate_handler![background, sleep, probe, local_network, show_keyboard, open_link])
         .setup(|app, api| {
             #[cfg(target_os = "android")]
             let updater = ApkUpdater(api.register_android_plugin("com.plugin.apk_updater", "ApkUpdaterPlugin")?);

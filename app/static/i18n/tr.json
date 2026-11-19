@@ -97,7 +97,7 @@
 "wiz.ratings": "Puanlar",
 "wiz.ratings.h": "Puanların nereden alınacağı. Diğer kaynakları (TMDB, OMDb, MDBList) Ayarlar'dan eklersin.",
 "set.jw.showAll": "Ülkedeki tüm hizmetleri göster ({n})",
-"app.noHandler": "Bağlantı açılamıyor – cihazda hizmetin uygulaması veya bir tarayıcı yok.",
+"app.noHandler": "Bağlantı açılamıyor – cihazda hizmetin uygulaması veya bir tarayıcı yok.", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "{v} sürümü indiriliyor ve yükleniyor…",
 "app.updateFailed": "Güncelleme yüklenemedi: {e}"
 }

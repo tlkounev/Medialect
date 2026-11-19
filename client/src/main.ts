@@ -24,15 +24,19 @@ function toast(text: string): void {
   setTimeout(() => el.remove(), 5000);
 }
 
-async function openExternal(url: string): Promise<void> {
+async function openExternal(url: string, app = ""): Promise<void> {
   if ((window as any).__TAURI_INTERNALS__) {
-    const { openUrl } = await import("@tauri-apps/plugin-opener");
+    const t = (window as any).t;
+    const say = (key: string, vars?: Record<string, string>, fallback = "") => toast(typeof t === "function" ? t(key, vars) : fallback);
     try {
-      await openUrl(url);          // Android hands streaming links to the installed app (Netflix, Disney+, ...)
+      // Android hands streaming links to the installed app (Netflix, Disney+, ...); where nothing takes the
+      // link (a TV: no browser, TV apps of Emby, Oneplay, Prima+), the service's app itself is opened
+      const { invoke } = await import("@tauri-apps/api/core");
+      const r = await invoke<{ opened: string; app?: string }>("plugin:apk-updater|open_link", { url, name: app });
+      if (r.opened === "app") say("app.openedApp", { app: r.app || app }, `${r.app || app}`);
+      else if (r.opened === "none") say("app.noHandler", undefined, "No app can open this link.");
     } catch (e) {
-      // e.g. a TV without a browser and without the service's app
-      const t = (window as any).t;
-      toast(typeof t === "function" ? t("app.noHandler") : "No app can open this link.");
+      say("app.noHandler", undefined, "No app can open this link.");
       console.error(e);
     }
   } else {
@@ -66,7 +70,7 @@ async function start(): Promise<void> {
     const a = (e.target as Element)?.closest?.("a[href]") as HTMLAnchorElement | null;
     if (!a || !/^https?:/.test(a.href) || new URL(a.href).origin === location.origin) return;
     e.preventDefault();
-    openExternal(a.href).catch(console.error);
+    openExternal(a.href, a.dataset.app || "").catch(console.error);
   });
   await loadScript("/static/i18n.js");
   await loadScript("/static/app.js");

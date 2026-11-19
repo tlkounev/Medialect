@@ -97,7 +97,7 @@
 "wiz.ratings": "Voti",
 "wiz.ratings.h": "Da dove arrivano i voti. Altre fonti (TMDB, OMDb, MDBList) si aggiungono nelle Impostazioni.",
 "set.jw.showAll": "Mostra tutti i servizi del paese ({n})",
-"app.noHandler": "Impossibile aprire il link: sul dispositivo manca l’app del servizio o un browser.",
+"app.noHandler": "Impossibile aprire il link: sul dispositivo manca l’app del servizio o un browser.", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "Download e installazione della versione {v}…",
 "app.updateFailed": "Impossibile installare l’aggiornamento: {e}"
 }
