@@ -11,6 +11,15 @@
     <!-- a streaming link nothing can open (a TV): the service's own app is looked up among the installed
          launcher apps, which Android 11+ shows to an app only when it declares this -->
     <queries>
+        <!-- which apps take a streaming link (a TV has stubs for web links that only say "no app") -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

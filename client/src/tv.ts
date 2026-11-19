@@ -144,11 +144,16 @@ function move(target: HTMLElement, dy: number): void {
 }
 
 export function enableTvNavigation(): void {
-  document.documentElement.classList.add("tv");
+  document.documentElement.classList.add("tv", "tv-start");
   for (const el of document.querySelectorAll<HTMLElement>("#home, #home a")) el.tabIndex = -1;
   lockAll();
   // titles can take focus (not in the Tab order); a title left by the focus closes again
-  const titles = (root: ParentNode) => root.querySelectorAll<HTMLElement>(".title:not([tabindex])").forEach((t) => { t.tabIndex = -1; });
+  // the first title is first in the Tab order: where Android moves the focus into the page by itself, it lands there
+  const titles = (root: ParentNode) => {
+    root.querySelectorAll<HTMLElement>(".title:not([tabindex])").forEach((t) => { t.tabIndex = -1; });
+    const list = document.querySelectorAll<HTMLElement>("#catalog .title");
+    list.forEach((t, i) => { const want = i === 0 ? 1 : -1; if (t.tabIndex !== want) t.tabIndex = want; });
+  };
   titles(document);
   new MutationObserver(() => titles(document)).observe(document.body, { childList: true, subtree: true });
   document.addEventListener("focusin", (e) => {
@@ -195,17 +200,47 @@ export function enableTvNavigation(): void {
 
   // until the first key press, focus belongs to the first title: Android itself may put it on the first
   // control of the page (the language) when the app window gets focus
-  let pressed = false, lastMove = 0;
+  let pressed = false, lastMove = 0, redirectAt = -1e9;
   let lastTitle: HTMLElement | null = null;
   document.addEventListener("focusin", (e) => {
     const el = e.target as HTMLElement;
+    // the page itself or a big box took the focus (Back on a TV): back to the list
+    if (el.matches?.("html, body, main, main > section, #app, #catalog")) { setTimeout(() => (lastTitle?.isConnected && visible(lastTitle) ? lastTitle : startTarget())?.focus({ preventScroll: true }), 0); return; }
     if (el.matches?.("#catalog .title")) lastTitle = el;
-    else if (!pressed && el.closest?.("header, .catbar, #q")) setTimeout(() => focusFirstTitle(), 0);
+    else if (!pressed && el.closest?.("header, .catbar, #q")) {
+      // at once, before the page is drawn again (no frame shows there until the first key press anyway)
+      const first = document.querySelector<HTMLElement>("#catalog .title");
+      redirectAt = performance.now();
+      if (first && visible(first)) first.focus({ preventScroll: true }); else setTimeout(() => focusFirstTitle(), 0);
+    }
   });
   addEventListener("focus", () => { if (!pressed) focusFirstTitle(); });
+  // the focus never stays on nothing (Back, a closed panel, a page drawn again): Android would frame the
+  // whole page then; it goes back to the last control, or to the first title in view
+  let lastControl: HTMLElement | null = null;
+  document.addEventListener("focusin", (e) => {
+    const el = e.target as HTMLElement;
+    if (el.matches?.(`${FOCUSABLE}, #catalog .title`)) lastControl = el;
+  });
+  document.addEventListener("focusout", () => setTimeout(() => {
+    if (!lost()) return;
+    const back = lastControl?.isConnected && visible(lastControl) ? lastControl : startTarget();
+    back?.focus({ preventScroll: true });
+  }, 0));
 
   document.addEventListener("keydown", (e) => {
     pressed = true;
+    // the first press while Android left the focus in the top bar: go to the first title instead
+    if (document.documentElement.classList.contains("tv-start")) {
+      document.documentElement.classList.remove("tv-start");
+      // (or Android moved it there with this very press and it was just sent on to the first title:
+      // the press has done its job, it brought the focus into the page)
+      if (e.key in DIRS && (document.activeElement?.closest("#app > header, .catbar") || performance.now() - redirectAt < 600)) {
+        e.preventDefault();
+        focusFirstTitle();
+        return;
+      }
+    }
     const active = document.activeElement as HTMLElement | null;
     const editing = isText(active) && !active.readOnly;
     // the service picker moves a tile with the arrows itself

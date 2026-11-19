@@ -52,7 +52,15 @@ class ApkUpdaterPlugin(private val activity: Activity) : Plugin(activity) {
     override fun load(webView: WebView) {
         super.load(webView)
         web = webView
-        if (Build.VERSION.SDK_INT >= 26) webView.defaultFocusHighlightEnabled = false
+        if (Build.VERSION.SDK_INT >= 26) {
+            // also on the views holding the WebView: the focus can land on them (Back on a TV)
+            var v: View? = webView
+            while (v != null) {
+                v.defaultFocusHighlightEnabled = false
+                v = v.parent as? View
+            }
+            activity.window.decorView.defaultFocusHighlightEnabled = false
+        }
     }
 
     // Google TV opens no keyboard for a text field focused with the remote: show it for the focused field
@@ -72,11 +80,22 @@ class ApkUpdaterPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun openLink(invoke: Invoke) {
         val args = invoke.parseArgs(OpenLinkArgs::class.java)
-        try {
-            activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(args.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            return invoke.resolve(JSObject().apply { put("opened", "link") })
-        } catch (e: ActivityNotFoundException) {
-            Log.i("ApkUpdater", "no app for ${args.url}")
+        val view = Intent(Intent.ACTION_VIEW, Uri.parse(args.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Android TV answers a web link it has no app for with a stub that only says "you don't have an app
+        // that can do this" (com.google.android.tv.frameworkpackagestubs): such a stub is no app for the link
+        val handlers = activity.packageManager
+            .queryIntentActivities(view, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY or android.content.pm.PackageManager.GET_META_DATA)
+            .filter { r ->
+                val pkg = r.activityInfo.packageName
+                !pkg.contains("frameworkpackagestubs") && r.activityInfo.metaData?.getBoolean("com.android.tv.stub") != true
+            }
+        if (handlers.isNotEmpty()) {
+            try {
+                activity.startActivity(view)
+                return invoke.resolve(JSObject().apply { put("opened", "link") })
+            } catch (e: ActivityNotFoundException) {
+                Log.i("ApkUpdater", "no app for ${args.url}")
+            }
         }
         val norm = { s: String -> s.lowercase().filter { it.isLetterOrDigit() } }
         val want = norm(args.name)
