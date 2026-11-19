@@ -68,6 +68,9 @@ async function start(): Promise<void> {
   await env.db.run("UPDATE sync_runs SET status='error', message=?, finished_at=? WHERE status='running'",
     ["Přerušeno zavřením aplikace", Date.now() / 1000]);
   installFetchShim();
+  // server mode: the catalogue comes from the user's Medialect server, nothing is synchronised here
+  const { loadRemote } = await import("./core/remote");
+  const remote = await loadRemote();
   if ((window as any).__TAURI_INTERNALS__) {
     const { logo } = await import("./logo");
     (window as any).MEDIALECT_LOGO = logo;     // logos of the same size in the catalogue
@@ -81,7 +84,7 @@ async function start(): Promise<void> {
   });
   await loadScript("/static/i18n.js");
   await loadScript("/static/app.js");
-  manager.start();
+  if (!remote) manager.start();
   const { startAutoUpdates } = await import("./updates");
   startAutoUpdates(toast);
   const { isTv, enableTvNavigation } = await import("./tv");

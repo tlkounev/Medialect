@@ -7,6 +7,7 @@ import { listProviders } from "./justwatch";
 import * as ivysilani from "./ivysilani";
 import { manager } from "./sync";
 import { testServer } from "./servers";
+import * as remoteMod from "./remote";
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
@@ -50,6 +51,22 @@ export async function handle(method: string, path: string, q: URLSearchParams, b
     await db.run("DELETE FROM availability WHERE source=?", [`${removed.type}:${id}`]);
     await db.run("DELETE FROM sync_runs WHERE source=?", [`server:${id}`]);
     return { ok: true };
+  }
+  // connecting to a Medialect server (the app's own, never forwarded)
+  switch (route) {
+    case "GET /api/app/connection": {
+      const r = remoteMod.currentRemote();
+      return r ? { mode: "server", url: r.url, public: r.public, role: r.role } : { mode: "standalone" };
+    }
+    case "POST /api/app/connect":
+      try {
+        const r = await remoteMod.connect(String(body?.url || ""), String(body?.password || ""));
+        await db.kvSet("onboarding.pending", false);
+        return { mode: "server", url: r.url, public: r.public, role: r.role };
+      } catch (e) { throw new ApiError(400, (e as Error).message); }
+    case "POST /api/app/disconnect":
+      await remoteMod.disconnect();
+      return { mode: "standalone" };
   }
   switch (route) {
     case "GET /api/auth/state":
@@ -129,6 +146,21 @@ export async function handle(method: string, path: string, q: URLSearchParams, b
   throw new ApiError(404, "V aplikaci není k dispozici.");
 }
 
+/** Server mode: what the app answers itself (undefined = ask the server). */
+async function remoteLocal(method: string, path: string): Promise<unknown> {
+  const route = `${method} ${path}`;
+  if (route === "GET /api/auth/state") {
+    // the app is logged in for the user; the role says what the server allows (null: log in again)
+    const role = await remoteMod.remoteRole();
+    const r = remoteMod.currentRemote()!;
+    return { configured: true, local: true, remote: { url: r.url, offline: role === "offline" },
+      role: role === "offline" ? r.role : role, logged_in: (role === "offline" ? r.role : role) === "admin", version: env.version };
+  }
+  if (route === "GET /api/onboarding") return { pending: false };       // set up on the server
+  if (route === "POST /api/onboarding/done") return { ok: true };
+  return undefined;
+}
+
 /** fetch() replacement for same-origin /api/* calls; everything else goes to the real fetch. */
 export function installFetchShim(): void {
   const realFetch = window.fetch.bind(window);
@@ -138,6 +170,12 @@ export function installFetchShim(): void {
     const method = (init?.method || "GET").toUpperCase();
     let body: unknown = undefined;
     if (typeof init?.body === "string") { try { body = JSON.parse(init.body); } catch { body = init.body; } }
+    // server mode: everything but the app's own things goes to the server
+    if (remoteMod.currentRemote()) {
+      const local = await remoteLocal(method, url.pathname);
+      if (local !== undefined) return new Response(JSON.stringify(local), { status: 200, headers: { "Content-Type": "application/json" } });
+      if (!url.pathname.startsWith("/api/app/") && url.pathname !== "/api/version") return remoteMod.forward(method, url.pathname + url.search, body);
+    }
     try {
       const data = await handle(method, url.pathname, url.searchParams, body);
       return new Response(JSON.stringify(data ?? null), { status: 200, headers: { "Content-Type": "application/json" } });
