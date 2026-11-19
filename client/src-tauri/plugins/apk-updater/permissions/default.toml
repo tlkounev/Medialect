@@ -1,3 +1,3 @@
 [default]
 description = "Allows keeping a running synchronisation alive in the background"
-permissions = ["allow-background", "allow-sleep", "allow-probe", "allow-local-network"]
+permissions = ["allow-background", "allow-sleep", "allow-probe", "allow-local-network", "allow-show-keyboard", "allow-open-link"]

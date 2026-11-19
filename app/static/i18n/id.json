@@ -92,7 +92,7 @@
 "wiz.providers.h": "Pilih layanan yang Anda akses dan tentukan urutannya dengan menahan dan menyeret ubin (di TV: OK, panah, OK). Layanan lain tidak akan tampil di katalog; ini bisa diubah kapan saja di Pengaturan.",
 "wiz.ratings": "Rating", "wiz.ratings.h": "Sumber rating. Tambahkan sumber lain (TMDB, OMDb, MDBList) di Pengaturan.",
 "set.jw.showAll": "Tampilkan semua layanan di negara ini ({n})",
-"app.noHandler": "Tautan tidak dapat dibuka – aplikasi layanan atau browser tidak ada di perangkat ini.",
+"app.noHandler": "Tautan tidak dapat dibuka – aplikasi layanan atau browser tidak ada di perangkat ini.", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "Mengunduh dan memasang versi {v}…",
 "app.updateFailed": "Pembaruan tidak dapat dipasang: {e}"
 }

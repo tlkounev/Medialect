@@ -97,7 +97,7 @@
 "wiz.ratings": "Notas",
 "wiz.ratings.h": "De dónde vienen las notas. Más fuentes (TMDB, OMDb, MDBList) se añaden en Ajustes.",
 "set.jw.showAll": "Mostrar todos los servicios del país ({n})",
-"app.noHandler": "No se puede abrir el enlace: falta la app del servicio o un navegador en el dispositivo.",
+"app.noHandler": "No se puede abrir el enlace: falta la app del servicio o un navegador en el dispositivo.", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "Descargando e instalando la versión {v}…",
 "app.updateFailed": "No se pudo instalar la actualización: {e}"
 }

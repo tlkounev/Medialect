@@ -205,7 +205,28 @@ function goTo(name) {
   if (currentTab === "catalog") history.pushState({ pushed: true }, "", `#${name}`);
   openTab(name);
 }
-addEventListener("popstate", () => openTab(location.hash.slice(1) || "catalog"));
+// Back (the remote's key, the phone's gesture) first closes an open menu or panel of the catalogue
+// (filters, a drop-down, an offer's details, the language list) instead of leaving the app.
+const layers = [];          // buttons whose menu is open, newest last; each has its own history entry
+let skipPop = 0;
+new MutationObserver((recs) => {
+  for (const { target: btn } of recs) {
+    if (!btn.closest("#tab-catalog, #app > header") || btn.classList.contains("help-btn")) continue;
+    const open = btn.getAttribute("aria-expanded") === "true", i = layers.indexOf(btn);
+    if (open && i < 0) { layers.push(btn); history.pushState({ layer: true }, "", location.hash); }
+    else if (!open && i >= 0) { layers.splice(i, 1); skipPop++; history.back(); }   // closed by hand: drop its entry
+  }
+}).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["aria-expanded"] });
+addEventListener("popstate", () => {
+  if (skipPop) { skipPop--; return; }
+  if (currentTab === "catalog") {
+    while (layers.length) {
+      const btn = layers.pop();
+      if (btn.isConnected && btn.getAttribute("aria-expanded") === "true") { btn.click(); return; }
+    }
+  }
+  openTab(location.hash.slice(1) || "catalog");
+});
 // the gear always opens the settings page (also from Updates or Synchronisation)
 $("#openSettings").addEventListener("click", () => {
   adminSub = "settings";
@@ -277,8 +298,10 @@ function renderOffer(o) {
   const head = `<span class="prov">${logo}${!o.icon ? `<span class="name">${esc(o.provider_name)}</span>` : ""}</span>
     <span class="tags">${tags.join("")}</span>`;
   // the box starts playback in the service's app; the caret only opens the details
+  // the app to open when the link itself cannot be opened (a TV): the service, or Emby / Jellyfin / Plex
+  const app = lib ? ({ emby: "Emby", jellyfin: "Jellyfin", plex: "Plex" })[String(o.provider || "").split("-")[0]] || "" : o.provider_name;
   const main = o.url
-    ? `<a class="offer-main" href="${esc(o.url)}" target="_blank" rel="noopener" title="${esc(`${t("offer.play")} – ${o.provider_name}`)}">${head}</a>`
+    ? `<a class="offer-main" href="${esc(o.url)}" data-app="${esc(app || "")}" target="_blank" rel="noopener" title="${esc(`${t("offer.play")} – ${o.provider_name}`)}">${head}</a>`
     : `<div class="offer-main">${head}</div>`;
   const more = rows.length ? `<button type="button" class="more" aria-expanded="false" title="${esc(t("offer.details"))}" aria-label="${esc(t("offer.details"))}">${CARET}</button>` : "";
   return `<div class="offer ${o.kind}${o.url ? " link" : ""}">${main}${more}${rows.length ? `<div class="langs hidden">${rows.join("")}</div>` : ""}</div>`;

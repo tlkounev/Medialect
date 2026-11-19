@@ -97,7 +97,7 @@
 "wiz.ratings": "Értékelések",
 "wiz.ratings.h": "Honnan jöjjenek az értékelések. További források (TMDB, OMDb, MDBList) a Beállításokban adhatók hozzá.",
 "set.jw.showAll": "Az ország összes szolgáltatása ({n})",
-"app.noHandler": "A link nem nyitható meg – hiányzik a szolgáltatás alkalmazása vagy a böngésző.",
+"app.noHandler": "A link nem nyitható meg – hiányzik a szolgáltatás alkalmazása vagy a böngésző.", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "A(z) {v} verzió letöltése és telepítése…",
 "app.updateFailed": "A frissítést nem sikerült telepíteni: {e}"
 }

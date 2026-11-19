@@ -130,8 +130,10 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 .server { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #11141a; }
 .server.unsaved { border-style: dashed; }
 .server-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 12px; }
-.server-fields label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
-.server-fields label.chk { display: inline-flex; align-self: end; font-size: 14px; color: var(--text); }
+/* fields line up at the top of their row; a help text under one field does not push the others down */
+.server-fields { align-items: start; }
+.server-fields label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); align-content: start; }
+.server-fields label.chk { display: inline-flex; align-items: center; min-height: 38px; margin-top: 20px; font-size: 14px; color: var(--text); }
 .server-fields input, .server-fields select { width: 100%; }
 .server-fields input[type="checkbox"] { width: auto; }
 .server-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

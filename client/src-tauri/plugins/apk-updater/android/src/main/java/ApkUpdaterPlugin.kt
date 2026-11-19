@@ -1,7 +1,10 @@
 package com.plugin.apk_updater
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
+import android.view.inputmethod.InputMethodManager
 import android.os.Build
 import android.util.Log
 import android.view.View
@@ -29,6 +32,12 @@ class BackgroundArgs {
 }
 
 @InvokeArg
+class OpenLinkArgs {
+    var url: String = ""
+    var name: String = ""
+}
+
+@InvokeArg
 class LocalNetworkArgs {
     var ask: Boolean = true
 }
@@ -38,9 +47,58 @@ class LocalNetworkArgs {
 )
 class ApkUpdaterPlugin(private val activity: Activity) : Plugin(activity) {
     // Google TV: when nothing in the page has focus, Android framed the whole WebView as the focused view
+    private var web: WebView? = null
+
     override fun load(webView: WebView) {
         super.load(webView)
+        web = webView
         if (Build.VERSION.SDK_INT >= 26) webView.defaultFocusHighlightEnabled = false
+    }
+
+    // Google TV opens no keyboard for a text field focused with the remote: show it for the focused field
+    @Command
+    fun showKeyboard(invoke: Invoke) {
+        val view = web ?: return invoke.reject("no WebView")
+        view.postDelayed({
+            view.requestFocus()
+            WindowCompat.getInsetsController(activity.window, view).show(WindowInsetsCompat.Type.ime())
+            activity.getSystemService(InputMethodManager::class.java)?.showSoftInput(view, 0)
+        }, 120)
+        invoke.resolve()
+    }
+
+    // A streaming link: the service's app (or the browser) opens it. A TV has no browser and some TV apps take
+    // no links (Emby, Oneplay, Prima+): then the service's app is opened, found among the installed apps by name.
+    @Command
+    fun openLink(invoke: Invoke) {
+        val args = invoke.parseArgs(OpenLinkArgs::class.java)
+        try {
+            activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(args.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return invoke.resolve(JSObject().apply { put("opened", "link") })
+        } catch (e: ActivityNotFoundException) {
+            Log.i("ApkUpdater", "no app for ${args.url}")
+        }
+        val norm = { s: String -> s.lowercase().filter { it.isLetterOrDigit() } }
+        val want = norm(args.name)
+        if (want.length >= 2) {
+            val pm = activity.packageManager
+            for (category in listOf("android.intent.category.LEANBACK_LAUNCHER", Intent.CATEGORY_LAUNCHER)) {
+                val apps = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(category), 0)
+                    .filter { it.activityInfo.packageName != activity.packageName }
+                val label = { r: android.content.pm.ResolveInfo -> norm(r.loadLabel(pm).toString()) }
+                val hit = apps.firstOrNull { label(it) == want }
+                    ?: apps.firstOrNull { val l = label(it); l.length >= 3 && (l.startsWith(want) || want.startsWith(l)) }
+                if (hit != null) {
+                    activity.startActivity(Intent(Intent.ACTION_MAIN).addCategory(category)
+                        .setClassName(hit.activityInfo.packageName, hit.activityInfo.name)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    return invoke.resolve(JSObject().apply {
+                        put("opened", "app"); put("app", hit.loadLabel(pm).toString())
+                    })
+                }
+            }
+        }
+        invoke.resolve(JSObject().apply { put("opened", "none") })
     }
 
     init {

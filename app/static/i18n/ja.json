@@ -92,7 +92,7 @@
 "wiz.providers.h": "利用できるサービスを選び、タイルを長押ししてドラッグして順番を決めてください（TV：OK、矢印、OK）。それ以外はカタログに表示されません。設定でいつでも変更できます。",
 "wiz.ratings": "評価", "wiz.ratings.h": "評価の取得元。その他のソース（TMDB、OMDb、MDBList）は設定で追加できます。",
 "set.jw.showAll": "この国のすべてのサービスを表示（{n}）",
-"app.noHandler": "リンクを開けません – この端末にサービスのアプリかブラウザがありません。",
+"app.noHandler": "リンクを開けません – この端末にサービスのアプリかブラウザがありません。", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "バージョン {v} をダウンロードしてインストールしています…",
 "app.updateFailed": "アップデートをインストールできませんでした：{e}"
 }

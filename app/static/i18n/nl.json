@@ -97,7 +97,7 @@
 "wiz.ratings": "Scores",
 "wiz.ratings.h": "Waar de scores vandaan komen. Meer bronnen (TMDB, OMDb, MDBList) voeg je toe in Instellingen.",
 "set.jw.showAll": "Alle diensten in het land tonen ({n})",
-"app.noHandler": "De link kan niet worden geopend – de app van de dienst of een browser ontbreekt.",
+"app.noHandler": "De link kan niet worden geopend – de app van de dienst of een browser ontbreekt.", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "Versie {v} wordt gedownload en geïnstalleerd…",
 "app.updateFailed": "De update kon niet worden geïnstalleerd: {e}"
 }

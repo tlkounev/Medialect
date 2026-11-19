@@ -92,7 +92,7 @@
 "wiz.providers.h": "이용 가능한 서비스를 선택하고 타일을 길게 눌러 끌어서 순서를 정하세요(TV: OK, 화살표, OK). 나머지는 카탈로그에 표시되지 않으며, 설정에서 언제든지 변경할 수 있습니다.",
 "wiz.ratings": "평점", "wiz.ratings.h": "평점 출처입니다. 다른 소스(TMDB, OMDb, MDBList)는 설정에서 추가할 수 있습니다.",
 "set.jw.showAll": "이 국가의 모든 서비스 보기({n})",
-"app.noHandler": "링크를 열 수 없습니다 – 기기에 서비스 앱이나 브라우저가 없습니다.",
+"app.noHandler": "링크를 열 수 없습니다 – 기기에 서비스 앱이나 브라우저가 없습니다.", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "버전 {v}을(를) 다운로드하고 설치하는 중…",
 "app.updateFailed": "업데이트를 설치할 수 없습니다: {e}"
 }

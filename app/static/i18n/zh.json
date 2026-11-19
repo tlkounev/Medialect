@@ -92,7 +92,7 @@
 "wiz.providers.h": "选择你可以使用的服务，长按并拖动图块确定顺序（电视上：OK、方向键、OK）。其他服务不会显示在目录中；可随时在设置中更改。",
 "wiz.ratings": "评分", "wiz.ratings.h": "评分来源。可在设置中添加更多来源（TMDB、OMDb、MDBList）。",
 "set.jw.showAll": "显示该国家/地区的所有服务（{n}）",
-"app.noHandler": "无法打开链接 – 设备上没有该服务的应用或浏览器。",
+"app.noHandler": "无法打开链接 – 设备上没有该服务的应用或浏览器。", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "正在下载并安装版本 {v}…",
 "app.updateFailed": "无法安装更新：{e}"
 }

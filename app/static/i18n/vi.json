@@ -92,7 +92,7 @@
 "wiz.providers.h": "Chọn các dịch vụ bạn có quyền truy cập và đặt thứ tự bằng cách giữ và kéo một ô (trên TV: OK, phím mũi tên, OK). Các dịch vụ khác sẽ không hiện trong danh mục; bạn có thể thay đổi bất cứ lúc nào trong Cài đặt.",
 "wiz.ratings": "Điểm đánh giá", "wiz.ratings.h": "Nguồn điểm đánh giá. Thêm nguồn khác (TMDB, OMDb, MDBList) trong Cài đặt.",
 "set.jw.showAll": "Hiện mọi dịch vụ trong quốc gia ({n})",
-"app.noHandler": "Không mở được liên kết – thiết bị không có ứng dụng của dịch vụ hoặc trình duyệt.",
+"app.noHandler": "Không mở được liên kết – thiết bị không có ứng dụng của dịch vụ hoặc trình duyệt.", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "Đang tải và cài phiên bản {v}…",
 "app.updateFailed": "Không thể cài bản cập nhật: {e}"
 }

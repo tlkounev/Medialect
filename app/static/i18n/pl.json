@@ -97,7 +97,7 @@
 "wiz.ratings": "Oceny",
 "wiz.ratings.h": "Skąd brać oceny. Kolejne źródła (TMDB, OMDb, MDBList) dodasz w Ustawieniach.",
 "set.jw.showAll": "Pokaż wszystkie serwisy w kraju ({n})",
-"app.noHandler": "Nie można otworzyć linku – na urządzeniu brakuje aplikacji serwisu lub przeglądarki.",
+"app.noHandler": "Nie można otworzyć linku – na urządzeniu brakuje aplikacji serwisu lub przeglądarki.", "app.openedApp": "Opened the {app} app – find the title there, this app takes no links.",
 "app.updating": "Pobieranie i instalowanie wersji {v}…",
 "app.updateFailed": "Nie udało się zainstalować aktualizacji: {e}"
 }
