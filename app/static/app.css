@@ -251,7 +251,9 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 /* logged in with the connection password: the catalogue only */
 body:not(.local).viewer #openSettings, .viewer #syncBadge { display: none !important; }
 /* the app connected to a server with the connection password: only Updates and Connection */
-.local.viewer .subnav [data-sub="settings"], .local.viewer .subnav [data-sub="sync"] { display: none !important; }
+.local.viewer .subnav [data-sub="sync"] { display: none !important; }
+/* ... and of the settings only the connection to the server */
+.local.viewer #sub-settings > :not(.conn-box) { display: none !important; }
 .conn-form { display: grid; gap: 10px; max-width: 520px; }
 .wiz-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 8px 0 12px; }
 .wiz-modes button { display: grid; gap: 4px; text-align: start; padding: 14px; height: auto; }
