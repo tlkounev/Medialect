@@ -255,6 +255,21 @@ describe("app core", () => {
     expect(cat.items.map((i: any) => i.title)).toEqual(["Nový film", "Matrix"]);   // Matrix counts from 2021
   });
 
+  it("two films of the same name: other IMDb ids keep them apart, a wrongly joined catalogue entry leaves", async () => {
+    const st = await import("../src/core/store");
+    const lib = await st.upsertTitle({ type: "movie", title: "Odyssea X", year: 2026, library: true,
+      ids: { imdb: "tt9990001", tmdb_movie: "9001", tvdb: "77", csfd: "123" } });
+    await st.upsertOffer(lib, { source: "emby:x", provider: "emby-x", provider_name: "Emby", kind: "library", monetization: "library" }, 1);
+    const other = await st.upsertTitle({ type: "movie", title: "Odyssea X", year: 2026, ids: { imdb: "tt9990002", tmdb_movie: "9002", jw: "tm999" } });
+    expect(other).not.toBe(lib);
+    // the old state: the catalogue entry joined to the library film, with a rating it brought
+    await env.db.run("UPDATE title_ids SET title_id=? WHERE kind='jw' AND value='tm999'", [lib]);
+    await env.db.run("INSERT OR REPLACE INTO ratings(title_id, source, value, display, updated_at) VALUES(?, 'tmdb', 10, '1.0', 0)", [lib]);
+    const again = await st.upsertTitle({ type: "movie", title: "Odyssea X", year: 2026, ids: { imdb: "tt9990002", tmdb_movie: "9002", jw: "tm999" } });
+    expect(again).not.toBe(lib);
+    expect((await env.db.all("SELECT source FROM ratings WHERE title_id=?", [lib])).map((r) => r.source)).not.toContain("tmdb");
+  });
+
   it("service order includes own servers: offers and the ČSFD queue follow it", async () => {
     const st = await import("../src/core/store");
     const q = await import("../src/core/queries");

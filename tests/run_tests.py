@@ -160,6 +160,29 @@ def main():
         assert "dateCreated" in req["query"]
         jwsrc._collect_dates({"data": {"x": [{"__typename": "Offer", "id": "o1", "dateCreated": "2026-11-02T10:00:00Z"}]}})
         assert jwsrc._OFFER_DATES.pop("o1") == "2026-11-02T10:00:00"
+        # two films of the same name and year: a library film and a catalogue film with other IMDb ids stay apart;
+        # a catalogue entry that was joined to the library film earlier leaves it (with the ratings it brought)
+        from app import store as st_mod
+        from app.db import db
+
+        async def odyssea():
+            lib = await st_mod.upsert_title(st_mod.TitleInfo("movie", "Odyssea X", year=2026, library=True,
+                                            ids={"imdb": "tt9990001", "tmdb_movie": "9001", "tvdb": "77", "csfd": "123"}))
+            await st_mod.upsert_offer(lib, st_mod.Offer(source="emby:x", provider="emby-x", provider_name="Emby", kind="library",
+                                                         monetization="library"), time.time())
+            other = await st_mod.upsert_title(st_mod.TitleInfo("movie", "Odyssea X", year=2026,
+                                              ids={"imdb": "tt9990002", "tmdb_movie": "9002", "jw": "tm999"}))
+            # the old state: the catalogue entry joined to the library film
+            await db.execute("DELETE FROM title_ids WHERE kind='jw' AND value='tm999'")
+            await db.execute("INSERT INTO title_ids(kind, value, title_id) VALUES('jw','tm999',?)", (lib,))
+            await db.execute("INSERT OR REPLACE INTO ratings(title_id, source, value, display, updated_at) VALUES(?, 'tmdb', 10, '1.0', 0)", (lib,))
+            again = await st_mod.upsert_title(st_mod.TitleInfo("movie", "Odyssea X", year=2026,
+                                              ids={"imdb": "tt9990002", "tmdb_movie": "9002", "jw": "tm999"}))
+            rows = await db.fetchall("SELECT source FROM ratings WHERE title_id=?", (lib,))
+            return lib, other, again, [r["source"] for r in rows]
+        lib, other, again, left = client.portal.call(odyssea)   # in the app's own event loop (its database)
+        assert other != lib and again != lib and "tmdb" not in left, (lib, other, again, left)
+
         # ČSFD: a revival of a long-running series is found under the original series, if its years reach it
         import httpx
 
@@ -576,6 +599,9 @@ def main():
         assert client.post("/api/sync", headers=bearer).status_code == 403
         assert client.get("/api/auth/state", headers=bearer).json()["role"] == "viewer"
         assert client.get("/api/settings", headers={"Authorization": f"Bearer {admin}"}).status_code == 200
+        # logos for the web's evening-out: only the logo hosts, never an arbitrary address
+        for bad in ("http://169.254.169.254/x", "https://example.com/x.png", "http://images.justwatch.com/x.png"):
+            assert client.get("/api/logo", params={"url": bad}, headers={"Authorization": f"Bearer {admin}"}).status_code == 400, bad
         # a new connection password ends the sessions of the old one; removing it too
         assert client.post("/api/auth/viewer", json={"password": "jinedivame1"}, headers={"Authorization": f"Bearer {admin}"}).status_code == 200
         assert client.get("/api/catalog", headers=bearer).status_code == 401

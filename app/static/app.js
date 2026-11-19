@@ -265,6 +265,67 @@ $$(".subnav [data-back]").forEach((b) => b.addEventListener("click", () => goTo(
 $$(".subnav button[data-sub]").forEach((b) => b.addEventListener("click", () => openSub(b.dataset.sub)));
 
 /* ---------- rendering ---------- */
+/* Service logos the same visual size (the web; the app has its own, which keeps them in its database).
+   The icons come with different empty margins: the logo is cut out of its background and drawn again,
+   centred, on a tile of the same background colour, filling the same share of the tile. */
+if (!window.MEDIALECT_LOGO && !window.MEDIALECT_LOCAL) {
+  const TILE = 96, FILL = 0.74, TOL = 48, memo = new Map();
+  const analyse = (d, w, h) => {
+    const counts = new Map();
+    let transparent = 0, edge = 0;
+    const visit = (x, y) => {
+      const i = (y * w + x) * 4; edge++;
+      if (d[i + 3] < 128) { transparent++; return; }
+      const key = `${d[i] >> 4},${d[i + 1] >> 4},${d[i + 2] >> 4}`;
+      const e = counts.get(key); if (e) e[0]++; else counts.set(key, [1, [d[i], d[i + 1], d[i + 2]]]);
+    };
+    for (let x = 0; x < w; x++) { visit(x, 0); visit(x, h - 1); }
+    for (let y = 1; y < h - 1; y++) { visit(0, y); visit(w - 1, y); }
+    let best = null;
+    for (const e of counts.values()) if (!best || e[0] > best[0]) best = e;
+    const clear = transparent > edge / 2 || !best;
+    const bg = clear ? [0, 0, 0, 0] : [...best[1], 255];
+    const far = (i) => Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]) > TOL;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (d[i + 3] >= 128 && (clear || far(i))) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    return { bg, box: x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 } };
+  };
+  const render = async (url) => {
+    // same origin, or through the server (a canvas cannot read another site's picture)
+    const src = url.startsWith("/") ? url : `/api/logo?url=${encodeURIComponent(url)}`;
+    const r = await fetch(src, { credentials: "same-origin" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const bmp = await createImageBitmap(await r.blob());
+    const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+    const cx = c.getContext("2d", { willReadFrequently: true }); cx.drawImage(bmp, 0, 0);
+    const { bg, box } = analyse(cx.getImageData(0, 0, bmp.width, bmp.height).data, bmp.width, bmp.height);
+    const out = document.createElement("canvas"); out.width = out.height = TILE;
+    const ctx = out.getContext("2d"); ctx.imageSmoothingQuality = "high";
+    if (bg[3]) { ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`; ctx.fillRect(0, 0, TILE, TILE); }
+    const b = box || { x: 0, y: 0, w: bmp.width, h: bmp.height };
+    const scale = (TILE * FILL) / Math.max(b.w, b.h), w = b.w * scale, h = b.h * scale;
+    ctx.drawImage(bmp, b.x, b.y, b.w, b.h, (TILE - w) / 2, (TILE - h) / 2, w, h);
+    return out.toDataURL("image/png");
+  };
+  window.MEDIALECT_LOGO = (url) => {
+    let p = memo.get(url);
+    if (!p) {
+      const key = `medialect.logo1:${url}`;
+      p = (async () => {
+        try { const c = localStorage.getItem(key); if (c) return c; } catch (_) { /* private mode */ }
+        const made = await render(url);
+        try { localStorage.setItem(key, made); } catch (_) { /* full */ }
+        return made;
+      })();
+      p.catch(() => memo.delete(url));
+      memo.set(url, p);
+    }
+    return p;
+  };
+}
 function fillLogos(root) {
   if (!window.MEDIALECT_LOGO) return;
   for (const img of $$("img[data-logo]:not([src])", root)) {
@@ -381,12 +442,27 @@ function renderRating(r) {
 }
 /* Emby/Jellyfin may fail to scale a picture the user picked by hand: ask once more for it unscaled
    (still resized for the screen by the WebView), then show the empty field */
+const SIZE_PARAM = /[?&](maxHeight|maxWidth|fillHeight|fillWidth)=/;
+const withoutSize = (u) => u.replace(/([?&])(maxHeight|maxWidth|fillHeight|fillWidth)=\d+&?/g, "$1").replace(/[?&]$/, "");
 function posterFailed(img) {
   const src = img.getAttribute("src") || "";
-  if (!img.dataset.retry && /\/Images\/Primary/.test(src) && /[?&](maxHeight|maxWidth|fillHeight|fillWidth)=/.test(src)) {
-    img.dataset.retry = "1";
-    img.src = src.replace(/([?&])(maxHeight|maxWidth|fillHeight|fillWidth)=\d+&?/g, "$1").replace(/[?&]$/, "");
-    return;
+  if (!img.dataset.retry) {
+    // Emby does not resize a picture the user chose by hand: ask for it whole
+    if (/\/Images\/Primary/.test(src) && SIZE_PARAM.test(src)) {
+      img.dataset.retry = "1";
+      img.src = withoutSize(src);
+      return;
+    }
+    // the same through the server's poster proxy (Docker, or the app connected to it): the size is in ?path=
+    try {
+      const u = new URL(src, location.href), path = u.searchParams.get("path") || "";
+      if (u.pathname.startsWith("/api/poster/") && /\/Images\/Primary/.test(path) && SIZE_PARAM.test(path)) {
+        img.dataset.retry = "1";
+        u.searchParams.set("path", withoutSize(path));
+        img.src = u.href;
+        return;
+      }
+    } catch (_) { /* not a URL */ }
   }
   img.replaceWith(Object.assign(document.createElement("div"), { className: "noimg" }));
 }

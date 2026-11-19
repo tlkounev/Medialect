@@ -53,15 +53,16 @@ const OWN_KINDS = ["jw", "sa", "ct"];
 const STRONG_KINDS = ["imdb", "tmdb_movie", "tmdb_tv", "tvdb"];
 const yearsClash = (a?: number | null, b?: number | null) => !!(a && b && Math.abs(a - b) > 2);
 
-/** Would merging these ids into the title give it two different values of one strong kind? */
-async function conflicts(tid: number, ids: Record<string, string>): Promise<boolean> {
+/** The strong kinds in which merging these ids into the title would give it two different values. */
+async function conflictKinds(tid: number, ids: Record<string, string>): Promise<string[]> {
   const existing = new Map<string, Set<string>>();
   for (const r of await env.db.all("SELECT kind, value FROM title_ids WHERE title_id=?", [tid])) {
     if (!existing.has(r.kind)) existing.set(r.kind, new Set());
     existing.get(r.kind)!.add(r.value);
   }
-  return Object.entries(ids).some(([k, v]) => STRONG_KINDS.includes(k) && existing.has(k) && !existing.get(k)!.has(v));
+  return Object.entries(ids).filter(([k, v]) => STRONG_KINDS.includes(k) && existing.has(k) && !existing.get(k)!.has(v)).map(([k]) => k);
 }
+const conflicts = async (tid: number, ids: Record<string, string>) => (await conflictKinds(tid, ids)).length > 0;
 
 async function findTitle(info: TitleInfo, ids: Record<string, string>): Promise<number | null> {
   const db = env.db;
@@ -69,7 +70,14 @@ async function findTitle(info: TitleInfo, ids: Record<string, string>): Promise<
   for (const [kind, value] of Object.entries(ids).sort(([a], [b]) => Number(!OWN_KINDS.includes(a)) - Number(!OWN_KINDS.includes(b)))) {
     const row = await db.get("SELECT i.title_id, t.year FROM title_ids i JOIN titles t ON t.id=i.title_id WHERE i.kind=? AND i.value=?", [kind, value]);
     if (!row) continue;
-    if (OWN_KINDS.includes(kind)) return row.title_id;
+    if (OWN_KINDS.includes(kind)) {
+      // a catalogue entry joined to a title of another work (different IMDb id, e.g. a library film of
+      // the same name merged by name earlier): it leaves that title, with the ratings it brought
+      if (!(await conflictKinds(row.title_id, ids)).includes("imdb")) return row.title_id;
+      await db.run("DELETE FROM title_ids WHERE kind=? AND value=?", [kind, value]);
+      await db.run("DELETE FROM ratings WHERE title_id=? AND source!='csfd'", [row.title_id]);
+      continue;
+    }
     // one shared id is not enough when the rest disagrees: two works of the same name must stay apart
     if (!yearsClash(row.year, info.year) && !(await conflicts(row.title_id, ids))) return row.title_id;
   }
@@ -83,7 +91,12 @@ async function findTitle(info: TitleInfo, ids: Record<string, string>): Promise<
   for (const { id } of cands) if (!(await conflicts(id, ids))) return id;
   // 3) the user's own library and a streaming catalogue often disagree in one id (e.g. TMDB) for the same
   // series: the same name, type and year (±1) on one library and one catalogue title is the same work
-  for (const { id } of cands) if ((await hasLibrary(id)) !== !!info.library) return id;
+  // (only one id may disagree, and never the IMDb id: that one tells two films of the same name apart)
+  for (const { id } of cands) {
+    if ((await hasLibrary(id)) === !!info.library) continue;
+    const clash = await conflictKinds(id, ids);
+    if (clash.length <= 1 && !clash.includes("imdb")) return id;
+  }
   return null;
 }
 

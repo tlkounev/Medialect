@@ -186,6 +186,31 @@ async def api_stats():
 _POSTER_PREFIXES = ("/Items/", "/photo/:/transcode")
 
 
+# service logos for the web's logo evening-out (a canvas reads only same-origin pictures): only these hosts
+_LOGO_HOSTS = ("images.justwatch.com", "icons.duckduckgo.com")
+_logo_cache: dict[str, tuple[bytes, str]] = {}
+
+
+@app.get("/api/logo", dependencies=viewers)
+async def api_logo(url: str):
+    host = urlsplit(url).hostname or ""
+    if not url.startswith("https://") or host not in _LOGO_HOSTS:
+        raise HTTPException(400, "Nepovolená adresa.")
+    if url not in _logo_cache:
+        try:
+            async with http_client(timeout=20) as c:
+                r = await c.get(url)
+        except httpx.HTTPError:
+            raise HTTPException(502, "Logo nedostupné.")
+        if r.status_code != 200:
+            raise HTTPException(r.status_code, "Logo nedostupné.")
+        if len(_logo_cache) > 500:
+            _logo_cache.clear()
+        _logo_cache[url] = (r.content, r.headers.get("content-type", "image/png"))
+    body, ctype = _logo_cache[url]
+    return Response(body, media_type=ctype, headers={"Cache-Control": "private, max-age=604800"})
+
+
 @app.get("/api/poster/{server_id}", dependencies=viewers)
 async def api_poster(server_id: str, path: str):
     if not (path.startswith(_POSTER_PREFIXES) or path == "/web/favicon.ico") or ".." in path:
