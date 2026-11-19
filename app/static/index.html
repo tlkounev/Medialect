@@ -131,10 +131,23 @@
           <button data-sub="settings" class="active" data-i18n="sub.settings">Nastavení</button>
           <button data-sub="updates" class="app-only" data-i18n="sub.updates">Aktualizace</button>
           <button data-sub="sync" data-i18n="sub.sync">Synchronizace</button>
-          <button data-sub="connect" class="app-only" data-i18n="sub.connect">Připojení</button>
         </nav>
 
         <div id="sub-settings">
+          <!-- the app: on its own, or showing the catalogue of the user's Medialect server -->
+          <section class="settings-box app-only conn-box">
+            <header class="box-head"><h2 data-i18n="conn.title">Připojení k serveru Medialect</h2></header>
+            <div class="box-body">
+              <p id="connState"></p>
+              <p class="muted section-hint" data-i18n="conn.h"></p>
+              <form id="connForm" class="conn-form">
+                <label class="field"><span data-i18n="conn.url"></span><input id="connUrl" type="url" placeholder="http://192.168.1.10:8080" autocomplete="off" spellcheck="false" autocapitalize="off" required></label>
+                <label class="field"><span data-i18n="conn.pass"></span><input id="connPass" type="password" autocomplete="current-password" required></label>
+                <div class="row"><button type="submit" data-i18n="conn.connect"></button><button type="button" id="connAlone" class="ghost hidden" data-i18n="conn.alone"></button></div>
+              </form>
+              <p id="connMsg" class="muted"></p>
+            </div>
+          </section>
           <!-- catalogue settings: one box, one save button -->
           <section class="settings-box">
             <form id="settingsForm">
@@ -236,23 +249,6 @@
                 <button type="button" id="updInstall" class="hidden"></button>
                 <button type="button" id="updCheck" class="ghost" data-i18n="upd.check"></button>
               </div>
-            </div>
-          </section>
-        </div>
-
-        <!-- app: on its own, or showing the catalogue of the user's Medialect server -->
-        <div id="sub-connect" class="hidden">
-          <section class="settings-box app-only">
-            <header class="box-head"><h2 data-i18n="conn.title">Připojení k serveru Medialect</h2></header>
-            <div class="box-body">
-              <p id="connState"></p>
-              <p class="muted section-hint" data-i18n="conn.h"></p>
-              <form id="connForm" class="conn-form">
-                <label class="field"><span data-i18n="conn.url"></span><input id="connUrl" type="url" placeholder="http://192.168.1.10:8080" autocomplete="off" spellcheck="false" autocapitalize="off" required></label>
-                <label class="field"><span data-i18n="conn.pass"></span><input id="connPass" type="password" autocomplete="current-password" required></label>
-                <div class="row"><button type="submit" data-i18n="conn.connect"></button><button type="button" id="connAlone" class="ghost hidden" data-i18n="conn.alone"></button></div>
-              </form>
-              <p id="connMsg" class="muted"></p>
             </div>
           </section>
         </div>

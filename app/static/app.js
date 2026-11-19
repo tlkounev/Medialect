@@ -168,7 +168,7 @@ function openTab(name) {
   if (name === "catalog") loadFacets().catch(() => {}).then(() => loadCatalog());
   if (name === "admin") {
     if (isAdmin) openAdmin();
-    else if (document.body.classList.contains("local")) openSub("connect");
+    else if (document.body.classList.contains("local")) openSub("settings");
     else $("#authPass").focus();
   }
 }
@@ -213,15 +213,15 @@ function helpToggles(root) {
 }
 helpToggles($("#adminPanel"));
 function openSub(name) {
-  // without the admin role (the app on a server with the connection password) only these two
-  if (!isAdmin && !["connect", "updates"].includes(name)) name = "connect";
+  // without the admin role (the app on a server with the connection password): the connection and updates
+  if (!isAdmin && !["settings", "updates"].includes(name)) name = "settings";
   adminSub = name;
   clearInterval(statusTimer);
   $$(".subnav button[data-sub]").forEach((b) => b.classList.toggle("active", b.dataset.sub === name));
-  for (const sub of ["settings", "updates", "sync", "connect"]) $(`#sub-${sub}`)?.classList.toggle("hidden", name !== sub);
+  for (const sub of ["settings", "updates", "sync"]) $(`#sub-${sub}`)?.classList.toggle("hidden", name !== sub);
   if (name === "sync") { loadStatus(); statusTimer = setInterval(loadStatus, 5000); }
-  if (name === "connect") loadConnection();
-  if (name === "settings") loadSettings();
+  if (name === "settings" && document.body.classList.contains("local")) loadConnection();
+  if (name === "settings" && isAdmin) loadSettings();
 }
 /* Settings get their own history entry, so the system back gesture (Android, browser) returns to the
    catalogue instead of closing the app; going back by a button uses the same entry. */
