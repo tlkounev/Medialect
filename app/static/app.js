@@ -165,7 +165,8 @@ function helpToggles(root) {
     if (el.dataset.help || el.closest(".keep-help")) continue;
     el.dataset.help = "1";
     el.classList.add("help", "hidden");
-    const host = el.closest("label, .field")?.querySelector(":scope > span")
+    const host = (el.dataset.helpFor && root.querySelector(`[data-k="${el.dataset.helpFor}"]`)?.closest("label")?.querySelector(":scope > span"))
+      || el.closest("label, .field")?.querySelector(":scope > span")
       || (el.matches(".section-hint") ? el.closest("fieldset, [data-step]")?.querySelector("legend, h3") : null)
       || el.closest(".settings-box")?.querySelector(".box-head h2")
       || el.previousElementSibling;
