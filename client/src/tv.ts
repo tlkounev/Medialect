@@ -75,8 +75,13 @@ function next(from: Element | null, dx: number, dy: number): HTMLElement | null 
     const b = el.getBoundingClientRect(), r = m.getBoundingClientRect();
     return (dy > 0 ? b.top < r.top : b.bottom > r.bottom) ? el : m;
   });
-  const n = near.getBoundingClientRect(), mid = n.top + n.height / 2;
-  const row = ahead.filter((el) => { const b = el.getBoundingClientRect(); return b.top <= mid && b.bottom >= mid; });
+  // the row: controls whose near edge is level with the nearest one's (a tall title card next to the
+  // search bar is not one row with it, even where the card scrolled under the bar)
+  const n = near.getBoundingClientRect();
+  const row = ahead.filter((el) => {
+    const b = el.getBoundingClientRect(), tol = Math.min(n.height, b.height) / 2;
+    return dy > 0 ? Math.abs(b.top - n.top) <= tol : Math.abs(b.bottom - n.bottom) <= tol;
+  });
   const rtl = document.dir === "rtl";
   const pick = row.reduce((m, el) => {
     const b = el.getBoundingClientRect(), r = m.getBoundingClientRect();
@@ -114,10 +119,6 @@ function unlock(el: HTMLInputElement | HTMLTextAreaElement): void {
   el.blur();
   el.focus();                       // re-focus as an editable field
   el.click();
-  // Google TV does not open the keyboard for a field focused with the remote: ask Android for it
-  if ((window as any).__TAURI_INTERNALS__) {
-    import("@tauri-apps/api/core").then(({ invoke }) => invoke("plugin:apk-updater|show_keyboard")).catch(console.error);
-  }
 }
 
 function focusStart(tries = 25): void {
@@ -133,12 +134,12 @@ function focusFirstTitle(tries = 100): void {
 }
 const lost = () => { const a = document.activeElement; return !a || a === document.body || !visible(a); };
 
-function move(target: HTMLElement, dy: number, instant: boolean): void {
+function move(target: HTMLElement, dy: number): void {
   target.focus({ preventScroll: true });
   if (pinned(target)) return;       // the top bar and the search bar stay where they are, the list does not jump
   // vertical moves keep the target in the middle so headings and the rows around it stay visible;
-  // a held key scrolls at once (a smooth scroll started again on every repeat only shakes)
-  target.scrollIntoView({ block: dy ? "center" : "nearest", inline: "nearest", behavior: instant ? "auto" : "smooth" });
+  // the page jumps at once: a smooth scroll restarted by every press of a held key only shakes on a TV
+  target.scrollIntoView({ block: dy ? "center" : "nearest", inline: "nearest", behavior: "auto" });
 }
 
 export function enableTvNavigation(): void {
@@ -227,14 +228,15 @@ export function enableTvNavigation(): void {
       if (!target && dx > 0 && note && visible(note) && active !== note) target = note;
       if (!target && active === note) target = lastTitle?.isConnected && visible(lastTitle) ? lastTitle : startTarget();
       if (editing) active!.blur();
-      const smooth = !e.repeat;
-      if (target) move(target, dy, !smooth);
-      else if (dy) window.scrollBy({ top: dy * window.innerHeight * 0.6, behavior: smooth ? "smooth" : "auto" });   // reveal headings at the edges
-      if (target && dy < 0 && !pinned(target) && !next(target, 0, -1)) window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+      if (target) move(target, dy);
+      else if (dy && !(active && pinned(active))) window.scrollBy({ top: dy * window.innerHeight * 0.6 });   // reveal headings at the edges
+      if (target && dy < 0 && !pinned(target) && !next(target, 0, -1)) window.scrollTo({ top: 0 });
       return;
     }
     if (e.key === "Enter" && isText(active) && active.readOnly && active.dataset.tvLock) {
       e.preventDefault();
+      // the page's own OK handler must not see this press: the search field closes the keyboard on Enter
+      e.stopImmediatePropagation();
       unlock(active);
       return;
     }
