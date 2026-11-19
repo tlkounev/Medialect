@@ -32,6 +32,13 @@ async function openExternal(url: string, app = ""): Promise<void> {
       // Android hands streaming links to the installed app (Netflix, Disney+, ...); where nothing takes the
       // link (a TV: no browser, TV apps of Emby, Oneplay, Prima+), the service's app itself is opened
       const { invoke } = await import("@tauri-apps/api/core");
+      // Emby's own app (phone and TV) opens an item by emby://items/<server id>/<item id>; the link to the
+      // server's web page would open the browser instead
+      const emby = app === "Emby" && /[?&]id=([^&#]+)&serverId=([^&#]+)/.exec(url);
+      if (emby) {
+        const d = await invoke<{ opened: string }>("plugin:apk-updater|open_link", { url: `emby://items/${emby[2]}/${emby[1]}`, name: "" });
+        if (d.opened === "link") return;
+      }
       const r = await invoke<{ opened: string; app?: string }>("plugin:apk-updater|open_link", { url, name: app });
       if (r.opened === "app") say("app.openedApp", { app: r.app || app }, `${r.app || app}`);
       else if (r.opened === "none") say("app.noHandler", undefined, "No app can open this link.");

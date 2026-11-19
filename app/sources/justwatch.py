@@ -33,6 +33,47 @@ PARALLEL = 3                     # services fetched at the same time
 RETRY_SCALE = 1.0                # tests make the pauses between retries short           # this many unreachable windows in a row: the network is gone, stop
 
 
+# The offers are asked for the date JustWatch recorded them (dateCreated: the day the title came to the
+# service). The library has no such field: its popular query gets it added, and the dates are read from
+# the raw answer by offer id. If JustWatch ever rejects the field, the catalogue is fetched without it.
+_OFFER_DATES: dict[str, str] = {}
+_dates = {"on": True}
+_prepare_popular = jw.prepare_popular_request
+_post = jw._post_to_jw_graphql_api
+
+
+def _prepare_with_dates(*a, **kw):
+    req = _prepare_popular(*a, **kw)
+    if _dates["on"]:
+        req = dict(req, query=req["query"].replace("availableTo\n", "availableTo\n    dateCreated\n", 1))
+    return req
+
+
+def _collect_dates(node) -> None:
+    if isinstance(node, dict):
+        if node.get("__typename") == "Offer" and node.get("id") and node.get("dateCreated"):
+            _OFFER_DATES[node["id"]] = str(node["dateCreated"])[:19]
+        for v in node.values():
+            _collect_dates(v)
+    elif isinstance(node, list):
+        for v in node:
+            _collect_dates(v)
+
+
+def _post_with_dates(request_json: dict) -> dict:
+    res = _post(request_json)
+    errors = res.get("errors") if isinstance(res, dict) else None
+    if errors and "dateCreated" in str(errors) and "dateCreated" in request_json.get("query", ""):
+        _dates["on"] = False                               # a field JustWatch does not know: ask without it
+        res = _post(dict(request_json, query=request_json["query"].replace("    dateCreated\n", "", 1)))
+    _collect_dates(res)
+    return res
+
+
+jw.prepare_popular_request = _prepare_with_dates
+jw._post_to_jw_graphql_api = _post_with_dates
+
+
 def _windows() -> list[tuple[int, int]]:
     """Newest first: the titles people look for arrive first."""
     year = dt.date.today().year
@@ -124,6 +165,7 @@ async def _store_entry(ctx: SyncContext, entry, selected: dict[str, str]) -> Non
             url=o.url,
             extra={"jw_url": entry.url, "icon": pkg.icon},
             expires_on=o.available_to,
+            added_at=_OFFER_DATES.pop(o.id, None),
         ), ctx.started)
     sc = entry.scoring
     if sc and ctx.settings["ratings"].get("justwatch_scores", True):
