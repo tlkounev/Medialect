@@ -39,13 +39,18 @@ def _years_clash(a: int | None, b: int | None) -> bool:
     return bool(a and b and abs(a - b) > YEAR_TOLERANCE)
 
 
-async def _conflicts(conn, tid: int, ids: dict[str, str]) -> bool:
-    """Would merging these ids into the title give it two different values of one strong kind?"""
+async def _conflict_kinds(conn, tid: int, ids: dict[str, str]) -> list[str]:
+    """The strong kinds in which merging these ids into the title would give it two different values."""
     async with conn.execute("SELECT kind, value FROM title_ids WHERE title_id=?", (tid,)) as cur:
         existing: dict[str, set[str]] = {}
         for k, v in await cur.fetchall():
             existing.setdefault(k, set()).add(v)
-    return any(k in existing and v not in existing[k] for k, v in ids.items() if k in STRONG_KINDS)
+    return [k for k, v in ids.items() if k in STRONG_KINDS and k in existing and v not in existing[k]]
+
+
+async def _conflicts(conn, tid: int, ids: dict[str, str]) -> bool:
+    """Would merging these ids into the title give it two different values of one strong kind?"""
+    return bool(await _conflict_kinds(conn, tid, ids))
 
 
 @dataclass
@@ -87,7 +92,13 @@ async def _find_title(conn, info: TitleInfo, ids: dict[str, str]) -> int | None:
         if not row:
             continue
         if kind in OWN_KINDS:
-            return row[0]
+            # a catalogue entry joined to a title of another work (different IMDb id, e.g. a library film of
+            # the same name merged by name earlier): it leaves that title, with the ratings it brought
+            if "imdb" not in await _conflict_kinds(conn, row[0], ids):
+                return row[0]
+            await conn.execute("DELETE FROM title_ids WHERE kind=? AND value=?", (kind, value))
+            await conn.execute("DELETE FROM ratings WHERE title_id=? AND source!='csfd'", (row[0],))
+            continue
         # one shared id is not enough when the rest disagrees: two works of the same name must stay apart
         if not _years_clash(row[1], info.year) and not await _conflicts(conn, row[0], ids):
             return row[0]
@@ -108,8 +119,12 @@ async def _find_title(conn, info: TitleInfo, ids: dict[str, str]) -> int | None:
             return tid
     # 3) the user's own library and a streaming catalogue often disagree in one id (e.g. TMDB) for the same
     # series: the same name, type and year (±1) on one library and one catalogue title is the same work
+    # (only one id may disagree, and never the IMDb id: that one tells two films of the same name apart)
     for tid in candidates:
-        if await _has_library(conn, tid) != info.library:
+        if await _has_library(conn, tid) == info.library:
+            continue
+        clash = await _conflict_kinds(conn, tid, ids)
+        if len(clash) <= 1 and "imdb" not in clash:
             return tid
     return None
 
