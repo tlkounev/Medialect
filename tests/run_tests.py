@@ -154,6 +154,12 @@ def main():
         async def v101(): return "1.0.1"
         async def v102(): return "1.0.2"
         updates._latest_tag, updates._cache["at"] = v101, 0
+        # JustWatch offer dates: the popular query asks for dateCreated and the raw answer's dates are kept by offer id
+        from app.sources import justwatch as jwsrc
+        req = jwsrc._prepare_with_dates("CZ", "cs", 2, True, 0, ["nfx"], None, None, None)
+        assert "dateCreated" in req["query"]
+        jwsrc._collect_dates({"data": {"x": [{"__typename": "Offer", "id": "o1", "dateCreated": "2026-11-02T10:00:00Z"}]}})
+        assert jwsrc._OFFER_DATES.pop("o1") == "2026-11-02T10:00:00"
         # ČSFD: a revival of a long-running series is found under the original series, if its years reach it
         import httpx
 
