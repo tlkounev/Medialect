@@ -248,6 +248,15 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 
 /* desktop/mobile app: parts that only the server has */
 .local .web-only { display: none !important; }
+/* logged in with the connection password: the catalogue only */
+body:not(.local).viewer #openSettings, .viewer #syncBadge { display: none !important; }
+/* the app connected to a server with the connection password: only Updates and Connection */
+.local.viewer .subnav [data-sub="settings"], .local.viewer .subnav [data-sub="sync"] { display: none !important; }
+.conn-form { display: grid; gap: 10px; max-width: 520px; }
+.wiz-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 8px 0 12px; }
+.wiz-modes button { display: grid; gap: 4px; text-align: start; padding: 14px; height: auto; }
+.wiz-modes button small { color: var(--muted); font-weight: 400; font-size: 13px; line-height: 1.35; }
+.wiz-modes button.on { border-color: var(--accent); background: #1b2740; }
 
 /* keyboard / TV remote focus */
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }

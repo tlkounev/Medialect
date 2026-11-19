@@ -87,6 +87,18 @@
       <section id="wizard" class="settings-box wizard hidden">
         <header class="box-head"><h2 data-i18n="wiz.title">Medialect</h2><p class="muted" id="wizStep"></p></header>
         <div class="wiz-body">
+          <div data-step="0" class="app-only">
+            <p class="section-hint" data-i18n="wiz.mode.h"></p>
+            <div class="wiz-modes">
+              <button type="button" id="wizAlone" class="ghost"><b data-i18n="wiz.mode.alone"></b><small data-i18n="wiz.mode.alone.h"></small></button>
+              <button type="button" id="wizServer" class="ghost"><b data-i18n="wiz.mode.server"></b><small data-i18n="wiz.mode.server.h"></small></button>
+            </div>
+            <form id="wizConnForm" class="conn-form hidden">
+              <label class="field"><span data-i18n="conn.url"></span><input id="wizConnUrl" type="url" placeholder="http://192.168.1.10:8080" autocomplete="off" spellcheck="false" autocapitalize="off" required></label>
+              <label class="field"><span data-i18n="conn.pass"></span><input id="wizConnPass" type="password" autocomplete="current-password" required></label>
+              <div class="row"><button type="submit" data-i18n="conn.connect"></button></div>
+            </form>
+          </div>
           <div data-step="1">
             <p class="section-hint" data-i18n="wiz.country.h"></p>
             <label class="field"><span data-i18n="set.country"></span><select id="wizCountry"></select></label>
@@ -119,6 +131,7 @@
           <button data-sub="settings" class="active" data-i18n="sub.settings">Nastavení</button>
           <button data-sub="updates" class="app-only" data-i18n="sub.updates">Aktualizace</button>
           <button data-sub="sync" data-i18n="sub.sync">Synchronizace</button>
+          <button data-sub="connect" class="app-only" data-i18n="sub.connect">Připojení</button>
         </nav>
 
         <div id="sub-settings">
@@ -181,6 +194,19 @@
           <!-- access: unrelated to the catalogue settings -->
           <section class="settings-box web-only">
             <header class="box-head"><h2 data-i18n="acc.title">Přístup a zabezpečení</h2></header>
+            <fieldset><legend data-i18n="acc.connect">Připojení aplikace Medialect</legend>
+              <p class="muted section-hint" data-i18n="acc.connect.h"></p>
+              <form id="publicForm" class="row">
+                <label class="field"><span data-i18n="acc.publicUrl"></span><input id="publicUrl" type="url" placeholder="https://medialect.mojedomena.cz" autocomplete="off" spellcheck="false"><small data-i18n="acc.publicUrl.h"></small></label>
+                <button type="submit" class="ghost" data-i18n="set.save"></button><span id="publicMsg" class="muted"></span>
+              </form>
+              <form id="viewerForm" class="row">
+                <label class="field"><span data-i18n="acc.viewer"></span><input id="viewerPass" type="password" minlength="8" required autocomplete="new-password" data-i18n-ph="acc.pwNew"><small data-i18n="acc.viewer.h"></small></label>
+                <button type="submit" class="ghost" data-i18n="acc.viewerSetBtn"></button>
+                <button type="button" id="viewerRemove" class="ghost danger hidden" data-i18n="acc.viewerRemove"></button>
+                <span id="viewerState" class="muted"></span><span id="viewerMsg" class="muted"></span>
+              </form>
+            </fieldset>
             <fieldset><legend data-i18n="acc.api">API</legend>
               <p class="muted section-hint" data-i18n="acc.api.h"></p>
               <div class="row"><code id="apiToken">••••</code><button type="button" id="showToken" class="ghost" data-i18n="acc.show"></button><button type="button" id="regenToken" class="ghost" data-i18n="acc.regen"></button></div>
@@ -210,6 +236,23 @@
                 <button type="button" id="updInstall" class="hidden"></button>
                 <button type="button" id="updCheck" class="ghost" data-i18n="upd.check"></button>
               </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- app: on its own, or showing the catalogue of the user's Medialect server -->
+        <div id="sub-connect" class="hidden">
+          <section class="settings-box app-only">
+            <header class="box-head"><h2 data-i18n="conn.title">Připojení k serveru Medialect</h2></header>
+            <div class="box-body">
+              <p id="connState"></p>
+              <p class="muted section-hint" data-i18n="conn.h"></p>
+              <form id="connForm" class="conn-form">
+                <label class="field"><span data-i18n="conn.url"></span><input id="connUrl" type="url" placeholder="http://192.168.1.10:8080" autocomplete="off" spellcheck="false" autocapitalize="off" required></label>
+                <label class="field"><span data-i18n="conn.pass"></span><input id="connPass" type="password" autocomplete="current-password" required></label>
+                <div class="row"><button type="submit" data-i18n="conn.connect"></button><button type="button" id="connAlone" class="ghost hidden" data-i18n="conn.alone"></button></div>
+              </form>
+              <p id="connMsg" class="muted"></p>
             </div>
           </section>
         </div>

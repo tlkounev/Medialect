@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from urllib.parse import urlsplit
 import time
 import httpx
 from contextlib import asynccontextmanager
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Medialect", version=VERSION, lifespan=lifespan)
 authed = [Depends(auth.require_auth)]
+viewers = [Depends(auth.require_view)]     # the catalogue: admin or connection password
 
 
 # --- auth -----------------------------------------------------------------
@@ -44,12 +46,10 @@ def _set_cookie(resp: Response, value: str) -> None:
 
 @app.get("/api/auth/state")
 async def auth_state(request: Request):
-    logged = True
-    try:
-        await auth.require_auth(request)
-    except HTTPException:
-        logged = False
-    return {"configured": await auth.is_configured(), "logged_in": logged, "version": VERSION}
+    role = await auth.role_of(request)
+    s = await settings_mod.load()
+    return {"configured": await auth.is_configured(), "logged_in": role == "admin", "role": role,
+            "version": VERSION, "public_url": s.get("public_url", "")}
 
 
 @app.post("/api/auth/setup")
@@ -76,10 +76,13 @@ async def onboarding_done():
 
 @app.post("/api/auth/login")
 async def auth_login(response: Response, password: str = Body(..., embed=True)):
-    if not await auth.check_password(password):
+    role = await auth.login_role(password)
+    if not role:
         raise HTTPException(401, "Špatné heslo.")
-    _set_cookie(response, await auth.make_session())
-    return {"ok": True}
+    session = await auth.make_session(role)
+    _set_cookie(response, session)
+    # the app connected to this server keeps the session and sends it as a Bearer header
+    return {"ok": True, "role": role, "session": session}
 
 
 @app.post("/api/auth/logout")
@@ -96,6 +99,18 @@ async def auth_password(old: str = Body(...), new: str = Body(...)):
     return {"ok": True}
 
 
+@app.get("/api/auth/viewer", dependencies=authed)
+async def viewer_state():
+    return {"set": await auth.has_viewer_password()}
+
+
+@app.post("/api/auth/viewer", dependencies=authed)
+async def viewer_set(password: str | None = Body(None, embed=True)):
+    """The connection password (catalogue only); empty removes it."""
+    await auth.set_viewer_password(password or None)
+    return {"set": await auth.has_viewer_password()}
+
+
 @app.get("/api/auth/token", dependencies=authed)
 async def get_token():
     return {"token": await auth.api_token()}
@@ -106,22 +121,26 @@ async def regen_token():
     return {"token": await auth.api_token(regenerate=True)}
 
 
-# --- public catalogue (no login) ----------------------------------------------
+# --- catalogue (admin or connection password) ------------------------------------
 async def link_ctx(request: Request) -> dict:
-    """Library links follow each server's link_mode; "auto" = internal URL for viewers on the LAN."""
+    """Library links follow each server's link_mode; "auto" = internal URL for viewers on the LAN.
+    A request that came in through the public address is from outside, whatever the proxy's address."""
     s = await settings_mod.load()
+    public = urlsplit(s.get("public_url") or "").hostname
+    host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").split(":")[0].lower()
+    outside = bool(public) and host == public.lower()
     return {"servers": {srv["id"]: srv for srv in s["servers"]},
-            "lan": links.is_lan(request.client.host if request.client else None)}
+            "lan": not outside and links.is_lan(request.client.host if request.client else None)}
 
 
-@app.get("/api/search")
+@app.get("/api/search", dependencies=viewers)
 async def api_search(request: Request, q: str, type: str | None = Query(None, pattern="^(movie|show)$"),
                      provider: str | None = None, limit: int = Query(30, ge=1, le=100)):
     provs = [p for p in (provider or "").split(",") if p] or None
     return {"items": await queries.search(q, type, provs, limit, link_ctx=await link_ctx(request))}
 
 
-@app.get("/api/catalog")
+@app.get("/api/catalog", dependencies=viewers)
 async def api_catalog(request: Request, q: str | None = None, provider: str | None = None, type: str | None = Query(None, pattern="^(movie|show)(,(movie|show))?$"),
                       min_quality: str | None = None, video: str | None = None, audio: str | None = None,
                       lang: str | None = None, sub: str | None = None, quality: str | None = None,
@@ -132,7 +151,7 @@ async def api_catalog(request: Request, q: str | None = None, provider: str | No
                                  link_ctx=await link_ctx(request))
 
 
-@app.get("/api/titles/{title_id}")
+@app.get("/api/titles/{title_id}", dependencies=viewers)
 async def api_title(request: Request, title_id: int):
     items = await queries.hydrate([title_id], await link_ctx(request))
     if not items:
@@ -140,7 +159,7 @@ async def api_title(request: Request, title_id: int):
     return items[0]
 
 
-@app.get("/api/titles/by/{kind}/{value}")
+@app.get("/api/titles/by/{kind}/{value}", dependencies=viewers)
 async def api_title_by_id(request: Request, kind: str, value: str):
     """Lookup by external id, e.g. /api/titles/by/imdb/tt0133093 or /by/tmdb_movie/603."""
     row = await db.fetchone("SELECT title_id FROM title_ids WHERE kind=? AND value=?", (kind, value))
@@ -149,17 +168,17 @@ async def api_title_by_id(request: Request, kind: str, value: str):
     return (await queries.hydrate([row["title_id"]], await link_ctx(request)))[0]
 
 
-@app.get("/api/facets")
+@app.get("/api/facets", dependencies=viewers)
 async def api_facets():
     return await queries.facets()
 
 
-@app.get("/api/providers")
+@app.get("/api/providers", dependencies=viewers)
 async def api_providers():
     return {"items": await queries.providers()}
 
 
-@app.get("/api/stats")
+@app.get("/api/stats", dependencies=viewers)
 async def api_stats():
     return await queries.stats()
 
@@ -167,7 +186,7 @@ async def api_stats():
 _POSTER_PREFIXES = ("/Items/", "/photo/:/transcode")
 
 
-@app.get("/api/poster/{server_id}")
+@app.get("/api/poster/{server_id}", dependencies=viewers)
 async def api_poster(server_id: str, path: str):
     if not (path.startswith(_POSTER_PREFIXES) or path == "/web/favicon.ico") or ".." in path:
         raise HTTPException(400, "Nepovolená cesta.")
@@ -271,9 +290,9 @@ async def sync_status():
             "budgets": {n: await db.budget_used(n) for n in ("sa", "csfd", "mdblist", "omdb")}}
 
 
-@app.get("/api/sync/progress")
+@app.get("/api/sync/progress", dependencies=viewers)
 async def sync_progress():
-    """Public, minimal: what is being downloaded right now (catalogue notice for every visitor)."""
+    """Minimal: what is being downloaded right now (catalogue notice for every viewer)."""
     jobs = await manager.status()
     return {"running": [{"id": j["id"], "label": j["label"], "running": True,
                          "progress": {"phase": j["progress"]["phase"], "percent": j["progress"]["percent"]}}
@@ -282,7 +301,7 @@ async def sync_progress():
             "first": not await db.kv_get("sync.last_full", 0)}
 
 
-@app.post("/api/ratings/focus")
+@app.post("/api/ratings/focus", dependencies=viewers)
 async def ratings_focus(body: dict = Body(...)):
     """The titles the viewer has on screen, in display order: their ratings are fetched first."""
     ids = [int(x) for x in (body.get("ids") or [])[:200] if str(x).isdigit()]

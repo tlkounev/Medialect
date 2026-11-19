@@ -13,12 +13,19 @@ const RATING_LABEL = { csfd: "ČSFD", imdb: "IMDb", rottentomatoes: "RT", rotten
 const QUALITY_LABEL = { UHD: "4K", QHD: "1440p", FHD: "1080p", HD: "720p", SD: "SD" };
 
 let isAdmin = false, appVersion = "";
+// "admin" (everything), "viewer" (catalogue only: the connection password) or null (not logged in)
+let role = null, afterLogin = "catalog";
 
 async function api(path, opts = {}) {
   const init = { credentials: "same-origin", ...opts, headers: { "Content-Type": "application/json", ...(opts.headers || {}) } };
   if (init.body && typeof init.body !== "string") init.body = JSON.stringify(init.body);
   const r = await fetch(path, init);
-  if (r.status === 401 && !path.startsWith("/api/auth/")) { setAdmin(false); throw new Error(t("err.unauth")); }
+  if (r.status === 401 && !path.startsWith("/api/auth/")) {
+    // the catalogue needs a login too: the login form, then back where the user was going
+    role = null; setAdmin(false);
+    if (currentTab !== "admin") { afterLogin = currentTab || "catalog"; openTab("admin"); }
+    throw new Error(t("err.unauth"));
+  }
   const data = r.headers.get("content-type")?.includes("json") ? await r.json() : null;
   if (!r.ok) throw new Error(data?.detail || `HTTP ${r.status}`);
   return data;
@@ -38,8 +45,12 @@ async function boot() {
     document.body.classList.add("local");
   }
   loadVersion(true);
-  setAdmin(st.logged_in, false);
+  // the app on its own is the admin; the app on a server has the role its password gave (null: log in again)
+  role = st.local ? (st.remote ? st.role || null : "admin") : st.role || null;
+  setAdmin(role === "admin", false);
   let start = location.hash.slice(1) || "catalog";
+  if (!role) { afterLogin = start === "admin" ? "admin" : "catalog"; start = "admin"; }   // the login form first
+  else if (role !== "admin" && start === "admin") start = "catalog";
   if (st.local) { try { if ((await api("/api/onboarding")).pending) start = "admin"; } catch (_) { /* ignore */ } }
   openTab(start);
   pollProgress();
@@ -87,10 +98,14 @@ $("#uiLang").addEventListener("change", async (e) => {
 /* ---------- admin login ---------- */
 function setAdmin(logged, refresh = true) {
   isAdmin = logged;
-  $("#logout").classList.toggle("hidden", !logged);
-  $("#adminPanel").classList.toggle("hidden", !logged);
+  // logged in with the connection password: the catalogue only, no settings
+  document.body.classList.toggle("viewer", role === "viewer" || (document.body.classList.contains("local") && role !== "admin"));
+  $("#logout").classList.toggle("hidden", !role);
+  // the app has no login form: without the admin role it shows Connection and Updates
+  const panel = logged || document.body.classList.contains("local");
+  $("#adminPanel").classList.toggle("hidden", !panel);
   if (!logged) $("#wizard").classList.add("hidden");
-  $("#adminLogin").classList.toggle("hidden", logged);
+  $("#adminLogin").classList.toggle("hidden", panel);
   if (!logged) { $("#syncBadge").classList.add("hidden"); renderLogin(); }
   if (refresh && !$("#tab-admin").classList.contains("hidden")) openTab("admin");
 }
@@ -107,17 +122,22 @@ $("#authForm").addEventListener("submit", async (e) => {
   const password = $("#authPass").value;
   if (authMode === "setup" && password !== $("#authPass2").value) { $("#authErr").textContent = t("login.mismatch"); return; }
   try {
-    await api(authMode === "setup" ? "/api/auth/setup" : "/api/auth/login", { method: "POST", body: { password } });
+    const r = await api(authMode === "setup" ? "/api/auth/setup" : "/api/auth/login", { method: "POST", body: { password } });
     $("#authPass").value = $("#authPass2").value = "";
     authMode = "login";
-    setAdmin(true);
+    role = r?.role || "admin";
+    setAdmin(role === "admin", false);
     pollProgress();
+    // back where the user was going; the connection password opens only the catalogue
+    openTab(role === "admin" ? afterLogin : "catalog");
   } catch (err) { $("#authErr").textContent = err.message; }
 });
 $("#logout").addEventListener("click", async () => {
   await api("/api/auth/logout", { method: "POST" });
+  role = null;
   setAdmin(false);
-  openTab("catalog");
+  afterLogin = "catalog";
+  openTab("admin");
 });
 
 /* ---------- version: green = up to date, red = update available, grey = cannot check ---------- */
@@ -147,7 +167,9 @@ function openTab(name) {
   updateSyncBadge(...lastBadge);
   if (name === "catalog") loadFacets().catch(() => {}).then(() => loadCatalog());
   if (name === "admin") {
-    if (isAdmin) openAdmin(); else $("#authPass").focus();
+    if (isAdmin) openAdmin();
+    else if (document.body.classList.contains("local")) openSub("connect");
+    else $("#authPass").focus();
   }
 }
 async function openAdmin() {
@@ -191,11 +213,14 @@ function helpToggles(root) {
 }
 helpToggles($("#adminPanel"));
 function openSub(name) {
+  // without the admin role (the app on a server with the connection password) only these two
+  if (!isAdmin && !["connect", "updates"].includes(name)) name = "connect";
   adminSub = name;
   clearInterval(statusTimer);
   $$(".subnav button[data-sub]").forEach((b) => b.classList.toggle("active", b.dataset.sub === name));
-  for (const sub of ["settings", "updates", "sync"]) $(`#sub-${sub}`)?.classList.toggle("hidden", name !== sub);
+  for (const sub of ["settings", "updates", "sync", "connect"]) $(`#sub-${sub}`)?.classList.toggle("hidden", name !== sub);
   if (name === "sync") { loadStatus(); statusTimer = setInterval(loadStatus, 5000); }
+  if (name === "connect") loadConnection();
   if (name === "settings") loadSettings();
 }
 /* Settings get their own history entry, so the system back gesture (Android, browser) returns to the
@@ -230,6 +255,7 @@ addEventListener("popstate", () => {
 });
 // the gear always opens the settings page (also from Updates or Synchronisation)
 $("#openSettings").addEventListener("click", () => {
+  afterLogin = "admin";
   adminSub = "settings";
   if (currentTab === "admin") openSub("settings"); else goTo("admin");
 });
@@ -1122,6 +1148,7 @@ async function loadSettings() {
   formDirty = false;
   markDirty(false);
   loadJwProviders();
+  if (!document.body.classList.contains("local")) loadConnect();
 }
 $("#jwShowAll").addEventListener("change", (e) => { e.stopPropagation(); $("#jwProviders").classList.toggle("all", e.target.checked); });
 $("#settingsForm").addEventListener("input", (e) => {
@@ -1173,13 +1200,17 @@ function startWizard() {
   country.value = guessCountry();
   const l = uiLang === "nb" ? "no" : uiLang;
   lang.value = TITLE_LANGS.includes(l) ? l : "en";
-  wizShow(1);
+  wizShow(document.body.classList.contains("local") ? 0 : 1);
 }
 function wizShow(n) {
   wizStepNo = n;
   $$("#wizard [data-step]").forEach((d) => d.classList.toggle("hidden", Number(d.dataset.step) !== n));
-  $("#wizStep").textContent = t("wiz.step", { n, m: 3 });
-  $("#wizBack").classList.toggle("hidden", n === 1);
+  // step 0 (the app only): on its own or with the user's server; the counted steps are for "on its own"
+  $("#wizStep").textContent = n ? t("wiz.step", { n, m: 3 }) : "";
+  $("#wizBack").classList.toggle("hidden", n === 0 || (n === 1 && !document.body.classList.contains("local")));
+  $("#wizNext").classList.toggle("hidden", n === 0);
+  $("#wizSkip").classList.toggle("hidden", n === 0);
+  $("#wizBack").closest(".savebar").classList.toggle("hidden", n === 0);   // the two choices are the buttons there
   $("#wizNext").textContent = n === 3 ? t("wiz.finish") : t("wiz.next");
   $("#wizMsg").textContent = "";
   if (n === 2) wizLoadProviders();
@@ -1195,7 +1226,14 @@ async function wizLoadProviders() {
     wizProvidersFor = c;
   } catch (e) { box.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
 }
-$("#wizBack").addEventListener("click", () => wizShow(Math.max(1, wizStepNo - 1)));
+$("#wizBack").addEventListener("click", () => wizShow(Math.max(document.body.classList.contains("local") ? 0 : 1, wizStepNo - 1)));
+$("#wizAlone").addEventListener("click", () => wizShow(1));
+$("#wizServer").addEventListener("click", () => {
+  $("#wizServer").classList.add("on");
+  $("#wizConnForm").classList.remove("hidden");
+  $("#wizConnUrl").focus();
+});
+$("#wizConnForm").addEventListener("submit", (e) => { e.preventDefault(); connectTo($("#wizConnUrl").value, $("#wizConnPass").value, $("#wizMsg")); });
 $("#wizNext").addEventListener("click", async () => {
   if (wizStepNo < 3) { wizShow(wizStepNo + 1); return; }
   const btn = $("#wizNext");
@@ -1219,6 +1257,33 @@ $("#wizNext").addEventListener("click", async () => {
 $("#wizSkip").addEventListener("click", async () => {
   try { await api("/api/onboarding/done", { method: "POST" }); } catch (_) { /* ignore */ }
   openAdmin();
+});
+
+/* ---------- the app: on its own or connected to the user's Medialect server ---------- */
+async function loadConnection() {
+  try {
+    const c = await api("/api/app/connection");
+    const server = c.mode === "server";
+    $("#connState").textContent = server
+      ? t(role ? (c.role === "admin" ? "conn.stateAdmin" : "conn.stateViewer") : "conn.stateExpired", { url: c.url })
+      : t("conn.stateAlone");
+    if (server && !$("#connUrl").value) $("#connUrl").value = c.url;
+    $("#connAlone").classList.toggle("hidden", !server);
+  } catch (e) { $("#connState").textContent = e.message; }
+}
+async function connectTo(url, password, msgEl) {
+  msgEl.textContent = t("conn.connecting");
+  try {
+    const c = await api("/api/app/connect", { method: "POST", body: { url, password } });
+    msgEl.textContent = t(c.role === "admin" ? "conn.okAdmin" : "conn.okViewer");
+    setTimeout(() => { location.hash = "catalog"; location.reload(); }, 800);   // starts again showing the server
+  } catch (e) { msgEl.textContent = e.message; }
+}
+$("#connForm").addEventListener("submit", (e) => { e.preventDefault(); connectTo($("#connUrl").value, $("#connPass").value, $("#connMsg")); });
+$("#connAlone").addEventListener("click", async () => {
+  if (!confirm(t("conn.aloneConfirm"))) return;
+  await api("/api/app/disconnect", { method: "POST" });
+  location.hash = "catalog"; location.reload();
 });
 
 /* ---------- media servers (each saved on its own) ---------- */
@@ -1295,6 +1360,36 @@ function readServer(node) {
 $("#addServer").addEventListener("click", () => $("[data-k=name]", addServerRow({ type: "emby", link_mode: "auto" })).focus());
 
 /* ---------- access ---------- */
+// connecting the app: the server's public address and the connection password (catalogue only)
+async function loadConnect() {
+  try {
+    const [st, v] = await Promise.all([api("/api/settings"), api("/api/auth/viewer")]);
+    $("#publicUrl").value = st.public_url || "";
+    $("#viewerState").textContent = t(v.set ? "acc.viewerSet" : "acc.viewerNone");
+    $("#viewerRemove").classList.toggle("hidden", !v.set);
+  } catch (_) { /* not logged in */ }
+}
+$("#publicForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await api("/api/settings", { method: "PUT", body: { public_url: $("#publicUrl").value.trim() } });
+    $("#publicMsg").textContent = t("set.saved");
+  } catch (err) { $("#publicMsg").textContent = err.message; }
+});
+$("#viewerForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await api("/api/auth/viewer", { method: "POST", body: { password: $("#viewerPass").value } });
+    $("#viewerPass").value = "";
+    $("#viewerMsg").textContent = "";
+    loadConnect();
+  } catch (err) { $("#viewerMsg").textContent = err.message; }
+});
+$("#viewerRemove").addEventListener("click", async () => {
+  if (!confirm(t("acc.viewerRemoveConfirm"))) return;
+  try { await api("/api/auth/viewer", { method: "POST", body: { password: null } }); loadConnect(); }
+  catch (err) { $("#viewerMsg").textContent = err.message; }
+});
 $("#showToken").addEventListener("click", async () => { $("#apiToken").textContent = (await api("/api/auth/token")).token; });
 $("#regenToken").addEventListener("click", async () => {
   if (!confirm(t("acc.regenConfirm"))) return;

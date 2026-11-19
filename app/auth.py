@@ -1,4 +1,9 @@
-"""Password login (set in the web UI on first run) + API token for other apps."""
+"""Password login (set in the web UI on first run).
+
+Two roles: the admin password opens everything; an optional connection password opens only the
+catalogue (for the apps and people who only watch). The admin password works for connecting too.
+A session is sent as the cookie (web), as "Authorization: Bearer <session>" (the app connected to this
+server) or as ?s=<session> (images, which cannot carry a header)."""
 
 from __future__ import annotations
 
@@ -38,6 +43,32 @@ async def check_password(password: str) -> bool:
     return hmac.compare_digest(stored["hash"], _hash(password, stored["salt"]))
 
 
+async def set_viewer_password(password: str | None) -> None:
+    """The connection password (catalogue only); None removes it."""
+    if not password:
+        await db.kv_set("auth.viewer", None)
+        return
+    if len(password) < 8:
+        raise HTTPException(400, "Heslo musí mít aspoň 8 znaků.")
+    salt = secrets.token_hex(16)
+    # a new password ends the sessions opened with the old one (gen is in each viewer session)
+    await db.kv_set("auth.viewer", {"salt": salt, "hash": _hash(password, salt), "gen": secrets.token_hex(4)})
+
+
+async def has_viewer_password() -> bool:
+    return bool(await db.kv_get("auth.viewer"))
+
+
+async def login_role(password: str) -> str | None:
+    """"admin", "viewer" or None."""
+    if await check_password(password):
+        return "admin"
+    stored = await db.kv_get("auth.viewer")
+    if stored and hmac.compare_digest(stored["hash"], _hash(password, stored["salt"])):
+        return "viewer"
+    return None
+
+
 async def _signer() -> TimestampSigner:
     key = await db.kv_get("auth.secret")
     if not key:
@@ -46,8 +77,10 @@ async def _signer() -> TimestampSigner:
     return TimestampSigner(key)
 
 
-async def make_session() -> str:
-    return (await _signer()).sign("admin").decode()
+async def make_session(role: str = "admin") -> str:
+    if role == "viewer":
+        role = f"viewer:{((await db.kv_get('auth.viewer')) or {}).get('gen', '')}"
+    return (await _signer()).sign(role).decode()
 
 
 async def api_token(regenerate: bool = False) -> str:
@@ -58,18 +91,35 @@ async def api_token(regenerate: bool = False) -> str:
     return token
 
 
-async def require_auth(request: Request) -> None:
-    """FastAPI dependency: session cookie, or X-Api-Key header / api_key query."""
+async def role_of(request: Request) -> str | None:
+    """The role of the request's session (or API key), None when not logged in."""
     supplied = request.headers.get("x-api-key") or request.query_params.get("api_key")
     if supplied:
-        if hmac.compare_digest(supplied, await api_token()):
-            return
-        raise HTTPException(401, "Neplatný API klíč.")
-    cookie = request.cookies.get(COOKIE)
-    if cookie:
-        try:
-            (await _signer()).unsign(cookie, max_age=SESSION_DAYS * 86400)
-            return
-        except (BadSignature, SignatureExpired):
-            pass
-    raise HTTPException(401, "Nepřihlášen.")
+        return "admin" if hmac.compare_digest(supplied, await api_token()) else None
+    bearer = request.headers.get("authorization", "")
+    session = (bearer[7:] if bearer.lower().startswith("bearer ") else None) \
+        or request.query_params.get("s") or request.cookies.get(COOKIE)
+    if not session:
+        return None
+    try:
+        role = (await _signer()).unsign(session, max_age=SESSION_DAYS * 86400).decode()
+    except (BadSignature, SignatureExpired):
+        return None
+    if role.startswith("viewer:"):
+        # the connection password was removed or changed: its sessions end
+        stored = await db.kv_get("auth.viewer")
+        return "viewer" if stored and role == f"viewer:{stored.get('gen', '')}" else None
+    return "admin" if role == "admin" else None
+
+
+async def require_auth(request: Request) -> None:
+    """FastAPI dependency: the administration (admin password)."""
+    role = await role_of(request)
+    if role != "admin":
+        raise HTTPException(403 if role else 401, "Jen pro správce." if role else "Nepřihlášen.")
+
+
+async def require_view(request: Request) -> None:
+    """FastAPI dependency: the catalogue (admin or connection password)."""
+    if not await role_of(request):
+        raise HTTPException(401, "Nepřihlášen.")

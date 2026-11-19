@@ -185,15 +185,11 @@ def main():
         updates._latest_tag, updates._cache["at"] = offline, 0
         assert client.get("/api/version").json()["state"] == "unknown"
 
-        # catalogue is public, administration is not
-        assert client.get("/api/search?q=x").status_code == 200
-        assert client.get("/api/catalog").status_code == 200
-        for path in ("/api/settings", "/api/sync/status", "/api/auth/token", "/api/justwatch/providers"):
+        # nothing without a login: neither the catalogue (the server may be reachable from outside) nor the administration
+        for path in ("/api/search?q=x", "/api/catalog", "/api/stats", "/api/sync/progress",
+                     "/api/settings", "/api/sync/status", "/api/auth/token", "/api/justwatch/providers"):
             assert client.get(path).status_code == 401, path
         assert client.post("/api/sync").status_code == 401
-        # sync progress is public (catalogue notice) and minimal
-        pr = client.get("/api/sync/progress").json()
-        assert pr == {"running": [], "queued": 0, "first": True}, pr
         from app.sources.base import SyncContext
         c = SyncContext("x", {})
         c.progress("a", 0.5)
@@ -214,6 +210,9 @@ def main():
         assert client.post("/api/auth/setup", json={"password": "heslo1234"}).status_code == 409
         # first run: setup wizard pending, ČSFD opt-in on a fresh install
         assert client.get("/api/onboarding").json() == {"pending": True}
+        # sync progress (catalogue notice) is minimal
+        pr = client.get("/api/sync/progress").json()
+        assert pr == {"running": [], "queued": 0, "first": True}, pr
         assert client.get("/api/settings").json()["ratings"]["csfd"] is False
         assert client.post("/api/onboarding/done").status_code == 200
         assert client.get("/api/onboarding").json() == {"pending": False}
@@ -552,10 +551,36 @@ def main():
         client.post("/api/auth/logout")
         client.cookies.clear()
         assert client.get("/api/settings").status_code == 401
-        assert client.get("/api/stats").status_code == 200  # public
+        assert client.get("/api/stats").status_code == 401
         assert client.get("/api/settings", headers={"X-Api-Key": token}).status_code == 200
         assert client.get("/api/settings", headers={"X-Api-Key": "nope"}).status_code == 401
         assert client.post("/api/auth/login", json={"password": "spatne"}).status_code == 401
+        r = client.post("/api/auth/login", json={"password": "heslo1234"}).json()
+        assert r["role"] == "admin" and r["session"]
+        admin = r["session"]
+
+        # the connection password: the catalogue only; the admin password connects too
+        assert client.post("/api/auth/viewer", json={"password": "kratke"}).status_code == 400
+        assert client.post("/api/auth/viewer", json={"password": "divame123"}).json() == {"set": True}
+        assert client.put("/api/settings", json={"public_url": "https://ml.example.cz"}).status_code == 200
+        client.post("/api/auth/logout"); client.cookies.clear()
+        st = client.get("/api/auth/state").json()
+        assert st["role"] is None and st["public_url"] == "https://ml.example.cz"
+        v = client.post("/api/auth/login", json={"password": "divame123"}).json()
+        assert v["role"] == "viewer"
+        client.cookies.clear()
+        bearer = {"Authorization": f"Bearer {v['session']}"}
+        assert client.get("/api/catalog", headers=bearer).status_code == 200
+        assert client.get(f"/api/stats?s={v['session']}").status_code == 200          # images: the session in the URL
+        assert client.get("/api/settings", headers=bearer).status_code == 403
+        assert client.post("/api/sync", headers=bearer).status_code == 403
+        assert client.get("/api/auth/state", headers=bearer).json()["role"] == "viewer"
+        assert client.get("/api/settings", headers={"Authorization": f"Bearer {admin}"}).status_code == 200
+        # a new connection password ends the sessions of the old one; removing it too
+        assert client.post("/api/auth/viewer", json={"password": "jinedivame1"}, headers={"Authorization": f"Bearer {admin}"}).status_code == 200
+        assert client.get("/api/catalog", headers=bearer).status_code == 401
+        assert client.post("/api/auth/viewer", json={"password": None}, headers={"Authorization": f"Bearer {admin}"}).json() == {"set": False}
+        assert client.post("/api/auth/login", json={"password": "jinedivame1"}).status_code == 401
         assert client.post("/api/auth/login", json={"password": "heslo1234"}).status_code == 200
 
         # ---- iVysílání: picked like a service, its own job, titles paired by name + year ----
