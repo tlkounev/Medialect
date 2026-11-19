@@ -4,8 +4,9 @@
 // past the last one to the next title). Up/down always land on the leftmost control of the next row.
 
 const FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea, [tabindex]:not([tabindex='-1'])";
-// the logo is not a button on TV, ratings are not stops; the floating sync note is reached with Right only
-const SKIP = "#home, #home *, .rating, #syncNote *";
+// the logo is not a button on TV, ratings are not stops; the floating sync note and page buttons are
+// reached with Right only (they float over the list)
+const SKIP = "#home, #home *, .rating, #syncNote *, #fab *";
 const DIRS: Record<string, [number, number]> = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
 
 export function isTv(): boolean {
@@ -36,7 +37,7 @@ function candidates(): HTMLElement[] {
 function startTarget(): HTMLElement | null {
   const page = [...document.querySelectorAll<HTMLElement>("main > section")].find((s) => !s.classList.contains("hidden"));
   if (!page) return null;
-  const top = document.querySelector("header")?.getBoundingClientRect().bottom || 0;
+  const top = Math.max(...[...document.querySelectorAll("#app > header, .catbar")].map((e) => e.getBoundingClientRect().bottom), 0);
   const titles = [...page.querySelectorAll<HTMLElement>("#catalog .title")].filter(visible);
   if (titles.length) return titles.find((t) => t.getBoundingClientRect().bottom > top + 40) || titles[0];
   if (page.id === "tab-catalog") return null;          // titles not loaded yet
@@ -169,6 +170,11 @@ export function enableTvNavigation(): void {
       // another page: its first control, unless the focus is already on that page
       setTimeout(() => { if (lost() || !sec.contains(document.activeElement)) focusStart(); }, 50);
     }).observe(sec, { attributes: true, attributeFilter: ["class"] }));
+  // the page buttons hide at the top of the list: the focus goes on to the titles
+  const fabBox = document.getElementById("fab");
+  if (fabBox) new MutationObserver(() => {
+    if (fabBox.classList.contains("hidden") && (lost() || fabBox.contains(document.activeElement))) setTimeout(() => focusStart(), 450);   // after the page scrolled
+  }).observe(fabBox, { attributes: true, attributeFilter: ["class"] });
   const cat = document.getElementById("catalog");
   if (cat) new MutationObserver(regain).observe(cat, { childList: true });
   // the keyboard shrinks the page: keep the field being typed in above it
@@ -220,12 +226,25 @@ export function enableTvNavigation(): void {
       const now = performance.now();
       if (e.repeat && now - lastMove < 110) return;
       lastMove = now;
+      // the floating page buttons: up/down between them, left back to the list
+      const fab = [...document.querySelectorAll<HTMLButtonElement>("#fab:not(.hidden) button")].filter((b) => !b.disabled && visible(b));
+      if (active && fab.includes(active as HTMLButtonElement)) {
+        const i = fab.indexOf(active as HTMLButtonElement);
+        const to = dy ? fab[i + dy] : dx < 0 ? startTarget() : null;
+        if (to) to.focus({ preventScroll: true });
+        return;
+      }
       const note = document.querySelector<HTMLElement>("#syncNote:not(.hidden) .close");
       // from the note back to the title we came from
       let target = active && active === note && lastTitle?.isConnected && visible(lastTitle) ? lastTitle
         : next(active && active !== document.body ? active : null, dx, dy);
-      // Right with nothing more in the row: the close button of the floating sync note
+      // Right with nothing more in the row: the close button of the floating sync note, else the page button
+      // nearest in height
       if (!target && dx > 0 && note && visible(note) && active !== note) target = note;
+      if (!target && dx > 0 && fab.length && active) {
+        const y = center(active.getBoundingClientRect()).y;
+        target = fab.reduce((m, b) => Math.abs(center(b.getBoundingClientRect()).y - y) < Math.abs(center(m.getBoundingClientRect()).y - y) ? b : m);
+      }
       if (!target && active === note) target = lastTitle?.isConnected && visible(lastTitle) ? lastTitle : startTarget();
       if (editing) active!.blur();
       if (target) move(target, dy);

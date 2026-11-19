@@ -639,7 +639,8 @@ let fabTimer = null;
 function fabWake() {
   $("#fab").classList.remove("idle");
   clearTimeout(fabTimer);
-  fabTimer = setTimeout(() => $("#fab").classList.add("idle"), 2000);
+  // they stay while the remote's focus is on one of them
+  fabTimer = setTimeout(() => { if ($("#fab").contains(document.activeElement)) fabWake(); else $("#fab").classList.add("idle"); }, 2000);
 }
 $("#fab").addEventListener("pointerdown", fabWake);
 $("#fab").addEventListener("focusin", fabWake);
