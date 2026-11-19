@@ -1060,7 +1060,7 @@ async function loadJwProviders() {
     // own media servers are ordered together with the services (offers in the catalogue, ratings first)
     const servers = (current.servers || []).filter((srv) => srv.id && srv.url).map((srv) => ({
       short_name: `srv:${srv.id}`, name: srv.name || srv.type, fixed: true, icon: serverIcon(srv) }));
-    jwPicker = servicePicker(box, [...servers, ...items], selected, () => markDirty(true));
+    jwPicker = servicePicker(box, [...servers, ...items], selected, () => { formDirty = true; markDirty(true); });
     // services the user does not have stay hidden; one click shows the rest of the country's offer
     const anyChosen = items.some((p) => selected.includes(p.short_name));
     $("#jwShowAll").checked = !anyChosen;
@@ -1073,6 +1073,9 @@ async function loadJwProviders() {
   }
 }
 
+// unsaved changes in the settings themselves (not in a media server row, which saves on its own)
+let formDirty = false;
+const settingsDirty = () => formDirty;
 function markDirty(dirty) {
   $("#saveSettings").classList.toggle("attention", dirty);
   $("#saveMsg").textContent = dirty ? t("set.unsaved") : "";
@@ -1091,12 +1094,20 @@ async function loadSettings() {
   current.servers.forEach(addServerRow);
   const sel = new Set(current.streaming_availability.catalogs || []);
   $("#saCatalogs").innerHTML = SA_CATALOGS.map((c) => `<label><input type="checkbox" value="${c}" ${sel.has(c) ? "checked" : ""}>${c}</label>`).join("");
+  formDirty = false;
   markDirty(false);
   loadJwProviders();
 }
 $("#jwShowAll").addEventListener("change", (e) => { e.stopPropagation(); $("#jwProviders").classList.toggle("all", e.target.checked); });
-$("#settingsForm").addEventListener("input", (e) => { if (e.target.id !== "jwShowAll") markDirty(true); });
-$("#settingsForm").addEventListener("change", (e) => { if (e.target.id === "jwShowAll") return; markDirty(true); if (e.target.id === "setCountry") loadJwProviders(); });
+$("#settingsForm").addEventListener("input", (e) => {
+  if (e.target.id === "jwShowAll") return;
+  if (!e.target.closest(".server")) formDirty = true;
+  markDirty(true);
+});
+$("#settingsForm").addEventListener("change", (e) => {
+  if (e.target.id === "jwShowAll") return;
+  if (!e.target.closest(".server")) formDirty = true;
+  markDirty(true); if (e.target.id === "setCountry") loadJwProviders(); });
 $("#settingsForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const body = {};
@@ -1233,7 +1244,13 @@ function addServerRow(srv = {}) {
     say(t("srv.testing"));
     try {
       const r = await api("/api/servers/test", { method: "POST", body: readServer(node) });
-      r.ok ? say(`${t("srv.ok")} – ${r.info.name || ""} ${r.info.version || ""}${r.info.via ? ` (${r.info.via})` : ""}`, "ok") : say(`${t("srv.error")}: ${r.error}`, "err");
+      if (!r.ok) { say(`${t("srv.error")}: ${r.error}`, "err"); return; }
+      // a working server is saved right away
+      const info = `${t("srv.ok")} – ${r.info.name || ""} ${r.info.version || ""}${r.info.via ? ` (${r.info.via})` : ""}`.trim();
+      if (await node.saveNow()) {
+        say(`${info}. ${t("srv.saved")}`, "ok");
+        if (!$$("#servers .server[data-dirty]").length && !settingsDirty()) markDirty(false);
+      }
     } catch (e) { say(`${t("srv.error")}: ${e.message}`, "err"); }
   });
   $(".remove", node).addEventListener("click", async () => {

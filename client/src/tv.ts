@@ -46,7 +46,7 @@ function startTarget(): HTMLElement | null {
  *  Up/down: the nearest row in that direction, and in it the control furthest left (right in RTL). */
 function next(from: Element | null, dx: number, dy: number): HTMLElement | null {
   const all = candidates().filter((e) => e !== from);
-  if (!from || !visible(from)) return startTarget() || all[0] || null;
+  if (!from || !visible(from)) return startTarget();     // never the header (language, settings) or the search
   const a = from.getBoundingClientRect(), ca = center(a);
   let best: HTMLElement | null = null, bestScore = Infinity;
   for (const el of all) {
@@ -107,7 +107,12 @@ function focusStart(tries = 25): void {
   const el = startTarget();
   if (el) el.focus({ preventScroll: true });
   else if (tries) setTimeout(() => focusStart(tries - 1), 200);
-  else candidates()[0]?.focus({ preventScroll: true });
+}
+/** Back on the catalogue (from the settings): the first title, at the top of the list. */
+function focusFirstTitle(tries = 30): void {
+  const first = document.querySelector<HTMLElement>("#catalog .title");
+  if (first && visible(first)) { scrollTo(0, 0); first.focus({ preventScroll: true }); }
+  else if (tries) setTimeout(() => focusFirstTitle(tries - 1), 150);
 }
 const lost = () => { const a = document.activeElement; return !a || a === document.body || !visible(a); };
 
@@ -137,7 +142,13 @@ export function enableTvNavigation(): void {
     if (same && visible(same)) same.focus({ preventScroll: true }); else focusStart();
   }, 50);
   document.querySelectorAll("main > section").forEach((sec) =>
-    new MutationObserver(() => { if (!sec.classList.contains("hidden")) { lastId = ""; regain(); } }).observe(sec, { attributes: true, attributeFilter: ["class"] }));
+    new MutationObserver(() => {
+      if (sec.classList.contains("hidden")) return;
+      lastId = "";
+      if (sec.id === "tab-catalog") { setTimeout(() => focusFirstTitle(), 50); return; }
+      // another page: its first control, unless the focus is already on that page
+      setTimeout(() => { if (lost() || !sec.contains(document.activeElement)) focusStart(); }, 50);
+    }).observe(sec, { attributes: true, attributeFilter: ["class"] }));
   const cat = document.getElementById("catalog");
   if (cat) new MutationObserver(regain).observe(cat, { childList: true });
   // the keyboard shrinks the page: keep the field being typed in above it
@@ -192,5 +203,5 @@ export function enableTvNavigation(): void {
     }
   }, true);
   // start on the first title under the search field
-  setTimeout(() => { if (lost() || document.activeElement?.id === "q") focusStart(); }, 300);
+  setTimeout(() => { if (lost() || document.activeElement?.id === "q") focusFirstTitle(); }, 300);
 }
