@@ -251,7 +251,12 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 
 /* keyboard / TV remote focus */
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.tv :focus { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* the frame only on controls: never on the page itself or a large box the WebView may focus */
+.tv :is(a, button, input, select, textarea, [tabindex]):focus { outline: 3px solid var(--accent); outline-offset: 2px; }
+.tv :is(html, body, main, section, #app, #catalog):focus { outline: none; }
+/* until the first key press Android may put the focus on the first control of the top bar for a moment:
+   no frame there, the focus goes on to the first title */
+.tv-start #app > header :focus, .tv-start .catbar :focus { outline: none !important; }
 /* TV: one highlight at a time. A title is framed as a whole; inside it the stream's box or its caret. */
 .tv .title:focus { outline-offset: -1px; }
 .tv a.offer-main:focus { outline: none; }
