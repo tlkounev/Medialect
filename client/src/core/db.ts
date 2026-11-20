@@ -54,7 +54,7 @@ export class Db {
     }
     for (const stmt of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) await this.d.run(stmt, []);
     // services stored under JustWatch's spelling of their name
-    await this.d.run("UPDATE availability SET provider_name='Prima+' WHERE provider_name='Prima plus'", []);
+    await this.d.run("UPDATE availability SET provider_name='Prima+' WHERE lower(trim(provider_name))='prima plus'", []);
     await this.normaliseLangs();
   }
 

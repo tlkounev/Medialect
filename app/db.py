@@ -113,7 +113,7 @@ class Database:
         if "added_at" not in cols:                      # databases from v1.0.0–1.0.6
             await self.conn.execute("ALTER TABLE availability ADD COLUMN added_at TEXT")
         # services stored under JustWatch's spelling of their name
-        await self.conn.execute("UPDATE availability SET provider_name='Prima+' WHERE provider_name='Prima plus'")
+        await self.conn.execute("UPDATE availability SET provider_name='Prima+' WHERE lower(trim(provider_name))='prima plus'")
         await self.conn.commit()
         await self._normalise_langs()
 
