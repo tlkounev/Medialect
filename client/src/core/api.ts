@@ -153,7 +153,7 @@ async function remoteLocal(method: string, path: string): Promise<unknown> {
     // the app is logged in for the user; the role says what the server allows (null: log in again)
     const role = await remoteMod.remoteRole();
     const r = remoteMod.currentRemote()!;
-    return { configured: true, local: true, remote: { url: r.url, offline: role === "offline" },
+    return { configured: true, local: true, remote: { url: r.url, offline: role === "offline", via: remoteMod.lastVia() },
       role: role === "offline" ? r.role : role, logged_in: (role === "offline" ? r.role : role) === "admin", version: env.version };
   }
   if (route === "GET /api/onboarding") return { pending: false };       // set up on the server

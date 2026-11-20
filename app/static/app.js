@@ -20,6 +20,10 @@ async function api(path, opts = {}) {
   const init = { credentials: "same-origin", ...opts, headers: { "Content-Type": "application/json", ...(opts.headers || {}) } };
   if (init.body && typeof init.body !== "string") init.body = JSON.stringify(init.body);
   const r = await fetch(path, init);
+  // the app on a server: every answer says whether the server answered, and through which address
+  if (connMode === "server" && !path.startsWith("/api/app/") && path !== "/api/version") {
+    connShow(r.status !== 502, r.headers.get("x-medialect-via"));
+  }
   if (r.status === 401 && !path.startsWith("/api/auth/")) {
     // the catalogue needs a login too: the login form, then back where the user was going
     role = null; setAdmin(false);
@@ -30,6 +34,28 @@ async function api(path, opts = {}) {
   if (!r.ok) throw new Error(data?.detail || `HTTP ${r.status}`);
   return data;
 }
+
+/* ---------- the app: on its own or on a server (icon next to the name) ---------- */
+let connMode = "", connVia = "";
+const CONN_SVG = {
+  device: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M11 4h2M12 17v.01"/></svg>',
+  server: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5v.01M7 16.5v.01"/></svg>',
+};
+function connShow(ok, via) {
+  if (via) connVia = via;
+  const el = $("#connIcon");
+  if (connMode === "standalone") {
+    el.innerHTML = CONN_SVG.device;
+    el.className = "conn-icon";
+    el.title = t("conn.iconAlone");
+  } else {
+    el.innerHTML = `${CONN_SVG.server}<span class="dot"></span>`;
+    el.className = `conn-icon ${ok ? "ok" : "off"}`;
+    el.title = ok ? t(connVia === "public" ? "conn.iconPublic" : "conn.iconHome") : t("conn.iconOff");
+  }
+  el.setAttribute("aria-label", el.title);
+}
+$("#connIcon").addEventListener("click", () => { adminSub = "settings"; goTo("admin"); });
 
 /* ---------- start ---------- */
 let authMode = "login";
@@ -43,6 +69,8 @@ async function boot() {
   if (st.local) {
     // desktop/mobile app: no login, "Administrace" is just the settings
     document.body.classList.add("local");
+    connMode = st.remote ? "server" : "standalone";
+    connShow(!st.remote?.offline, st.remote?.via);
   }
   loadVersion(true);
   // the app on its own is the admin; the app on a server has the role its password gave (null: log in again)
