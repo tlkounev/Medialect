@@ -1,0 +1,40 @@
+name: Clean up old versions
+
+# one-off, run by hand: keeps only the newest app release and the newest Docker image
+on: workflow_dispatch
+
+permissions:
+  contents: write    # releases and tags
+  packages: write    # ghcr.io images
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Old app releases and version tags (the newest stays)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+        run: |
+          KEEP_APP=$(gh api "repos/$R/releases/latest" --jq .tag_name)
+          KEEP_V=$(gh api "repos/$R/git/matching-refs/tags/v1.0." --paginate --jq '.[].ref' | sed 's#refs/tags/##' | sort -V | tail -n1)
+          echo "Keeping $KEEP_APP and $KEEP_V"
+          [ -n "$KEEP_APP" ] && [ -n "$KEEP_V" ] || exit 1
+          for t in $(gh api "repos/$R/releases" --paginate --jq '.[].tag_name'); do
+            [ "$t" = "$KEEP_APP" ] || gh release delete "$t" -R "$R" --yes --cleanup-tag
+          done
+          for t in $(gh api "repos/$R/git/matching-refs/tags/app-v" --paginate --jq '.[].ref' | sed 's#refs/tags/##'); do
+            [ "$t" = "$KEEP_APP" ] || gh api -X DELETE "repos/$R/git/refs/tags/$t"
+          done
+          for t in $(gh api "repos/$R/git/matching-refs/tags/v1.0." --paginate --jq '.[].ref' | sed 's#refs/tags/##'); do
+            [ "$t" = "$KEEP_V" ] || gh api -X DELETE "repos/$R/git/refs/tags/$t"
+          done
+      - name: Old Docker images (the newest tagged image and its platform parts stay)
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          package: medialect
+          keep-n-tagged: 1
+          delete-untagged: true
+          delete-ghost-images: true
+          delete-partial-images: true
+          token: ${{ github.token }}
