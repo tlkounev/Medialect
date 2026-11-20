@@ -6,6 +6,7 @@ import asyncio
 import gzip
 import html
 import io
+import logging
 import json
 import os
 import re
@@ -13,6 +14,7 @@ import time
 from urllib.parse import quote
 
 from . import queries, store
+from . import settings as settings_mod
 from .db import DATA_DIR, db
 from .quality import norm
 from .sources.base import SourceError, SyncContext, http_client
@@ -198,6 +200,92 @@ async def csfd_rating(c, csfd_id: str) -> tuple:
 CSFD_FOCUS_KEY = "ratings.focus"     # titles the user has on screen right now: rated before the rest
 
 
+async def csfd_rate_row(c, row) -> None:
+    """Find and store the ČSFD rating of one title (a row of _csfd_queue).
+
+    The stored ČSFD id (from the library or an earlier search) is checked first, then the search results.
+    The IMDb id on the ČSFD page decides between films of one name and year: a page with another film's
+    IMDb id is never taken (and remembered as wrong); a page without any IMDb link is taken only if no
+    candidate's page has the title's own IMDb id. At most 3 film pages per title."""
+    have_imdb = row["imdb_id"]
+    cands = [(row["csfd_id"], False, True)] if row["csfd_id"] else []
+    searched, tries, hit, fallback = False, 0, None, None
+    i = 0
+    while tries < 3:
+        if i >= len(cands):
+            if searched:
+                break
+            searched = True
+            for name in dict.fromkeys(n for n in (row["title"], row["original_title"]) if n):
+                found = await csfd_candidates(c, name, row["year"], row["type"])
+                await asyncio.sleep(CSFD_DELAY_S)
+                if found:
+                    known = {x[0] for x in cands}
+                    cands += [(cid, chk, False) for cid, chk in found if cid not in known]
+                    break
+            continue
+        cid, check, stored = cands[i]
+        i += 1
+        if await csfd_rejected(cid, have_imdb):
+            if stored:
+                await db.execute("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", (row["id"],))
+            continue
+        if tries:
+            await asyncio.sleep(CSFD_DELAY_S)
+        tries += 1
+        value, votes, url, imdb, years = await csfd_rating(c, cid)
+        if check and not (years and years[0] <= row["year"] <= (years[1] or 9999)):
+            continue                         # a series of that name, not running that year
+        found_hit = (cid, check, stored, value, votes, url, imdb)
+        if have_imdb and imdb and imdb != have_imdb:
+            rejected = await db.kv_get(CSFD_REJECTED_KEY, [])
+            await db.kv_set(CSFD_REJECTED_KEY, (rejected + [f"{cid}|{have_imdb}"])[-2000:])
+            if stored:
+                await db.execute("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", (row["id"],))
+            continue
+        if have_imdb and not imdb:
+            fallback = fallback or found_hit     # cannot tell: a page with the title's own IMDb id wins
+            continue
+        hit = found_hit
+        break
+    hit = hit or fallback
+    if not hit:
+        await store.set_rating(row["id"], "csfd", None, None)  # really not on ČSFD (valid search page)
+        return
+    cid, check, stored, value, votes, url, imdb = hit
+    if not stored:
+        await db.execute("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", (row["id"],))
+        await store.add_title_id(row["id"], "csfd", cid)
+    await store.set_rating(row["id"], "csfd", value, f"{value} %" if value is not None else None, votes, url)
+    # the IMDb id of a whole long-running series is not attached to a later revival
+    if imdb and not check and not await db.fetchone(
+            "SELECT 1 FROM title_ids WHERE title_id=? AND kind='imdb'", (row["id"],)):
+        await store.add_title_id(row["id"], "imdb", imdb)  # lets the IMDb dataset rate it too
+
+
+async def csfd_refresh_title(title_id: int) -> str | None:
+    """The user asked for this title's ratings again: its ČSFD rating now (None = done, else why not)."""
+    s = await settings_mod.load()
+    if not s["ratings"].get("csfd"):
+        return None
+    rows = await db.fetchall(
+        """SELECT t.id, t.type, t.title, t.original_title, t.year,
+                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id,
+                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='imdb') AS imdb_id
+           FROM titles t WHERE t.id=?""", (title_id,))
+    if not rows:
+        return None
+    try:
+        async with http_client(headers={"User-Agent": CSFD_UA, "Accept-Language": "cs,en;q=0.5"}) as c:
+            await csfd_rate_row(c, rows[0])
+    except (CsfdBlocked, SourceError) as e:
+        return str(e)
+    except Exception as e:  # network down, ČSFD unreachable: the card still comes back
+        logging.getLogger("medialect").warning("csfd refresh %s: %s", title_id, e)
+        return f"ČSFD: {type(e).__name__}"
+    return None
+
+
 async def _csfd_queue(refresh: float) -> list:
     """Titles still to be rated: the ones on the user's screen first, then the user's service order."""
     rank, rank_params = await queries.rank_sql()
@@ -221,11 +309,11 @@ async def csfd(ctx: SyncContext) -> None:
         await db.execute("DELETE FROM ratings WHERE source='csfd' AND value IS NULL AND url IS NULL "
                          "AND title_id IN (SELECT id FROM titles WHERE type='show')")
         await db.kv_set("migrate.csfd_series_v1", True)
-    if not await db.kv_get("migrate.csfd_imdb_v1", False):
+    if not await db.kv_get("migrate.csfd_imdb_v2", False):
         # ČSFD pages are now checked against the title's IMDb id: rate again the titles where a film of the
         # same name could have been taken (the library's and titles sharing a name with another title)
         await db.execute("DELETE FROM ratings WHERE source='csfd' AND title_id IN (SELECT a.title_id FROM availability a WHERE a.kind='library' UNION SELECT n.title_id FROM title_names n WHERE n.norm IN (SELECT norm FROM title_names GROUP BY norm HAVING COUNT(DISTINCT title_id) > 1))")
-        await db.kv_set("migrate.csfd_imdb_v1", True)
+        await db.kv_set("migrate.csfd_imdb_v2", True)
     refresh = time.time() - float(cfg.get("refresh_days", 14)) * 86400
     rows = await _csfd_queue(refresh)
     if not rows:
@@ -256,56 +344,7 @@ async def csfd(ctx: SyncContext) -> None:
                 ctx.note(f"ČSFD: denní limit {budget} titulů vyčerpán, pokračuje se zítra.")
                 return
             try:
-                # the stored ČSFD id (from the library or an earlier search), else the search results; a page whose
-                # IMDb id is another film's is not this title (two films of one name and year): the next one is tried
-                have_imdb = row["imdb_id"]
-                cands = [(row["csfd_id"], False, True)] if row["csfd_id"] else []
-                searched, tries, hit = False, 0, None
-                i = 0
-                while tries < 3:
-                    if i >= len(cands):
-                        if searched:
-                            break
-                        searched = True
-                        for name in dict.fromkeys(n for n in (row["title"], row["original_title"]) if n):
-                            found = await csfd_candidates(c, name, row["year"], row["type"])
-                            await asyncio.sleep(CSFD_DELAY_S)
-                            if found:
-                                known = {x[0] for x in cands}
-                                cands += [(cid, chk, False) for cid, chk in found if cid not in known]
-                                break
-                        continue
-                    cid, check, stored = cands[i]
-                    i += 1
-                    if await csfd_rejected(cid, have_imdb):
-                        if stored:
-                            await db.execute("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", (row["id"],))
-                        continue
-                    if tries:
-                        await asyncio.sleep(CSFD_DELAY_S)
-                    tries += 1
-                    value, votes, url, imdb, years = await csfd_rating(c, cid)
-                    if check and not (years and years[0] <= row["year"] <= (years[1] or 9999)):
-                        continue                         # a series of that name, not running that year
-                    if have_imdb and imdb and imdb != have_imdb:
-                        rejected = await db.kv_get(CSFD_REJECTED_KEY, [])
-                        await db.kv_set(CSFD_REJECTED_KEY, (rejected + [f"{cid}|{have_imdb}"])[-2000:])
-                        if stored:
-                            await db.execute("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", (row["id"],))
-                        continue
-                    hit = (cid, check, stored, value, votes, url, imdb)
-                    break
-                if not hit:
-                    await store.set_rating(row["id"], "csfd", None, None)  # really not on ČSFD (valid search page)
-                    continue
-                cid, check, stored, value, votes, url, imdb = hit
-                if not stored:
-                    await store.add_title_id(row["id"], "csfd", cid)
-                await store.set_rating(row["id"], "csfd", value, f"{value} %" if value is not None else None, votes, url)
-                # the IMDb id of a whole long-running series is not attached to a later revival
-                if imdb and not check and not await db.fetchone(
-                        "SELECT 1 FROM title_ids WHERE title_id=? AND kind='imdb'", (row["id"],)):
-                    await store.add_title_id(row["id"], "imdb", imdb)  # lets the IMDb dataset rate it too
+                await csfd_rate_row(c, row)
                 ctx.items += 1
                 errors = 0
             except CsfdBlocked as e:

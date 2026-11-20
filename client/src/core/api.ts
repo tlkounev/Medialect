@@ -43,6 +43,21 @@ async function versionStatus(force: boolean) {
 export async function handle(method: string, path: string, q: URLSearchParams, body: any): Promise<unknown> {
   const db = env.db;
   const route = `${method} ${path}`;
+  // the user asked for a title's ratings again: ČSFD at once, the other sources in a ratings run that takes
+  // this title first
+  const refresh = route.match(/^POST \/api\/titles\/(\d+)\/refresh$/);
+  if (refresh) {
+    const id = Number(refresh[1]);
+    const { csfdRefreshTitle } = await import("./ratings");
+    await db.run("UPDATE ratings SET updated_at=0 WHERE title_id=?", [id]);
+    const focus = ((await db.kvGet<any>("ratings.focus", {}))?.ids || []) as number[];
+    await db.kvSet("ratings.focus", { ids: [id, ...focus.filter((x) => x !== id)].slice(0, 200), v: now() });
+    const note = await csfdRefreshTitle(id);
+    manager.trigger("ratings");
+    const [item] = await queries.hydrate([id]);
+    if (!item) throw new ApiError(404, "Titul nenalezen.");
+    return { ...item, refresh_note: note };
+  }
   const del = route.match(/^DELETE \/api\/servers\/([^/]+)$/);
   if (del) {
     const id = decodeURIComponent(del[1]);

@@ -235,6 +235,8 @@ async def csfd_search(q: str, request: Request):
         return Response(CSFD_SEARCH_SCRUBS, media_type="text/html")
     if q.startswith("Dvojn"):
         return Response(CSFD_SEARCH_TWINS, media_type="text/html")
+    if q.startswith("Trojice"):
+        return Response(CSFD_SEARCH_TWINS.replace("8001", "9101").replace("8002", "9102").replace("Dvojník", "Trojice"), media_type="text/html")
     return Response(CSFD_SEARCH, media_type="text/html")
 
 
@@ -244,6 +246,9 @@ async def csfd_film(fid: str, request: Request):
         return Response(ANUBIS, media_type="text/html")
     if fid == "777":
         return Response(CSFD_SERIES, media_type="text/html")
+    if fid in ("9101", "9102"):       # a page without any IMDb link loses to the one with the title's IMDb id
+        link = '<a href="https://www.imdb.com/title/tt9100002/" class="button-imdb">IMDb</a>' if fid == "9102" else ""
+        return Response(CSFD_FILM.replace("IMDBLINK", link).replace("89%", "12%" if fid == "9101" else "64%"), media_type="text/html")
     if fid in ("8001", "8002"):       # two films of one name and year: the IMDb link tells them apart
         imdb = "tt8000001" if fid == "8001" else "tt8000002"
         page = CSFD_FILM.replace("IMDBLINK", f'<a href="https://www.imdb.com/title/{imdb}/" class="button-imdb">IMDb</a>')

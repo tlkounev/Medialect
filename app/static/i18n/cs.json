@@ -62,7 +62,7 @@
 "f.anyQuality": "Kvalita", "f.anyVideo": "Obraz", "f.anyAudio": "Zvuk",
 "f.anyAudioLang": "Jazyk zvuku", "f.anySub": "Titulky", "f.reset": "Zrušit filtry", "f.clear": "Zrušit výběr",
 "sort.added": "Nově přidané", "sort.year": "Rok vydání", "sort.title": "Název", "sort.rating": "Hodnocení {name}",
-"cat.count": "{n} titulů", "cat.none": "Nic nenalezeno.",
+"cat.count": "{n} titulů", "cat.none": "Nic nenalezeno.", "cat.refresh": "Obnovit hodnocení",
 "cat.addedNote": "datum přidání znají vlastní knihovny a Streaming Availability, ostatní tituly jsou na konci",
 "pager.prev": "‹ Předchozí", "pager.next": "Další ›",
 "offer.free": "zdarma", "offer.ads": "s reklamou", "offer.addon": "doplněk", "offer.audio": "zvuk", "offer.subs": "titulky",

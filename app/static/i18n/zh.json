@@ -62,7 +62,7 @@
 "f.anyQuality": "画质", "f.anyVideo": "画面", "f.anyAudio": "音频",
 "f.anyAudioLang": "音频语言", "f.anySub": "字幕", "f.reset": "重置筛选", "f.clear": "清除选择",
 "sort.added": "最近添加", "sort.year": "上映年份", "sort.title": "标题", "sort.rating": "{name} 评分",
-"cat.count": "{n} 部作品", "cat.none": "未找到结果。",
+"cat.count": "{n} 部作品", "cat.none": "未找到结果。", "cat.refresh": "Refresh ratings",
 "cat.addedNote": "只有自有媒体库和 Streaming Availability 知道添加日期，其他作品排在最后",
 "pager.prev": "‹ 上一页", "pager.next": "下一页 ›",
 "offer.free": "免费", "offer.ads": "含广告", "offer.addon": "附加订阅", "offer.audio": "音频", "offer.subs": "字幕",
