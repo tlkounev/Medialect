@@ -120,7 +120,7 @@ class Database:
     async def _normalise_langs(self) -> None:
         """One language = one code in the filters: older rows may hold "cze", "Czech", "nb" next to "cs", "no"."""
         from .quality import langs
-        if await self.kv_get("migrate.langs", 0) >= 3:
+        if await self.kv_get("migrate.langs", 0) >= 4:
             return
         async with self.lock:
             async with self.conn.execute(
@@ -138,7 +138,7 @@ class Database:
                 await self.conn.execute("UPDATE availability SET audio_langs=?, subtitle_langs=? WHERE rowid=?",
                                         (*new, r["rid"]))
             await self.conn.commit()
-        await self.kv_set("migrate.langs", 3)
+        await self.kv_set("migrate.langs", 4)
 
     async def close(self) -> None:
         if self.conn:
