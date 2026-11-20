@@ -126,3 +126,19 @@ async def sync(ctx: SyncContext) -> None:
     await db.kv_set("ivysilani.query", variant[0])
     removed = await store.remove_stale(PROVIDER, started)
     ctx.note(f"iVysílání: {ctx.items} pořadů" + (f", {removed} už nedostupných odebráno" if removed else ""))
+
+
+async def refresh_title(title: dict, ctx: SyncContext) -> None:
+    """One title again: its iVysílání page still there? (The API lists whole categories only, so a title new
+    on iVysílání arrives with the next full synchronisation.)"""
+    urls = [o["url"] for o in title["offers"] if o["source"] == PROVIDER and o["url"]]
+    if not urls:
+        return
+    async with http_client() as client:
+        for url in urls:
+            r = await client.get(url)
+            if r.status_code == 404:
+                await db.execute("DELETE FROM availability WHERE title_id=? AND source=? AND url=?",
+                                 (title["id"], PROVIDER, url))
+            elif r.status_code >= 400:
+                raise SourceError(f"iVysílání HTTP {r.status_code}")

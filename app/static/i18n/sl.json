@@ -62,7 +62,7 @@
 "f.anyQuality": "Kakovost", "f.anyVideo": "Slika", "f.anyAudio": "Zvok",
 "f.anyAudioLang": "Jezik zvoka", "f.anySub": "Podnapisi", "f.reset": "Počisti filtre", "f.clear": "Počisti izbor",
 "sort.added": "Nedavno dodano", "sort.year": "Leto izida", "sort.title": "Naslov", "sort.rating": "Ocena {name}",
-"cat.count": "{n} naslovov", "cat.none": "Nič ni bilo najdeno.", "cat.refresh": "Refresh ratings",
+"cat.count": "{n} naslovov", "cat.none": "Nič ni bilo najdeno.", "cat.refresh": "Refresh title", "cat.refreshed": "Refreshed",
 "cat.addedNote": "datum dodajanja poznajo lastne knjižnice in Streaming Availability, drugi naslovi so na koncu",
 "pager.prev": "‹ Prejšnja", "pager.next": "Naslednja ›",
 "offer.free": "brezplačno", "offer.ads": "z oglasi", "offer.addon": "dodatek", "offer.audio": "zvok", "offer.subs": "podnapisi",

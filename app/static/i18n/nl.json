@@ -62,7 +62,7 @@
 "f.anyQuality": "Kwaliteit", "f.anyVideo": "Beeld", "f.anyAudio": "Geluid",
 "f.anyAudioLang": "Audiotaal", "f.anySub": "Ondertitels", "f.reset": "Filters wissen", "f.clear": "Selectie wissen",
 "sort.added": "Nieuw toegevoegd", "sort.year": "Jaar van uitgave", "sort.title": "Titel", "sort.rating": "Score {name}",
-"cat.count": "{n} titels", "cat.none": "Niets gevonden.", "cat.refresh": "Refresh ratings",
+"cat.count": "{n} titels", "cat.none": "Niets gevonden.", "cat.refresh": "Refresh title", "cat.refreshed": "Refreshed",
 "cat.addedNote": "de toevoegdatum is bekend bij eigen bibliotheken en Streaming Availability, andere titels staan achteraan",
 "pager.prev": "‹ Vorige", "pager.next": "Volgende ›",
 "offer.free": "gratis", "offer.ads": "met reclame", "offer.addon": "add-on", "offer.audio": "audio", "offer.subs": "ondertitels",

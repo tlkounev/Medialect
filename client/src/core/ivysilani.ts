@@ -107,3 +107,14 @@ export async function sync(ctx: SyncContext): Promise<void> {
   const removed = await store.removeStale(PROVIDER, started);
   ctx.note(`iVysílání: ${ctx.items} pořadů${removed ? `, ${removed} už nedostupných odebráno` : ""}`);
 }
+
+/** One title again: its iVysílání page still there? (The API lists whole categories only, so a title new on
+ *  iVysílání arrives with the next full synchronisation.) */
+export async function refreshTitle(title: store.RefreshTitle, _ctx: SyncContext): Promise<void> {
+  for (const o of title.offers) {
+    if (o.source !== PROVIDER || !o.url) continue;
+    const r = await http(o.url);
+    if (r.status === 404) await env.db.run("DELETE FROM availability WHERE title_id=? AND source=? AND url=?", [title.id, PROVIDER, o.url]);
+    else if (r.status >= 400) throw new SourceError(`iVysílání HTTP ${r.status}`);
+  }
+}

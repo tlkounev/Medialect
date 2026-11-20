@@ -62,7 +62,7 @@
 "f.anyQuality": "Minőség", "f.anyVideo": "Kép", "f.anyAudio": "Hang",
 "f.anyAudioLang": "Hang nyelve", "f.anySub": "Feliratok", "f.reset": "Szűrők törlése", "f.clear": "Kijelölés törlése",
 "sort.added": "Újonnan hozzáadott", "sort.year": "Megjelenés éve", "sort.title": "Cím", "sort.rating": "{name} értékelés",
-"cat.count": "{n} cím", "cat.none": "Nincs találat.", "cat.refresh": "Refresh ratings",
+"cat.count": "{n} cím", "cat.none": "Nincs találat.", "cat.refresh": "Refresh title", "cat.refreshed": "Refreshed",
 "cat.addedNote": "a hozzáadás dátumát a saját könyvtárak és a Streaming Availability ismerik, a többi cím a végén van",
 "pager.prev": "‹ Előző", "pager.next": "Következő ›",
 "offer.free": "ingyenes", "offer.ads": "reklámmal", "offer.addon": "kiegészítő", "offer.audio": "hang", "offer.subs": "feliratok",

@@ -70,6 +70,17 @@ def fake_popular(country, language, count, best_only, offset, providers, lo, hi,
     return [jwq._parse_entry(n) for n in items[offset:offset + count]]
 
 
+def fake_details(node_id, country, language, best_only):
+    node = next((n for n in CATALOG if n["id"] == node_id), None)
+    if node is None:
+        raise RuntimeError("JustWatch: no such node")
+    return jwq._parse_entry(node)
+
+
+def fake_search(title, country, language, count, best_only):
+    return [jwq._parse_entry(n) for n in CATALOG if title.lower() in n["content"]["title"].lower()][:count]
+
+
 def fake_providers(country):
     return [jwq._parse_package({"id": "p8", "packageId": 8, "clearName": "Netflix", "technicalName": "netflix",
                                 "shortName": "nfx", "monetizationTypes": ["FLATRATE"], "icon": "/i.png"}),
@@ -90,6 +101,8 @@ def main():
 
     justwatch.jw.popular = fake_popular
     justwatch.jw.providers = fake_providers
+    justwatch.jw.details = fake_details
+    justwatch.jw.search = fake_search
     justwatch.PAGE = 200
     streaming_availability.DIRECT_BASE = f"{BASE}/sa"
     ratings.IMDB_RATINGS_URL = f"{BASE}/imdb/title.ratings.tsv.gz"
@@ -156,7 +169,7 @@ def main():
         updates._latest_tag, updates._cache["at"] = v101, 0
         # JustWatch offer dates: the popular query asks for dateCreated and the raw answer's dates are kept by offer id
         from app.sources import justwatch as jwsrc
-        req = jwsrc._prepare_with_dates("CZ", "cs", 2, True, 0, ["nfx"], None, None, None)
+        req = jwsrc.jw.prepare_popular_request("CZ", "cs", 2, True, 0, ["nfx"], None, None, None)
         assert "dateCreated" in req["query"]
         jwsrc._collect_dates({"data": {"x": [{"__typename": "Offer", "id": "o1", "dateCreated": "2026-11-02T10:00:00Z"}]}})
         assert jwsrc._OFFER_DATES.pop("o1") == "2026-11-02T10:00:00"
@@ -190,7 +203,7 @@ def main():
             async with httpx.AsyncClient(headers={"User-Agent": "test"}) as c:
                 return (await ratings.csfd_find(c, "Scrubs", 2026, "show"), await ratings.csfd_find(c, "Scrubs", 2026),
                         await ratings.csfd_rating(c, "777"))
-        show, movie, (value, _votes, _url, _imdb, years) = asyncio.run(scrubs())
+        show, movie, (value, _votes, _url, _imdb, years, _fy) = asyncio.run(scrubs())
         assert show == ("777", True) and movie is None and value == 81 and years == (2001, 2026), (show, movie, value, years)
         assert asyncio.run(updates.status("1.0.1"))["state"] == "current"
         updates._latest_tag = v102
@@ -451,7 +464,47 @@ def main():
         assert r.status_code == 200, r.text
         assert {x["source"]: x["display"] for x in r.json()["ratings"]}.get("csfd") == "64 %", r.json()["ratings"]
         assert sql(f"SELECT value FROM title_ids WHERE title_id={three} AND kind='csfd'") == [("9102",)]
+        # the page without an IMDb link that lost is remembered as another film
+        assert "9101|tt9100002" in json.loads(sql("SELECT value FROM kv WHERE key='csfd.rejected'")[0][0])
         assert client.get("/api/sync/status").status_code == 200
+        # a stored ČSFD id (the library's) of a film of another year is dropped, the search finds the right one
+        async def rok():
+            tid = await st_mod.upsert_title(st_mod.TitleInfo("movie", "Rok", year=2026, ids={"csfd": "9201"}))
+            await st_mod.upsert_offer(tid, st_mod.Offer(source="netflix", provider="netflix", provider_name="Netflix", kind="stream",
+                                                         monetization="flatrate"), time.time())
+            return tid
+        year_t = client.portal.call(rok)
+        r = client.post(f"/api/titles/{year_t}/refresh")
+        assert {x["source"]: x["display"] for x in r.json()["ratings"]}.get("csfd") == "86 %", r.json()["ratings"]
+        assert sql(f"SELECT value FROM title_ids WHERE title_id={year_t} AND kind='csfd'") == [("9202",)]
+
+        # the refresh button = that title again from every source: a new picture in the library, an offer that
+        # left a service, a library item deleted, a title found on JustWatch by its name
+        matrix = sql("SELECT title_id FROM title_ids WHERE kind='imdb' AND value='tt0133093'")[0][0]
+        mock_servers.MOVIE["ImageTags"] = {"Primary": "fresh"}
+        oneplay = CATALOG[0]["offers"].pop(1)
+        r = client.post(f"/api/titles/{matrix}/refresh")
+        assert r.status_code == 200 and "fresh" in (r.json()["poster"] or ""), r.json()["poster"]
+        provs = {p for (p,) in sql(f"SELECT provider FROM availability WHERE title_id={matrix}")}
+        assert "oneplay" not in provs and "netflix" in provs and any(p.startswith("emby-") for p in provs), provs
+        assert any(p.startswith("plex-") for p in provs), provs
+        CATALOG[0]["offers"].insert(1, oneplay)
+        mock_servers.MOVIE["ImageTags"] = {"Primary": "abc"}
+        client.post(f"/api/titles/{matrix}/refresh")
+        assert ("oneplay",) in sql(f"SELECT provider FROM availability WHERE title_id={matrix}")
+        odyssea = sql("SELECT title_id FROM title_ids WHERE kind='imdb' AND value='tt33764258'")[0][0]
+        CATALOG.append(jw_node(7, 2026, title="Odyssea", imdb="tt33764258"))
+        mock_servers.EMBY_GONE.add("m4")
+        r = client.post(f"/api/titles/{odyssea}/refresh")
+        assert r.status_code == 200, r.text
+        rows = sql(f"SELECT source, provider FROM availability WHERE title_id={odyssea}")
+        assert ("justwatch", "netflix") in rows and not any(s_.startswith(("emby:", "jellyfin:")) for s_, _ in rows), rows
+        assert sql(f"SELECT value FROM title_ids WHERE title_id={odyssea} AND kind='jw'") == [("tm7",)]
+        mock_servers.EMBY_GONE.discard("m4")
+        CATALOG.pop()
+        r = client.post(f"/api/titles/{odyssea}/refresh")
+        rows = sql(f"SELECT source FROM availability WHERE title_id={odyssea}")
+        assert any(s_.startswith("emby:") for (s_,) in rows) and ("justwatch",) not in rows, rows
 
         # TMDB (by tmdb id or found via IMDb id), OMDb (RT + Metacritic), TVmaze (series)
         assert rt["tmdb"] == "7.9" and rt["metacritic"] == "73/100", rt

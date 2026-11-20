@@ -4,7 +4,7 @@ import { now } from "./db";
 import { norm } from "./quality";
 import * as store from "./store";
 import { rankSql } from "./queries";
-import type { SyncContext } from "./context";
+import { SyncContext } from "./context";
 import * as settingsMod from "./settings";
 
 export const urls = {
@@ -17,6 +17,7 @@ export const urls = {
 };
 export const pauses = { CSFD_MS: 1500, TMDB_MS: 150, TVMAZE_MS: 600, OMDB_MS: 250, MDBLIST_MS: 200 };
 const IMDB_MAX_AGE_S = 20 * 3600;
+
 
 // --- IMDb (official non-commercial dataset; each device downloads it for its own user) ------
 export async function imdbDataset(ctx: SyncContext, force = false): Promise<void> {
@@ -67,7 +68,8 @@ export async function imdbDataset(ctx: SyncContext, force = false): Promise<void
 }
 
 // --- titles due for a per-title rating source ------------------------------------------------
-async function due(source: string, refreshDays: number, kinds: string[], ttype?: string) {
+/** only: the refresh button rates just that title. */
+async function due(source: string, refreshDays: number, kinds: string[], ttype?: string, only?: number | null) {
   const refresh = now() - refreshDays * 86400;
   let sql = `SELECT t.id, t.type,
       (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='imdb') AS imdb,
@@ -80,6 +82,7 @@ async function due(source: string, refreshDays: number, kinds: string[], ttype?:
       AND (r.updated_at IS NULL OR r.updated_at < ?)`;
   const params: unknown[] = [source, ...kinds, refresh];
   if (ttype) { sql += " AND t.type=?"; params.push(ttype); }
+  if (only) { sql += " AND t.id=?"; params.push(only); }
   const [rank, rankParams] = await rankSql();     // in the user's service order
   return env.db.all(sql + ` ORDER BY r.updated_at IS NOT NULL, ${rank}, r.updated_at, t.id`, [...params, ...rankParams]);
 }
@@ -89,7 +92,7 @@ export async function tmdb(ctx: SyncContext): Promise<void> {
   const cfg = ctx.settings.ratings;
   const key = cfg.tmdb_api_key;
   if (!key) return;
-  const rows = await due("tmdb_api", Number(cfg.refresh_days), ["tmdb_movie", "tmdb_tv", "imdb"]);
+  const rows = await due("tmdb_api", Number(cfg.refresh_days), ["tmdb_movie", "tmdb_tv", "imdb"], undefined, ctx.only);
   const headers: Record<string, string> = key.startsWith("eyJ") ? { Authorization: `Bearer ${key}` } : {};
   const auth: Record<string, string> = key.startsWith("eyJ") ? {} : { api_key: key };
   for (const [i, row] of rows.entries()) {
@@ -118,7 +121,7 @@ export async function tmdb(ctx: SyncContext): Promise<void> {
 
 // --- TVmaze (free, no key, series only) ------------------------------------------------------
 export async function tvmaze(ctx: SyncContext): Promise<void> {
-  const rows = await due("tvmaze", Number(ctx.settings.ratings.refresh_days), ["imdb", "tvdb"], "show");
+  const rows = await due("tvmaze", Number(ctx.settings.ratings.refresh_days), ["imdb", "tvdb"], "show", ctx.only);
   for (const [i, row] of rows.entries()) {
     ctx.progress(`TVmaze: ${i + 1}/${rows.length}`, (i + 1) / rows.length);
     let show: any = null;
@@ -139,7 +142,7 @@ export async function tvmaze(ctx: SyncContext): Promise<void> {
 export async function omdb(ctx: SyncContext): Promise<void> {
   const cfg = ctx.settings.ratings;
   if (!cfg.omdb_api_key) return;
-  const rows = await due("omdb", Number(cfg.refresh_days), ["imdb"]);
+  const rows = await due("omdb", Number(cfg.refresh_days), ["imdb"], undefined, ctx.only);
   const budget = Number(cfg.omdb_daily_budget);
   for (const [i, row] of rows.entries()) {
     ctx.progress(`OMDb: ${i + 1}/${rows.length}`, (i + 1) / rows.length);
@@ -182,7 +185,8 @@ export async function mdblist(ctx: SyncContext): Promise<void> {
       JOIN title_ids i ON i.title_id=t.id AND i.kind='imdb'
       LEFT JOIN ratings r ON r.title_id=t.id AND r.source='mdblist'
       WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id) AND (r.updated_at IS NULL OR r.updated_at < ?)
-      ORDER BY r.updated_at IS NOT NULL, ${rank}, r.updated_at`, [refresh, ...rankParams]);
+        AND (? IS NULL OR t.id=?)
+      ORDER BY r.updated_at IS NOT NULL, ${rank}, r.updated_at`, [refresh, ctx.only ?? null, ctx.only ?? null, ...rankParams]);
   const budget = Number(cfg.mdblist_daily_budget);
   for (const [i, row] of rows.entries()) {
     ctx.progress(`MDBList: ${i + 1}/${rows.length}`, (i + 1) / rows.length);
@@ -282,12 +286,19 @@ export function csfdYears(page: string): [number, number | null] | null {
   return range ? [Number(range[1]), range[2] ? Number(range[2]) : null] : null;
 }
 
-async function csfdRating(cid: string): Promise<[number | null, number | null, string, string | null, [number, number | null] | null]> {
+/** The year of a film on a ČSFD page (header's origin line: "USA, 2026, 172 min"). */
+export function csfdFilmYear(page: string): number | null {
+  const origin = /class="origin"[^>]*>([\s\S]{0,400})/.exec(page)?.[1];
+  const m = origin ? /\b(1[89]\d\d|20\d\d)\b/.exec(origin.replace(/<[^>]+>/g, " ")) : null;
+  return m ? Number(m[1]) : null;
+}
+
+async function csfdRating(cid: string): Promise<[number | null, number | null, string, string | null, [number, number | null] | null, number | null]> {
   const { page, url } = await csfdGet(`${urls.CSFD}/film/${cid}/prehled/`);
   if (!page.includes('class="film-rating-average') && !page.includes("film-header")) throw new SourceError(`ČSFD: neočekávaná stránka filmu ${cid}`);
   const m = RATING.exec(page), v = VOTES.exec(page), imdb = IMDB_LINK.exec(page);
   const digits = v ? v[1].replace(/\D/g, "") : "";
-  return [m ? Number(m[1]) : null, digits ? Number(digits) : null, url, imdb ? imdb[1] : null, csfdYears(page)];
+  return [m ? Number(m[1]) : null, digits ? Number(digits) : null, url, imdb ? imdb[1] : null, csfdYears(page), csfdFilmYear(page)];
 }
 
 /** Find and store the ČSFD rating of one title (a row of csfdQueue).
@@ -299,6 +310,15 @@ export async function csfdRateRow(row: any): Promise<void> {
   type Hit = { cid: string; check: boolean; stored: boolean; value: number | null; votes: number | null; url: string; imdb: string | null };
   const haveImdb: string | null = row.imdb_id || null;
   const cands: { cid: string; check: boolean; stored: boolean }[] = row.csfd_id ? [{ cid: row.csfd_id, check: false, stored: true }] : [];
+  const noLink: { cid: string; stored: boolean }[] = [];
+  /** That ČSFD page is not this title: never again (the library's ČSFD id included). */
+  const reject = async (cid: string, stored: boolean) => {
+    if (haveImdb) {
+      const rejected = await env.db.kvGet<string[]>(CSFD_REJECTED_KEY, []);
+      if (!rejected.includes(`${cid}|${haveImdb}`)) await env.db.kvSet(CSFD_REJECTED_KEY, [...rejected, `${cid}|${haveImdb}`].slice(-2000));
+    }
+    if (stored) await env.db.run("DELETE FROM title_ids WHERE title_id=? AND kind='csfd' AND value=?", [row.id, cid]);
+  };
   let searched = false, tries = 0, n = 0;
   let hit: Hit | null = null, fallback: Hit | null = null;
   while (tries < 3) {
@@ -319,19 +339,24 @@ export async function csfdRateRow(row: any): Promise<void> {
     }
     if (tries) await env.sleep(pauses.CSFD_MS);
     tries++;
-    const [value, votes, url, imdb, years] = await csfdRating(cand.cid);
+    const [value, votes, url, imdb, years, filmYear] = await csfdRating(cand.cid);
     if (cand.check && !(years && years[0] <= row.year && (years[1] ?? 9999) >= row.year)) continue;   // a series of that name, not running that year
-    const found: Hit = { ...cand, value, votes, url, imdb };
-    if (haveImdb && imdb && imdb !== haveImdb) {
-      const rejected = await env.db.kvGet<string[]>(CSFD_REJECTED_KEY, []);
-      await env.db.kvSet(CSFD_REJECTED_KEY, [...rejected, `${cand.cid}|${haveImdb}`].slice(-2000));
-      if (cand.stored) await env.db.run("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", [row.id]);
+    if (row.type === "movie" && !years && filmYear && row.year && Math.abs(filmYear - row.year) > 1) {
+      await reject(cand.cid, cand.stored);           // another film of that name (another year)
       continue;
     }
-    if (haveImdb && !imdb) { fallback = fallback || found; continue; }   // cannot tell: the title's own IMDb id wins
+    const found: Hit = { ...cand, value, votes, url, imdb };
+    if (haveImdb && imdb && imdb !== haveImdb) { await reject(cand.cid, cand.stored); continue; }
+    if (haveImdb && !imdb) {                         // cannot tell: a page with the title's own IMDb id wins
+      noLink.push({ cid: cand.cid, stored: cand.stored });
+      fallback = fallback || found;
+      continue;
+    }
     hit = found;
     break;
   }
+  // the page with the title's IMDb id won: the pages without a link are other films
+  if (hit?.imdb) for (const x of noLink) await reject(x.cid, x.stored);
   hit = hit || fallback;
   if (!hit) { await store.setRating(row.id, "csfd", null, null); return; }
   const { cid, check, value, votes, url, imdb } = hit;
@@ -360,6 +385,24 @@ export async function csfdRefreshTitle(titleId: number): Promise<string | null> 
     return `ČSFD: ${(e as Error)?.message || e}`;   // network down: the card still comes back
   }
   return null;
+}
+
+/** The refresh button: every rating source for this one title now (what failed, for the user). The IMDb
+ *  dataset is the whole IMDb (megabytes), so it waits for its daily run. */
+export async function refreshTitle(titleId: number, settings: any): Promise<string[]> {
+  const cfg = settings.ratings, notes: string[] = [];
+  await env.db.run("UPDATE ratings SET updated_at=0 WHERE title_id=?", [titleId]);
+  const ctx = new SyncContext("refresh", settings);
+  ctx.only = titleId;
+  for (const [name, fn, on] of [["MDBList", mdblist, cfg.mdblist_api_key], ["TMDB", tmdb, cfg.tmdb_api_key],
+    ["TVmaze", tvmaze, cfg.tvmaze], ["OMDb", omdb, cfg.omdb_api_key]] as [string, (c: SyncContext) => Promise<void>, unknown][]) {
+    if (!on) continue;
+    try { await fn(ctx); }
+    catch (e) { notes.push(e instanceof SourceError ? e.message : `${name}: ${(e as Error)?.message || e}`); }
+  }
+  const note = await csfdRefreshTitle(titleId);
+  if (note) notes.push(note);
+  return notes;
 }
 
 const FOCUS_KEY = "ratings.focus";   // titles the user has on screen right now: rated before the rest

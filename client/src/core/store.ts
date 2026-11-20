@@ -194,6 +194,28 @@ export async function removeStale(source: string, before: number): Promise<numbe
   return (await env.db.run("DELETE FROM availability WHERE source=? AND seen_at<?", [source, before])).changes;
 }
 
+/** One title refreshed from one source: its offers that source no longer lists. */
+export async function removeStaleTitle(titleId: number, source: string, before: number): Promise<number> {
+  return (await env.db.run("DELETE FROM availability WHERE title_id=? AND source=? AND seen_at<?", [titleId, source, before])).changes;
+}
+
+/** The title being refreshed: { id, type, title, original_title, year, ids, offers }. */
+export interface RefreshTitle {
+  id: number; type: string; title: string; original_title: string | null; year: number | null;
+  ids: Record<string, string>; offers: { source: string; url: string | null; extra: Record<string, any> }[];
+}
+
+/** Is a source's item (name, year, ids) the title being refreshed? A shared strong id decides; without one,
+ *  the name and the year (±1) must agree. */
+export function sameWork(title: RefreshTitle, name: string | null | undefined, original: string | null | undefined,
+  year: number | null | undefined, ids: Record<string, string | null | undefined>): boolean {
+  const shared = STRONG_KINDS.filter((k) => ids[k] && title.ids[k]);
+  if (shared.length) return shared.every((k) => String(ids[k]) === String(title.ids[k]));
+  const names = new Set([title.title, title.original_title].filter(Boolean).map((x) => norm(x)));
+  if (![name, original].filter(Boolean).some((x) => names.has(norm(x)))) return false;
+  return !(year && title.year && Math.abs(Number(year) - Number(title.year)) > 1);
+}
+
 export async function setRating(titleId: number, source: string, value: number | null, display: string | null,
   votes: number | null = null, url: string | null = null, onlyIfMissing = false): Promise<void> {
   const conflict = onlyIfMissing ? "DO NOTHING"

@@ -74,10 +74,15 @@ export async function forward(method: string, pathAndQuery: string, body: unknow
   const r0 = remote!;
   let lastErr: unknown = null;
   const list = bases();
+  // the refresh button asks every source and rating site for one title: it takes many seconds, so the address
+  // is found first by a short question, and only then the long call is made (once: never twice on the server)
+  const slow = method === "POST" && /\/refresh$/.test(pathAndQuery.split("?")[0]);
   for (const [i, base] of list.entries()) {
     try {
       // a short wait for the first address: away from home its answer never comes
-      const r = await call(base, method, pathAndQuery, body, r0.session, i < list.length - 1 ? 4000 : 20000);
+      const wait = i < list.length - 1 ? 4000 : 20000;
+      if (slow) await call(base, "GET", "/api/version", undefined, r0.session, wait);
+      const r = await call(base, method, pathAndQuery, body, r0.session, slow ? 120000 : wait);
       good = base; goodAt = Date.now();
       const text = await r.text();
       let data: unknown = null;

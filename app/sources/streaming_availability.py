@@ -149,3 +149,17 @@ async def sync(ctx: SyncContext) -> None:
                     state.pop(key, None)
                     await db.kv_set(STATE_KEY, state)
                     break
+
+
+async def refresh_title(title: dict, ctx: SyncContext) -> None:
+    """One title again: its Streaming Availability entry now (one request of the daily budget)."""
+    cfg = ctx.settings["streaming_availability"]
+    ids = title["ids"]
+    ext = ids.get("imdb") or (f"movie/{ids['tmdb_movie']}" if ids.get("tmdb_movie") else
+                              f"tv/{ids['tmdb_tv']}" if ids.get("tmdb_tv") else None)
+    if not ext:
+        return
+    show = await lookup(ctx.settings, ext)
+    if show:
+        await store_show(ctx, show, set(cfg.get("catalogs") or []))
+    await store.remove_stale_title(title["id"], SOURCE, ctx.started)

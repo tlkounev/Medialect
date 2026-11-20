@@ -89,13 +89,13 @@ class EmbyLike:
         path = f"/Items/{item['Id']}/Images/Primary?maxHeight=360&tag={item['ImageTags']['Primary']}"
         return f"/api/poster/{self.server['id']}?path={quote(path, safe='')}"
 
-    async def _items(self, c, user_id: str, types: str, fields: str):
+    async def _items(self, c, user_id: str, types: str, fields: str, **extra):
         start = 0
         while True:
             r = await c.get(f"/Users/{user_id}/Items", params={
                 "Recursive": "true", "IncludeItemTypes": types, "Fields": fields,
                 "StartIndex": start, "Limit": PAGE, "EnableImages": "true", "ImageTypeLimit": 1,
-                "EnableUserData": "false",
+                "EnableUserData": "false", **extra,
             })
             r.raise_for_status()
             data = r.json()
@@ -111,68 +111,118 @@ class EmbyLike:
             info = (await c.get("/System/Info")).raise_for_status().json()
             return {"name": info.get("ServerName"), "version": info.get("Version"), "id": info.get("Id")}
 
-    async def sync(self, ctx: SyncContext) -> None:
+    async def _connect(self, c) -> tuple[str, str]:
+        """(server id, id of the user whose view of the libraries is read)."""
+        name = self.server.get("name") or self.flavor.title()
+        r = await c.get("/System/Info")
+        if r.status_code in (401, 403):
+            raise SourceError(f"{name}: neplatný API klíč (HTTP {r.status_code}).")
+        info = r.raise_for_status().json()
+        users = (await c.get("/Users")).raise_for_status().json()
+        admin = next((u for u in users if (u.get("Policy") or {}).get("IsAdministrator")), users[0] if users else None)
+        if not admin:
+            raise SourceError(f"{name}: na serveru není žádný uživatel.")
+        return info.get("Id"), admin["Id"]
+
+    def _emitter(self, ctx: SyncContext, server_id: str):
+        """emit(item, type, summary, added): stores one library item as a title with its offer. Several library
+        items can be one title (two copies of a film, another version with more audio tracks): their tracks
+        are added up, the link goes to the best copy."""
         name = self.server.get("name") or self.flavor.title()
         provider = f"{self.flavor}-{self.server['id']}"
-        async with http_client(base_url=self.base, headers=_headers(self.server), timeout=120) as c:
-            r = await c.get("/System/Info")
-            if r.status_code in (401, 403):
-                raise SourceError(f"{name}: neplatný API klíč (HTTP {r.status_code}).")
-            info = r.raise_for_status().json()
-            server_id = info.get("Id")
-            users = (await c.get("/Users")).raise_for_status().json()
-            admin = next((u for u in users if (u.get("Policy") or {}).get("IsAdministrator")), users[0] if users else None)
-            if not admin:
-                raise SourceError(f"{name}: na serveru není žádný uživatel.")
-            uid = admin["Id"]
+        emitted: dict[int, tuple[dict, dict, str | None]] = {}
 
-            # several library items can be one title (two copies of a film, another version with more
-            # audio tracks): their tracks are added up, the link goes to the best copy
-            emitted: dict[int, tuple[dict, dict, str | None]] = {}
+        async def emit(item: dict, ttype: str, summary: dict, added: str | None = None) -> int:
+            tid = await store.upsert_title(store.TitleInfo(
+                type=ttype, title=item.get("Name") or "?", original_title=item.get("OriginalTitle"),
+                year=item.get("ProductionYear"), poster=self.poster(item),
+                ids=_ids(item.get("ProviderIds"), ttype), authoritative=("csfd",), library=True,
+            ))
+            added_at = max(filter(None, (item.get("DateCreated"), added)), default=None)
+            main = item
+            if tid in emitted:
+                prev_summary, prev_item, prev_added = emitted[tid]
+                if best_quality(prev_summary["quality"], summary["quality"]) == prev_summary["quality"]:
+                    main = prev_item
+                summary = _merge_summary(prev_summary, summary)
+                added_at = max(filter(None, (prev_added, added_at)), default=None)
+            else:
+                ctx.items += 1
+            emitted[tid] = (summary, main, added_at)
+            await store.upsert_offer(tid, store.Offer(
+                source=self.source, provider=provider, provider_name=name, kind="library",
+                monetization="library", url=self.item_link(main["Id"], server_id),
+                extra={"item_id": main["Id"], "server_id": server_id, "server_type": self.flavor},
+                added_at=added_at, **summary,
+            ), ctx.started)
+            return tid
+        return emit
 
-            async def emit(item: dict, ttype: str, summary: dict, added: str | None = None) -> None:
-                tid = await store.upsert_title(store.TitleInfo(
-                    type=ttype, title=item.get("Name") or "?", original_title=item.get("OriginalTitle"),
-                    year=item.get("ProductionYear"), poster=self.poster(item),
-                    ids=_ids(item.get("ProviderIds"), ttype), authoritative=("csfd",), library=True,
-                ))
-                added_at = max(filter(None, (item.get("DateCreated"), added)), default=None)
-                main = item
-                if tid in emitted:
-                    prev_summary, prev_item, prev_added = emitted[tid]
-                    if best_quality(prev_summary["quality"], summary["quality"]) == prev_summary["quality"]:
-                        main = prev_item
-                    summary = _merge_summary(prev_summary, summary)
-                    added_at = max(filter(None, (prev_added, added_at)), default=None)
+    async def _all_versions(self, c, uid: str, item: dict) -> dict:
+        """The item with every version's tracks (the single-item endpoint returns all of them)."""
+        if (item.get("MediaSourceCount") or 0) <= len(item.get("MediaSources") or []):
+            return item
+        r = await c.get(f"/Users/{uid}/Items/{item['Id']}")
+        if r.status_code != 200:
+            return item
+        return {**item, "MediaSources": r.json().get("MediaSources") or item.get("MediaSources")}
+
+    async def refresh_title(self, title: dict, ctx: SyncContext) -> None:
+        """One title again: its library items now (quality, picture, ids), items of that name added since,
+        and its offer gone when the item was deleted."""
+        ttype = title["type"]
+        async with http_client(base_url=self.base, headers=_headers(self.server), timeout=30) as c:
+            server_id, uid = await self._connect(c)
+            items: dict[str, dict] = {}
+            for o in title["offers"]:
+                iid = o["extra"].get("item_id") if o["source"] == self.source else None
+                if not iid:
+                    continue
+                r = await c.get(f"/Users/{uid}/Items/{iid}", params={"Fields": FIELDS})
+                if r.status_code == 200:
+                    items[iid] = r.json()
+                elif r.status_code not in (400, 404):
+                    r.raise_for_status()
+            kind = "Movie" if ttype == "movie" else "Series"
+            for q in dict.fromkeys(n for n in (title["title"], title["original_title"]) if n):
+                r = await c.get(f"/Users/{uid}/Items", params={
+                    "Recursive": "true", "SearchTerm": q, "IncludeItemTypes": kind, "Fields": FIELDS, "Limit": 20,
+                    "EnableImages": "true", "ImageTypeLimit": 1, "EnableUserData": "false"})
+                r.raise_for_status()
+                for it in r.json().get("Items") or []:
+                    if it.get("Id") not in items and store.same_work(
+                            title, it.get("Name"), it.get("OriginalTitle"), it.get("ProductionYear"),
+                            _ids(it.get("ProviderIds"), ttype)):
+                        items[it["Id"]] = it
+            emit = self._emitter(ctx, server_id)
+            for it in items.values():
+                if it.get("Type") == "Series" or ttype == "show":
+                    summary, newest = media_summary({}), None
+                    async for ep in self._items(c, uid, "Episode", EP_FIELDS, ParentId=it["Id"]):
+                        summary = _merge_summary(summary, media_summary(await self._all_versions(c, uid, ep)))
+                        if ep.get("DateCreated") and ep["DateCreated"] > (newest or ""):
+                            newest = ep["DateCreated"]
+                    await emit(it, "show", summary, newest)
                 else:
-                    ctx.items += 1
-                emitted[tid] = (summary, main, added_at)
-                await store.upsert_offer(tid, store.Offer(
-                    source=self.source, provider=provider, provider_name=name, kind="library",
-                    monetization="library", url=self.item_link(main["Id"], server_id),
-                    extra={"item_id": main["Id"], "server_id": server_id, "server_type": self.flavor},
-                    added_at=added_at, **summary,
-                ), ctx.started)
+                    await emit(it, "movie", media_summary(await self._all_versions(c, uid, it)))
+        await store.remove_stale_title(title["id"], self.source, ctx.started)
 
-            async def all_versions(item: dict) -> dict:
-                """The item with every version's tracks (the single-item endpoint returns all of them)."""
-                if (item.get("MediaSourceCount") or 0) <= len(item.get("MediaSources") or []):
-                    return item
-                r = await c.get(f"/Users/{uid}/Items/{item['Id']}")
-                if r.status_code != 200:
-                    return item
-                return {**item, "MediaSources": r.json().get("MediaSources") or item.get("MediaSources")}
+    async def sync(self, ctx: SyncContext) -> None:
+        name = self.server.get("name") or self.flavor.title()
+        async with http_client(base_url=self.base, headers=_headers(self.server), timeout=120) as c:
+            server_id, uid = await self._connect(c)
+            emit = self._emitter(ctx, server_id)
 
             ctx.progress(f"{name}: filmy", 0)
             async for it in self._items(c, uid, "Movie", FIELDS):
-                await emit(it, "movie", media_summary(await all_versions(it)))
+                await emit(it, "movie", media_summary(await self._all_versions(c, uid, it)))
 
             per_series: dict[str, dict] = defaultdict(dict)
             newest_ep: dict[str, str] = {}
             ctx.progress(f"{name}: kvalita epizod", 1 / 3)
             n_eps = 0
             async for ep in self._items(c, uid, "Episode", EP_FIELDS):
-                ep = await all_versions(ep)
+                ep = await self._all_versions(c, uid, ep)
                 n_eps += 1
                 if n_eps % 500 == 0:
                     ctx.progress(f"{name}: kvalita epizod ({n_eps})")

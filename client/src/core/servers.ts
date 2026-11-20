@@ -122,12 +122,13 @@ export function embySummary(item: any): Summary {
   return s;
 }
 
-async function* embyItems(base: string, headers: Record<string, string>, userId: string, types: string, fields: string) {
+async function* embyItems(base: string, headers: Record<string, string>, userId: string, types: string, fields: string,
+  extra: Record<string, unknown> = {}) {
   let start = 0;
   for (;;) {
     const data = await get(base, `/Users/${userId}/Items`, headers, {
       Recursive: "true", IncludeItemTypes: types, Fields: fields, StartIndex: start, Limit: PAGE,
-      EnableImages: "true", ImageTypeLimit: 1, EnableUserData: "false" });
+      EnableImages: "true", ImageTypeLimit: 1, EnableUserData: "false", ...extra });
     const items = data?.Items || [];
     for (const it of items) yield it;
     start += items.length;
@@ -135,62 +136,123 @@ async function* embyItems(base: string, headers: Record<string, string>, userId:
   }
 }
 
-async function embySync(srv: any, ctx: SyncContext): Promise<void> {
+interface EmbyConn {
+  flavor: "emby" | "jellyfin"; name: string; base: string; headers: Record<string, string>; source: string;
+  provider: string; serverId: string; adminId: string; link: (id: string) => string; poster: (it: any) => string | null;
+}
+
+async function embyConnect(srv: any, ctx: SyncContext): Promise<EmbyConn> {
   const flavor = srv.type as "emby" | "jellyfin";
   const name = srv.name || (flavor === "emby" ? "Emby" : "Jellyfin");
   const view = viewBase(srv), headers = embyHeaders(srv);
-  const source = `${flavor}:${srv.id}`, provider = `${flavor}-${srv.id}`;
   const [base, info] = await reachable(srv, "/System/Info", headers);
   if (base !== trimSlash(srv.url)) ctx.note(`${name}: interní adresa neodpovídá, synchronizuji přes veřejnou.`);
   const serverId = info?.Id;
   const users: any[] = (await get(base, "/Users", headers)) || [];
   const admin = users.find((u) => u?.Policy?.IsAdministrator) || users[0];
   if (!admin) throw new SourceError(`${name}: na serveru není žádný uživatel.`);
-  const link = (id: string) => flavor === "jellyfin"
-    ? `${view}/web/#/details?id=${id}&serverId=${serverId}`
-    : `${view}/web/index.html#!/item?id=${id}&serverId=${serverId}`;
-  // images of Emby and Jellyfin need no token
-  const poster = (it: any) => it.ImageTags?.Primary
-    ? `${view}/Items/${it.Id}/Images/Primary?maxHeight=360&tag=${it.ImageTags.Primary}` : null;
+  return {
+    flavor, name, base, headers, source: `${flavor}:${srv.id}`, provider: `${flavor}-${srv.id}`, serverId, adminId: admin.Id,
+    link: (id) => flavor === "jellyfin"
+      ? `${view}/web/#/details?id=${id}&serverId=${serverId}`
+      : `${view}/web/index.html#!/item?id=${id}&serverId=${serverId}`,
+    // images of Emby and Jellyfin need no token
+    poster: (it) => it.ImageTags?.Primary ? `${view}/Items/${it.Id}/Images/Primary?maxHeight=360&tag=${it.ImageTags.Primary}` : null,
+  };
+}
 
+/** emit(item, type, summary, added): one library item stored as a title with its offer. */
+function embyEmitter(e: EmbyConn, ctx: SyncContext) {
   const emitted = new Emitted<any>();
-  const emit = async (item: any, ttype: "movie" | "show", summary: Summary, added?: string) => {
+  return async (item: any, ttype: "movie" | "show", summary: Summary, added?: string | null) => {
     const tid = await store.upsertTitle({ type: ttype, title: item.Name || "?", original_title: item.OriginalTitle,
-      year: item.ProductionYear, poster: poster(item), ids: embyIds(item.ProviderIds, ttype), authoritative: ["csfd"], library: true });
+      year: item.ProductionYear, poster: e.poster(item), ids: embyIds(item.ProviderIds, ttype), authoritative: ["csfd"], library: true });
     const dates = [item.DateCreated, added].filter(Boolean).sort();
     const [s, main, addedAt, first] = emitted.add(tid, summary, item, dates.length ? dates[dates.length - 1] : null);
-    await store.upsertOffer(tid, { source, provider, provider_name: name, kind: "library", monetization: "library",
-      url: link(main.Id), extra: { item_id: main.Id, server_id: serverId, server_type: flavor },
+    await store.upsertOffer(tid, { source: e.source, provider: e.provider, provider_name: e.name, kind: "library", monetization: "library",
+      url: e.link(main.Id), extra: { item_id: main.Id, server_id: e.serverId, server_type: e.flavor },
       added_at: addedAt, ...s }, ctx.started);
     if (first) ctx.items++;
   };
+}
 
+/** The item with every version's tracks (the single-item endpoint returns all of them). */
+async function embyAllVersions(e: EmbyConn, item: any) {
+  if ((item.MediaSourceCount || 0) <= (item.MediaSources || []).length) return item;
+  try {
+    const full = await get(e.base, `/Users/${e.adminId}/Items/${item.Id}`, e.headers);
+    return { ...item, MediaSources: full?.MediaSources || item.MediaSources };
+  } catch { return item; }
+}
+
+async function embySync(srv: any, ctx: SyncContext): Promise<void> {
+  const e = await embyConnect(srv, ctx);
+  const { name, base, headers, adminId } = e;
+  const emit = embyEmitter(e, ctx);
   ctx.progress(`${name}: filmy`, 0);
-  /** The item with every version's tracks (the single-item endpoint returns all of them). */
-  const allVersions = async (item: any) => {
-    if ((item.MediaSourceCount || 0) <= (item.MediaSources || []).length) return item;
-    try {
-      const full = await get(base, `/Users/${admin.Id}/Items/${item.Id}`, headers);
-      return { ...item, MediaSources: full?.MediaSources || item.MediaSources };
-    } catch { return item; }
-  };
-  for await (const it of embyItems(base, headers, admin.Id, "Movie", EMBY_FIELDS)) await emit(it, "movie", embySummary(await allVersions(it)));
+  for await (const it of embyItems(base, headers, adminId, "Movie", EMBY_FIELDS)) await emit(it, "movie", embySummary(await embyAllVersions(e, it)));
   const perSeries = new Map<string, Summary>(), newestEp = new Map<string, string>();
   ctx.progress(`${name}: kvalita epizod`, 1 / 3);
   let n = 0;
-  for await (const raw of embyItems(base, headers, admin.Id, "Episode", EMBY_EP_FIELDS)) {
-    const ep = await allVersions(raw);
+  for await (const raw of embyItems(base, headers, adminId, "Episode", EMBY_EP_FIELDS)) {
+    const ep = await embyAllVersions(e, raw);
     if (++n % 500 === 0) ctx.progress(`${name}: kvalita epizod (${n})`);
     if (!ep.SeriesId) continue;
     perSeries.set(ep.SeriesId, merge(perSeries.get(ep.SeriesId), embySummary(ep)));
     if (ep.DateCreated && ep.DateCreated > (newestEp.get(ep.SeriesId) || "")) newestEp.set(ep.SeriesId, ep.DateCreated);
   }
   ctx.progress(`${name}: seriály`, 2 / 3);
-  for await (const s of embyItems(base, headers, admin.Id, "Series", "ProviderIds,OriginalTitle,ProductionYear,DateCreated")) {
+  for await (const s of embyItems(base, headers, adminId, "Series", "ProviderIds,OriginalTitle,ProductionYear,DateCreated")) {
     await emit(s, "show", perSeries.get(s.Id) || embySummary({}), newestEp.get(s.Id));
   }
-  const removed = await store.removeStale(source, ctx.started);
+  const removed = await store.removeStale(e.source, ctx.started);
   ctx.note(`${name}: ${ctx.items} titulů, odstraněno ${removed}.`);
+}
+
+/** HTTP status of a GET (null = it answered 200 with this data). */
+async function getOr404(base: string, path: string, headers: Record<string, string>, params?: Record<string, unknown>): Promise<any | null> {
+  try { return await get(base, path, headers, params, 30000); }
+  catch (err) {
+    if (err instanceof SourceError && /HTTP (400|404)\b/.test(err.message)) return null;
+    throw err;
+  }
+}
+
+/** One title again: its library items now (quality, picture, ids), items of that name added since, and its
+ *  offer gone when the item was deleted. */
+async function embyRefresh(srv: any, title: store.RefreshTitle, ctx: SyncContext): Promise<void> {
+  const e = await embyConnect(srv, ctx);
+  const items = new Map<string, any>();
+  for (const o of title.offers) {
+    const iid = o.source === e.source ? o.extra?.item_id : null;
+    if (!iid) continue;
+    const it = await getOr404(e.base, `/Users/${e.adminId}/Items/${iid}`, e.headers, { Fields: EMBY_FIELDS });
+    if (it?.Id) items.set(iid, it);
+  }
+  const kind = title.type === "movie" ? "Movie" : "Series";
+  for (const q of [...new Set([title.title, title.original_title].filter(Boolean) as string[])]) {
+    const data = await get(e.base, `/Users/${e.adminId}/Items`, e.headers, { Recursive: "true", SearchTerm: q,
+      IncludeItemTypes: kind, Fields: EMBY_FIELDS, Limit: 20, EnableImages: "true", ImageTypeLimit: 1, EnableUserData: "false" }, 30000);
+    for (const it of data?.Items || []) {
+      if (!items.has(it.Id) && store.sameWork(title, it.Name, it.OriginalTitle, it.ProductionYear, embyIds(it.ProviderIds, title.type))) {
+        items.set(it.Id, it);
+      }
+    }
+  }
+  const emit = embyEmitter(e, ctx);
+  for (const it of items.values()) {
+    if (it.Type === "Series" || title.type === "show") {
+      let summary = embySummary({}), newest: string | null = null;
+      for await (const ep of embyItems(e.base, e.headers, e.adminId, "Episode", EMBY_EP_FIELDS, { ParentId: it.Id })) {
+        summary = merge(summary, embySummary(await embyAllVersions(e, ep)));
+        if (ep.DateCreated && ep.DateCreated > (newest || "")) newest = ep.DateCreated;
+      }
+      await emit(it, "show", summary, newest);
+    } else {
+      await emit(it, "movie", embySummary(await embyAllVersions(e, it)));
+    }
+  }
+  await store.removeStaleTitle(title.id, e.source, ctx.started);
 }
 
 // --- Plex -----------------------------------------------------------------------
@@ -266,38 +328,55 @@ async function pool<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R>): 
   return out;
 }
 
-async function plexSync(srv: any, ctx: SyncContext): Promise<void> {
+interface PlexConn {
+  name: string; base: string; headers: Record<string, string>; source: string; provider: string; machineId: string;
+  detail: (key: string) => Promise<any>; link: (key: string) => string; poster: (m: any) => string | null;
+}
+
+async function plexConnect(srv: any, ctx: SyncContext): Promise<PlexConn> {
   const name = srv.name || "Plex";
   const headers = plexHeaders(srv);
-  const source = `plex:${srv.id}`, provider = `plex-${srv.id}`;
   const pub = trimSlash(srv.public_url), view = viewBase(srv);
   const [base, ident] = await reachable(srv, "/identity", headers);
   if (base !== trimSlash(srv.url)) ctx.note(`${name}: interní adresa neodpovídá, synchronizuji přes veřejnou.`);
   const machineId = ident?.MediaContainer?.machineIdentifier;
-  const sections: any[] = (await get(base, "/library/sections", headers))?.MediaContainer?.Directory || [];
-  const detail = async (key: string) => ((await get(base, `/library/metadata/${key}`, headers))?.MediaContainer?.Metadata || [])[0] || {};
-  const link = (key: string) => {
-    const k = encodeURIComponent(`/library/metadata/${key}`);
-    const root = srv.link_mode === "internal" ? base : pub;
-    return root ? `${root}/web/index.html#!/server/${machineId}/details?key=${k}`
-      : `https://app.plex.tv/desktop/#!/server/${machineId}/details?key=${k}`;
+  return {
+    name, base, headers, source: `plex:${srv.id}`, provider: `plex-${srv.id}`, machineId,
+    detail: async (key) => ((await get(base, `/library/metadata/${key}`, headers))?.MediaContainer?.Metadata || [])[0] || {},
+    link: (key) => {
+      const k = encodeURIComponent(`/library/metadata/${key}`);
+      const root = srv.link_mode === "internal" ? base : pub;
+      return root ? `${root}/web/index.html#!/server/${machineId}/details?key=${k}`
+        : `https://app.plex.tv/desktop/#!/server/${machineId}/details?key=${k}`;
+    },
+    // Plex images need the token
+    poster: (m) => m.thumb
+      ? `${view}/photo/:/transcode?width=240&height=360&minSize=1&url=${encodeURIComponent(m.thumb)}&X-Plex-Token=${encodeURIComponent(srv.token || "")}`
+      : null,
   };
-  // Plex images need the token
-  const poster = (m: any) => m.thumb
-    ? `${view}/photo/:/transcode?width=240&height=360&minSize=1&url=${encodeURIComponent(m.thumb)}&X-Plex-Token=${encodeURIComponent(srv.token || "")}`
-    : null;
-  const iso = (ts?: number) => (ts ? new Date(ts * 1000).toISOString().slice(0, 19) : null);
+}
 
+const plexIso = (ts?: number) => (ts ? new Date(ts * 1000).toISOString().slice(0, 19) : null);
+
+/** emit(meta, type, summary, added): one library item stored as a title with its offer. */
+function plexEmitter(p: PlexConn, ctx: SyncContext) {
   const emitted = new Emitted<any>();
-  const emit = async (meta: any, ttype: "movie" | "show", summary: Summary, added?: number) => {
+  return async (meta: any, ttype: "movie" | "show", summary: Summary, added?: number | null) => {
     const tid = await store.upsertTitle({ type: ttype, title: meta.title || "?", original_title: meta.originalTitle,
-      year: meta.year, poster: poster(meta), ids: plexIds(meta.Guid, ttype), library: true });
+      year: meta.year, poster: p.poster(meta), ids: plexIds(meta.Guid, ttype), library: true });
     const [s, main, addedTs, first] = emitted.add(tid, summary, meta, Math.max(meta.addedAt || 0, added || 0) || null);
-    await store.upsertOffer(tid, { source, provider, provider_name: name, kind: "library", monetization: "library",
-      url: link(main.ratingKey), extra: { rating_key: main.ratingKey, machine_id: machineId, server_type: "plex" },
-      added_at: iso(addedTs || undefined), ...s }, ctx.started);
+    await store.upsertOffer(tid, { source: p.source, provider: p.provider, provider_name: p.name, kind: "library", monetization: "library",
+      url: p.link(main.ratingKey), extra: { rating_key: main.ratingKey, machine_id: p.machineId, server_type: "plex" },
+      added_at: plexIso(addedTs || undefined), ...s }, ctx.started);
     if (first) ctx.items++;
   };
+}
+
+async function plexSync(srv: any, ctx: SyncContext): Promise<void> {
+  const p = await plexConnect(srv, ctx);
+  const { name, base, headers, detail } = p;
+  const sections: any[] = (await get(base, "/library/sections", headers))?.MediaContainer?.Directory || [];
+  const emit = plexEmitter(p, ctx);
 
   for (const [si, sec] of sections.entries()) {
     const label = sec.title || sec.key, share = si / Math.max(1, sections.length);
@@ -334,8 +413,52 @@ async function plexSync(srv: any, ctx: SyncContext): Promise<void> {
       }
     }
   }
-  const removed = await store.removeStale(source, ctx.started);
+  const removed = await store.removeStale(p.source, ctx.started);
   ctx.note(`${name}: ${ctx.items} titulů, odstraněno ${removed}.`);
+}
+
+/** One title again: its library items now (quality, picture, ids), items of that name added since, and its
+ *  offer gone when the item was deleted. */
+async function plexRefresh(srv: any, title: store.RefreshTitle, ctx: SyncContext): Promise<void> {
+  const p = await plexConnect(srv, ctx);
+  const full = async (key: string) =>
+    ((await getOr404(p.base, `/library/metadata/${key}`, p.headers, { includeGuids: 1 }))?.MediaContainer?.Metadata || [])[0] || null;
+  const metas = new Map<string, any>();
+  for (const o of title.offers) {
+    const key = o.source === p.source ? o.extra?.rating_key : null;
+    if (!key) continue;
+    const m = await full(String(key));
+    if (m) metas.set(String(key), m);
+  }
+  const want = title.type === "movie" ? "movie" : "show";
+  for (const q of [...new Set([title.title, title.original_title].filter(Boolean) as string[])]) {
+    const hubs = (await get(p.base, "/hubs/search", p.headers, { query: q, limit: 20, includeGuids: 1 }, 30000))?.MediaContainer?.Hub || [];
+    for (const hub of hubs) for (const m of hub.Metadata || []) {
+      const key = String(m.ratingKey || "");
+      if (!key || metas.has(key) || m.type !== want) continue;
+      if (!store.sameWork(title, m.title, m.originalTitle, m.year, plexIds(m.Guid, title.type))) continue;
+      const d = await full(key);
+      if (d && store.sameWork(title, d.title, d.originalTitle, d.year, plexIds(d.Guid, title.type))) metas.set(key, d);
+    }
+  }
+  const emit = plexEmitter(p, ctx);
+  for (const [key, meta] of metas) {
+    if (title.type === "movie") { await emit(meta, "movie", merge(plexBasic(meta), plexDetail(meta))); continue; }
+    const eps: any[] = (await get(p.base, `/library/metadata/${key}/allLeaves`, p.headers, undefined, 30000))?.MediaContainer?.Metadata || [];
+    let summary = plexBasic({}), best: [any, Summary] | null = null, newest = 0;
+    for (const ep of eps) {
+      const b = plexBasic(ep);
+      summary = merge(summary, b);
+      newest = Math.max(newest, ep.addedAt || 0);
+      if (!best || bestQuality(best[1].quality, b.quality) !== best[1].quality) best = [ep, b];
+    }
+    if (best) {
+      const d = await p.detail(best[0].ratingKey).catch(() => null);
+      if (d && Object.keys(d).length) summary = merge(summary, plexDetail(d));
+    }
+    await emit(meta, "show", summary, newest || null);
+  }
+  await store.removeStaleTitle(title.id, p.source, ctx.started);
 }
 
 // --- shared -----------------------------------------------------------------------
@@ -349,6 +472,12 @@ export function serverSync(srv: any): (ctx: SyncContext) => Promise<void> {
     await askLocalNetwork();
     return srv.type === "plex" ? plexSync(srv, ctx) : embySync(srv, ctx);
   };
+}
+
+/** The refresh button: this server's view of one title now. */
+export async function serverRefresh(srv: any, title: store.RefreshTitle, ctx: SyncContext): Promise<void> {
+  await askLocalNetwork();
+  return srv.type === "plex" ? plexRefresh(srv, title, ctx) : embyRefresh(srv, title, ctx);
 }
 
 export async function testServer(srv: any): Promise<Record<string, unknown>> {
