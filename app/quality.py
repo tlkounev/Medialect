@@ -167,6 +167,15 @@ _PROVIDER_ALIASES = {
 }
 
 
+# services whose name JustWatch writes differently from the service itself
+_PROVIDER_NAMES = {"prima plus": "Prima+"}
+
+
+def provider_name(name: str | None) -> str | None:
+    """The service's own spelling of its name ("Prima+", not JustWatch's "Prima plus")."""
+    return _PROVIDER_NAMES.get((name or "").strip().lower(), name)
+
+
 def provider_key(name_or_id: str) -> str:
     s = re.sub(r"[^a-z0-9]", "", strip_accents(name_or_id or "").lower())
     return _PROVIDER_ALIASES.get(s, s)

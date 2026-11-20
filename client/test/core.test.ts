@@ -6,7 +6,7 @@ import * as justwatch from "../src/core/justwatch";
 import * as ratings from "../src/core/ratings";
 import { SyncContext } from "../src/core/context";
 import * as settingsMod from "../src/core/settings";
-import { audioTags, justwatchTech, norm, providerKey, qualityFromLabel, videoTags } from "../src/core/quality";
+import { audioTags, justwatchTech, norm, providerKey, providerName, qualityFromLabel, videoTags } from "../src/core/quality";
 import { DNP, NFX, OPL, fakeFetch, freshEnv, node, offer, type Fake } from "./helpers";
 
 const api = (method: string, path: string, body?: unknown) => {
@@ -23,6 +23,11 @@ async function waitIdle() {
 }
 
 describe("quality helpers (same results as the Python server)", () => {
+  it("names a service the way the service does", () => {
+    expect(providerName("Prima plus")).toBe("Prima+");
+    expect(providerName("Netflix")).toBe("Netflix");
+  });
+
   it("normalises", () => {
     expect(qualityFromLabel("_4K")).toBe("UHD");
     expect(qualityFromLabel("HD")).toBe("HD");

@@ -17,7 +17,7 @@ from simplejustwatchapi import justwatch as jw
 from .. import store
 from ..queries import jw_providers
 from ..db import db
-from ..quality import justwatch_tech, langs, provider_key, quality_from_label
+from ..quality import justwatch_tech, langs, provider_key, provider_name, quality_from_label
 from .base import SourceError, SyncContext
 
 SOURCE = "justwatch"
@@ -99,7 +99,7 @@ async def list_providers(country: str) -> list[dict]:
         mt = [m.upper() for m in (p.monetization_types or [])]
         if not set(mt) & set(KEEP_MONETIZATION):
             continue
-        out.append({"short_name": p.short_name, "name": p.name, "technical_name": p.technical_name,
+        out.append({"short_name": p.short_name, "name": provider_name(p.name), "technical_name": p.technical_name or p.name,
                     "icon": p.icon, "monetization_types": mt})
     # short name (settings) -> provider key (catalogue), for ordering offers by the user's service order
     keys = await db.kv_get("jw.provider_keys", {})
@@ -157,7 +157,7 @@ async def _store_entry(ctx: SyncContext, entry, selected: dict[str, str]) -> int
         await store.upsert_offer(tid, store.Offer(
             source=SOURCE,
             provider=provider_key(pkg.technical_name or pkg.name),
-            provider_name=pkg.name,
+            provider_name=provider_name(pkg.name),
             kind="stream",
             monetization=mon,
             quality=quality_from_label(o.presentation_type),

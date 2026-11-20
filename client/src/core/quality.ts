@@ -127,6 +127,14 @@ export function stripAccents(s: string): string {
   return s.normalize("NFKD").replace(/\p{M}/gu, "");
 }
 
+// services whose name JustWatch writes differently from the service itself
+const PROVIDER_NAMES: Record<string, string> = { "prima plus": "Prima+" };
+
+/** The service's own spelling of its name ("Prima+", not JustWatch's "Prima plus"). */
+export function providerName(name: string): string {
+  return PROVIDER_NAMES[(name || "").trim().toLowerCase()] || name;
+}
+
 export function providerKey(nameOrId: string): string {
   const s = stripAccents(nameOrId || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   return PROVIDER_ALIASES[s] || s;

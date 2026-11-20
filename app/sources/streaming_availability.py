@@ -13,7 +13,7 @@ import time
 
 from .. import store
 from ..db import db
-from ..quality import langs, provider_key, quality_from_label
+from ..quality import langs, provider_key, provider_name, quality_from_label
 from .base import SourceError, SyncContext, http_client
 
 SOURCE = "sa"
@@ -62,7 +62,7 @@ async def store_show(ctx: SyncContext, show: dict, catalogs: set[str]) -> None:
         await store.upsert_offer(tid, store.Offer(
             source=SOURCE,
             provider=provider_key(service.get("id") or service.get("name", "")),
-            provider_name=service.get("name") or service.get("id"),
+            provider_name=provider_name(service.get("name") or service.get("id")),
             kind="stream",
             monetization=mon,
             quality=quality_from_label(opt.get("quality")),

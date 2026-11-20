@@ -173,6 +173,9 @@ def main():
         assert "dateCreated" in req["query"]
         jwsrc._collect_dates({"data": {"x": [{"__typename": "Offer", "id": "o1", "dateCreated": "2026-11-02T10:00:00Z"}]}})
         assert jwsrc._OFFER_DATES.pop("o1") == "2026-11-02T10:00:00"
+        # a service under its own name, not JustWatch's spelling
+        from app.quality import provider_name
+        assert provider_name("Prima plus") == "Prima+" and provider_name("Netflix") == "Netflix"
         # the ČSFD id of an Emby plugin, whatever the plugin calls it and however it writes it
         from app.sources.emby import _ids as emby_ids
         for key, val in (("ČSFD", "1580037"), ("Csfd", "1580037-odyssea"), ("csfd.cz", "https://www.csfd.cz/film/1580037-odyssea/")):
