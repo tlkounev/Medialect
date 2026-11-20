@@ -62,7 +62,7 @@
 "f.anyQuality": "Calidad", "f.anyVideo": "Imagen", "f.anyAudio": "Sonido",
 "f.anyAudioLang": "Idioma del audio", "f.anySub": "Subtítulos", "f.reset": "Borrar filtros", "f.clear": "Borrar selección",
 "sort.added": "Añadidos recientemente", "sort.year": "Año de estreno", "sort.title": "Título", "sort.rating": "Nota {name}",
-"cat.count": "{n} títulos", "cat.none": "No se encontró nada.",
+"cat.count": "{n} títulos", "cat.none": "No se encontró nada.", "cat.refresh": "Refresh ratings",
 "cat.addedNote": "la fecha de alta la conocen las bibliotecas propias y Streaming Availability, el resto de títulos va al final",
 "pager.prev": "‹ Anterior", "pager.next": "Siguiente ›",
 "offer.free": "gratis", "offer.ads": "con anuncios", "offer.addon": "complemento", "offer.audio": "audio", "offer.subs": "subtítulos",

@@ -62,7 +62,7 @@
 "f.anyQuality": "Chất lượng", "f.anyVideo": "Hình ảnh", "f.anyAudio": "Âm thanh",
 "f.anyAudioLang": "Ngôn ngữ âm thanh", "f.anySub": "Phụ đề", "f.reset": "Đặt lại bộ lọc", "f.clear": "Bỏ chọn",
 "sort.added": "Mới thêm", "sort.year": "Năm phát hành", "sort.title": "Tên", "sort.rating": "Điểm {name}",
-"cat.count": "{n} tựa", "cat.none": "Không tìm thấy gì.",
+"cat.count": "{n} tựa", "cat.none": "Không tìm thấy gì.", "cat.refresh": "Refresh ratings",
 "cat.addedNote": "ngày thêm chỉ biết được với thư viện riêng và Streaming Availability, các tựa khác nằm cuối",
 "pager.prev": "‹ Trước", "pager.next": "Sau ›",
 "offer.free": "miễn phí", "offer.ads": "có quảng cáo", "offer.addon": "gói bổ sung", "offer.audio": "âm thanh", "offer.subs": "phụ đề",

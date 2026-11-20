@@ -62,7 +62,7 @@
 "f.anyQuality": "Jakość", "f.anyVideo": "Obraz", "f.anyAudio": "Dźwięk",
 "f.anyAudioLang": "Język dźwięku", "f.anySub": "Napisy", "f.reset": "Wyczyść filtry", "f.clear": "Wyczyść wybór",
 "sort.added": "Ostatnio dodane", "sort.year": "Rok wydania", "sort.title": "Tytuł", "sort.rating": "Ocena {name}",
-"cat.count": "{n} tytułów", "cat.none": "Nic nie znaleziono.",
+"cat.count": "{n} tytułów", "cat.none": "Nic nie znaleziono.", "cat.refresh": "Refresh ratings",
 "cat.addedNote": "datę dodania znają własne biblioteki i Streaming Availability, pozostałe tytuły są na końcu",
 "pager.prev": "‹ Poprzednia", "pager.next": "Następna ›",
 "offer.free": "za darmo", "offer.ads": "z reklamami", "offer.addon": "dodatek", "offer.audio": "dźwięk", "offer.subs": "napisy",

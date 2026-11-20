@@ -439,6 +439,19 @@ def main():
         client.portal.call(lambda: st_mod.upsert_title(st_mod.TitleInfo("movie", "Dvojník", year=2026, library=True,
                                                        ids={"imdb": "tt8000002", "csfd": "8001"}, authoritative=("csfd",))))
         assert sql(f"SELECT value FROM title_ids WHERE title_id={twin} AND kind='csfd'") == [("8002",)]
+        # refresh one title (the button on the title): ČSFD at once; a ČSFD page without any IMDb link loses to a
+        # candidate whose page has the title's own IMDb id
+        async def trio():
+            tid = await st_mod.upsert_title(st_mod.TitleInfo("movie", "Trojice", year=2026, ids={"imdb": "tt9100002", "csfd": "9101"}))
+            await st_mod.upsert_offer(tid, st_mod.Offer(source="netflix", provider="netflix", provider_name="Netflix", kind="stream",
+                                                         monetization="flatrate"), time.time())
+            return tid
+        three = client.portal.call(trio)
+        r = client.post(f"/api/titles/{three}/refresh")
+        assert r.status_code == 200, r.text
+        assert {x["source"]: x["display"] for x in r.json()["ratings"]}.get("csfd") == "64 %", r.json()["ratings"]
+        assert sql(f"SELECT value FROM title_ids WHERE title_id={three} AND kind='csfd'") == [("9102",)]
+        assert client.get("/api/sync/status").status_code == 200
 
         # TMDB (by tmdb id or found via IMDb id), OMDb (RT + Metacritic), TVmaze (series)
         assert rt["tmdb"] == "7.9" and rt["metacritic"] == "73/100", rt

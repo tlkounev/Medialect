@@ -62,7 +62,7 @@
 "f.anyQuality": "Kvalitet", "f.anyVideo": "Bilde", "f.anyAudio": "Lyd",
 "f.anyAudioLang": "Lydspråk", "f.anySub": "Undertekster", "f.reset": "Nullstill filtre", "f.clear": "Fjern valg",
 "sort.added": "Nylig lagt til", "sort.year": "Utgivelsesår", "sort.title": "Tittel", "sort.rating": "Vurdering {name}",
-"cat.count": "{n} titler", "cat.none": "Ingenting funnet.",
+"cat.count": "{n} titler", "cat.none": "Ingenting funnet.", "cat.refresh": "Refresh ratings",
 "cat.addedNote": "dato for tillegg er kjent for egne biblioteker og Streaming Availability, andre titler havner sist",
 "pager.prev": "‹ Forrige", "pager.next": "Neste ›",
 "offer.free": "gratis", "offer.ads": "med reklame", "offer.addon": "tillegg", "offer.audio": "lyd", "offer.subs": "undertekster",

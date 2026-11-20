@@ -62,7 +62,7 @@
 "f.anyQuality": "画質", "f.anyVideo": "映像", "f.anyAudio": "音声",
 "f.anyAudioLang": "音声の言語", "f.anySub": "字幕", "f.reset": "フィルターをリセット", "f.clear": "選択を解除",
 "sort.added": "最近追加", "sort.year": "公開年", "sort.title": "タイトル", "sort.rating": "{name} の評価",
-"cat.count": "{n} 件", "cat.none": "見つかりませんでした。",
+"cat.count": "{n} 件", "cat.none": "見つかりませんでした。", "cat.refresh": "Refresh ratings",
 "cat.addedNote": "追加日は自分のライブラリと Streaming Availability のみ分かります。その他の作品は最後に表示されます",
 "pager.prev": "‹ 前へ", "pager.next": "次へ ›",
 "offer.free": "無料", "offer.ads": "広告付き", "offer.addon": "アドオン", "offer.audio": "音声", "offer.subs": "字幕",

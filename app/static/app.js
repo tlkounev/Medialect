@@ -437,7 +437,31 @@ function clampTags(root) {
 let clampTimer = null;
 addEventListener("resize", () => { clearTimeout(clampTimer); clampTimer = setTimeout(() => clampTags($("#catalog")), 200); });
 document.fonts?.ready?.then(() => clampTags($("#catalog")));
-$("#catalog").addEventListener("click", (e) => {
+$("#catalog").addEventListener("click", async (e) => {
+  // the title's ratings again (ČSFD at once, the other sources right after)
+  const ref = e.target.closest("[data-refresh]");
+  if (ref) {
+    e.preventDefault();
+    if (ref.classList.contains("busy")) return;
+    const card = ref.closest(".title"), hadFocus = document.activeElement === ref, opened = card.classList.contains("tv-in");
+    ref.classList.add("busy");
+    try {
+      const item = await api(`/api/titles/${ref.dataset.refresh}/refresh`, { method: "POST" });
+      const tmp = document.createElement("div");
+      tmp.innerHTML = renderTitle(item);
+      const fresh = tmp.firstElementChild;
+      if (opened) fresh.classList.add("tv-in");
+      card.replaceWith(fresh);
+      fillLogos(fresh); clampTags(fresh);
+      const btn = fresh.querySelector("[data-refresh]");
+      if (hadFocus) btn.focus({ preventScroll: true });
+      if (item.refresh_note) btn.insertAdjacentHTML("afterend", `<span class="refresh-note">${esc(item.refresh_note)}</span>`);
+    } catch (err) {
+      ref.classList.remove("busy");
+      ref.insertAdjacentHTML("afterend", `<span class="refresh-note">${esc(err.message)}</span>`);
+    }
+    return;
+  }
   const more = e.target.closest(".offer .more");
   if (!more) return;
   e.preventDefault();
@@ -501,7 +525,7 @@ function renderTitle(ti) {
   const img = ti.poster ? `<img loading="lazy" src="${esc(ti.poster)}" alt="" onerror="posterFailed(this)">` : `<div class="noimg"></div>`;
   return `<article class="title" data-id="${esc(ti.id)}">${img}<div>
     <h3>${esc(ti.title)} <span class="meta">${esc(meta)}</span></h3>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}
-    <div class="ratings">${ratings}</div>
+    <div class="ratings">${ratings}<button type="button" class="refresh" data-refresh="${esc(ti.id)}" title="${esc(t("cat.refresh"))}" aria-label="${esc(t("cat.refresh"))}">${ICON.refresh}</button></div>
     <div class="offers">${(ti.where || []).map(renderOffer).join("")}</div>
   </div></article>`;
 }
@@ -595,6 +619,7 @@ const ICON = {
   subs: svg('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 10.5a2 2 0 1 0 0 3M17 10.5a2 2 0 1 0 0 3"/>'),
   date: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
+  refresh: svg('<path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>'),
   people: svg('<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-4-5.6"/>'),
   sort: svg('<path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/>'),
   server: svg('<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>'),
