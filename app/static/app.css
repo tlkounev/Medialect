@@ -261,6 +261,12 @@ body:not(.local).viewer #openSettings, .viewer #syncBadge { display: none !impor
 #connIcon .dot { position: absolute; right: -3px; bottom: -1px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--bg); }
 #connIcon.ok .dot { background: #3fb950; }
 #connIcon.off .dot { background: #f85149; }
+.conn-state { display: flex; align-items: center; gap: 8px; font-weight: 600; margin: 0 0 4px; }
+.conn-state .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.conn-state.ok .dot { background: #3fb950; }
+.conn-state.off .dot { background: #f85149; }
+#connServerVer { margin: 0 0 8px; }
+#connServerVer.update { color: #f3c540; }
 .conn-form { display: grid; gap: 10px; max-width: 520px; }
 .wiz-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 8px 0 12px; }
 .wiz-modes button { display: grid; gap: 4px; text-align: start; padding: 14px; height: auto; }

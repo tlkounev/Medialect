@@ -53,6 +53,14 @@ const OWN_KINDS = ["jw", "sa", "ct"];
 const STRONG_KINDS = ["imdb", "tmdb_movie", "tmdb_tv", "tvdb"];
 const yearsClash = (a?: number | null, b?: number | null) => !!(a && b && Math.abs(a - b) > 2);
 
+/** Has the ČSFD rating found this ČSFD page to be another film than the title (other IMDb id)? */
+async function csfdRejected(tid: number, csfdId: string): Promise<boolean> {
+  const imdbs = (await env.db.all("SELECT value FROM title_ids WHERE title_id=? AND kind='imdb'", [tid])).map((r) => r.value);
+  if (!imdbs.length) return false;
+  const rejected = await env.db.kvGet<string[]>("csfd.rejected", []);
+  return imdbs.some((i) => rejected.includes(`${csfdId}|${i}`));
+}
+
 /** The strong kinds in which merging these ids into the title would give it two different values. */
 async function conflictKinds(tid: number, ids: Record<string, string>): Promise<string[]> {
   const existing = new Map<string, Set<string>>();
@@ -129,7 +137,10 @@ async function upsertTitleNow(info: TitleInfo): Promise<number> {
   for (const [kind, value] of Object.entries(ids)) {
     if (info.authoritative?.includes(kind)) {
       const old = (await db.all("SELECT value FROM title_ids WHERE title_id=? AND kind=?", [tid, kind])).map((r) => r.value);
-      if (!(old.length === 1 && old[0] === value)) {
+      const same = old.length === 1 && old[0] === value;
+      // the ratings found that ČSFD page to be another film (other IMDb id): it does not replace the one found
+      if (kind === "csfd" && !same && (await csfdRejected(tid, value))) continue;
+      if (!same) {
         await db.run("DELETE FROM title_ids WHERE title_id=? AND kind=? AND value!=?", [tid, kind, value]);
         await db.run("INSERT OR REPLACE INTO title_ids(kind, value, title_id) VALUES(?,?,?)", [kind, value, tid]);
         if (kind === "csfd") await db.run("DELETE FROM ratings WHERE title_id=? AND source='csfd'", [tid]);

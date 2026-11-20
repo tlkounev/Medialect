@@ -1365,15 +1365,29 @@ $("#wizSkip").addEventListener("click", async () => {
 
 /* ---------- the app: on its own or connected to the user's Medialect server ---------- */
 async function loadConnection() {
+  const state = $("#connState"), text = $("#connStateText"), ver = $("#connServerVer");
   try {
     const c = await api("/api/app/connection");
     const server = c.mode === "server";
-    $("#connState").textContent = server
+    state.className = "conn-state";
+    ver.classList.add("hidden");
+    text.textContent = server
       ? t(role ? (c.role === "admin" ? "conn.stateAdmin" : "conn.stateViewer") : "conn.stateExpired", { url: c.url })
       : t("conn.stateAlone");
     if (server && !$("#connUrl").value) $("#connUrl").value = c.url;
     $("#connAlone").classList.toggle("hidden", !server);
-  } catch (e) { $("#connState").textContent = e.message; }
+    if (!server) return;
+    // is the server answering, through which address, and is its software current
+    const v = await api("/api/app/server-version");
+    state.classList.add(v.reachable ? "ok" : "off");
+    connShow(v.reachable, v.via);
+    if (!v.reachable) { text.textContent = t("conn.stateOff", { url: c.url }); return; }
+    text.textContent = `${text.textContent.replace(/\.$/, "")} ${t(v.via === "public" ? "conn.viaPublic" : "conn.viaHome")}.`;
+    ver.classList.remove("hidden");
+    ver.classList.toggle("update", v.state === "update");
+    ver.textContent = v.state === "update" ? t("conn.verUpdate", { v: v.current, latest: v.latest })
+      : v.state === "current" ? t("conn.verCurrent", { v: v.current }) : t("conn.verUnknown", { v: v.current });
+  } catch (e) { text.textContent = e.message; }
 }
 async function connectTo(url, password, msgEl) {
   msgEl.textContent = t("conn.connecting");

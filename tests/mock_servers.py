@@ -216,6 +216,10 @@ IMDBLINK
 CSFD_SEARCH_SCRUBS = """<section class="main-movies"><div class="box-content">
 <article class="article"><h3><a href="/film/777-scrubs-dokturci/" class="film-title-name">Scrubs: Doktůrci</a>
 <span class="info">(2001)</span> <span class="info">(seriál)</span></h3></article></div></section>"""
+CSFD_SEARCH_TWINS = """<section class="main-movies"><div class="box-content">
+<article class="article"><h3><a href="/film/8001-dvojnik/" class="film-title-name">Dvojník</a> <span class="info">(2026)</span></h3></article>
+<article class="article"><h3><a href="/film/8002-dvojnik/" class="film-title-name">Dvojník</a> <span class="info">(2026)</span></h3></article>
+</div></section>"""
 CSFD_SERIES = """<div class="film-header"><h1>Scrubs: Doktůrci</h1>
 <div class="origin">USA<span>, </span>(2001–2026)<span>, </span>182 h</div></div>
 <div class="film-rating-average">81%</div>"""
@@ -229,6 +233,8 @@ async def csfd_search(q: str, request: Request):
         return Response(ANUBIS, media_type="text/html")
     if q.startswith("Scrubs"):
         return Response(CSFD_SEARCH_SCRUBS, media_type="text/html")
+    if q.startswith("Dvojn"):
+        return Response(CSFD_SEARCH_TWINS, media_type="text/html")
     return Response(CSFD_SEARCH, media_type="text/html")
 
 
@@ -238,6 +244,10 @@ async def csfd_film(fid: str, request: Request):
         return Response(ANUBIS, media_type="text/html")
     if fid == "777":
         return Response(CSFD_SERIES, media_type="text/html")
+    if fid in ("8001", "8002"):       # two films of one name and year: the IMDb link tells them apart
+        imdb = "tt8000001" if fid == "8001" else "tt8000002"
+        page = CSFD_FILM.replace("IMDBLINK", f'<a href="https://www.imdb.com/title/{imdb}/" class="button-imdb">IMDb</a>')
+        return Response(page.replace("89%", "33%" if fid == "8001" else "77%"), media_type="text/html")
     page = CSFD_FILM.replace("IMDBLINK", '<a href="https://www.imdb.com/title/tt0167331/" class="button-imdb">IMDb</a>'
                              if fid == "6648" else "")
     return Response(page.replace("89%", "91%") if fid == "9499" else page, media_type="text/html")

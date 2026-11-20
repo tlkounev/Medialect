@@ -421,6 +421,25 @@ def main():
         run_sync(client, "ratings")
         assert sql(f"SELECT display FROM ratings WHERE title_id={mid} AND source='csfd'") == [("91 %",)]
 
+        # two films of one name and year on ČSFD: the page whose IMDb id is another film's is not taken, the
+        # stored wrong ČSFD id is dropped and kept from coming back, the right one is found
+        async def twins():
+            tid = await st_mod.upsert_title(st_mod.TitleInfo("movie", "Dvojník", year=2026, ids={"imdb": "tt8000002", "csfd": "8001"}))
+            await st_mod.upsert_offer(tid, st_mod.Offer(source="netflix", provider="netflix", provider_name="Netflix", kind="stream",
+                                                         monetization="flatrate"), time.time())
+            return tid
+        from app import store as st_mod
+        twin = client.portal.call(twins)
+        sql_exec("DELETE FROM kv WHERE key LIKE 'budget:csfd:%'")
+        run_sync(client, "ratings")
+        assert sql(f"SELECT value FROM title_ids WHERE title_id={twin} AND kind='csfd'") == [("8002",)]
+        assert sql(f"SELECT display FROM ratings WHERE title_id={twin} AND source='csfd'") == [("77 %",)]
+        assert "8001|tt8000002" in json.loads(sql("SELECT value FROM kv WHERE key='csfd.rejected'")[0][0])
+        # the library sending the wrong one again does not replace it
+        client.portal.call(lambda: st_mod.upsert_title(st_mod.TitleInfo("movie", "Dvojník", year=2026, library=True,
+                                                       ids={"imdb": "tt8000002", "csfd": "8001"}, authoritative=("csfd",))))
+        assert sql(f"SELECT value FROM title_ids WHERE title_id={twin} AND kind='csfd'") == [("8002",)]
+
         # TMDB (by tmdb id or found via IMDb id), OMDb (RT + Metacritic), TVmaze (series)
         assert rt["tmdb"] == "7.9" and rt["metacritic"] == "73/100", rt
         stored = json.loads(sql("SELECT value FROM kv WHERE key='settings'")[0][0])

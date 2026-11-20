@@ -64,6 +64,13 @@ export async function handle(method: string, path: string, q: URLSearchParams, b
         await db.kvSet("onboarding.pending", false);
         return { mode: "server", url: r.url, public: r.public, role: r.role };
       } catch (e) { throw new ApiError(400, (e as Error).message); }
+    case "GET /api/app/server-version": {
+      // the server's own version and whether a newer image is out (asks the server; 502 = not answering)
+      if (!remoteMod.currentRemote()) throw new ApiError(400, "Not connected.");
+      const r = await remoteMod.forward("GET", "/api/version", undefined);
+      const data = await r.json().catch(() => ({}));
+      return r.ok ? { ...data, reachable: true, via: r.headers.get("X-Medialect-Via") || "home" } : { reachable: false, detail: data?.detail };
+    }
     case "POST /api/app/disconnect":
       await remoteMod.disconnect();
       return { mode: "standalone" };

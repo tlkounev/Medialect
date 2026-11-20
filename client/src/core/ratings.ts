@@ -238,23 +238,37 @@ export function csfdSearchResults(page: string): [string, number | null, string]
 /** A ČSFD id for a title, or null. `check` = a long-running series found by its start year: it is the
  *  title only if the years on its page reach the title's year (e.g. the 2026 "Scrubs" is series 10 of
  *  "Scrubs: Doktůrci (2001–2026)" on ČSFD). */
-export async function csfdFind(title: string, year: number | null, type = "movie"): Promise<{ cid: string; check: boolean } | null> {
+export async function csfdCandidates(title: string, year: number | null, type = "movie"): Promise<{ cid: string; check: boolean }[]> {
   const { page } = await csfdGet(`${urls.CSFD}/hledat/`, { q: title });
   const results = csfdSearchResults(page);
   const wanted = norm(title);
+  const out: { cid: string; check: boolean }[] = [];
+  const add = (cid: string, check: boolean) => { if (!out.some((x) => x.cid === cid)) out.push({ cid, check }); };
   if (year) {
-    for (const [cid, y] of results) if (y === year) return { cid, check: false };
-    for (const [cid, y, name] of results) if (y && Math.abs(y - year) === 1 && norm(name) === wanted) return { cid, check: false };
+    // the year must agree: exact (same name first), or ±1 with the same name; which one it is, the IMDb id
+    // on its page decides (two films of one name and year)
+    for (const [cid, y, name] of results) if (y === year && norm(name) === wanted) add(cid, false);
+    for (const [cid, y] of results) if (y === year) add(cid, false);
+    for (const [cid, y, name] of results) if (y && Math.abs(y - year) === 1 && norm(name) === wanted) add(cid, false);
     if (type === "show") {
       for (const [cid, y, name] of results) {
         const n = norm(name);
-        if (y && y < year && (n === wanted || n.startsWith(`${wanted} `))) return { cid, check: true };
+        if (y && y < year && (n === wanted || n.startsWith(`${wanted} `))) add(cid, true);
       }
     }
-    return null;
+    return out;
   }
-  for (const [cid, , name] of results) if (norm(name) === wanted) return { cid, check: false };
-  return null;
+  for (const [cid, , name] of results) if (norm(name) === wanted) add(cid, false);
+  return out;
+}
+
+export async function csfdFind(title: string, year: number | null, type = "movie"): Promise<{ cid: string; check: boolean } | null> {
+  return (await csfdCandidates(title, year, type))[0] || null;
+}
+
+export const CSFD_REJECTED_KEY = "csfd.rejected";   // ["<ČSFD id>|<IMDb id>"]: that page is not the film with that IMDb id
+async function csfdRejected(cid: string, imdb: string | null): Promise<boolean> {
+  return !!imdb && (await env.db.kvGet<string[]>(CSFD_REJECTED_KEY, [])).includes(`${cid}|${imdb}`);
 }
 
 /** The years on a ČSFD page: "(2001–2026)" or "(2019– )" for series, the single year for films. */
@@ -282,7 +296,8 @@ export async function csfdQueue(refresh: number): Promise<any[]> {
   const [rank, rankParams] = await rankSql();
   const focus = JSON.stringify((await env.db.kvGet<any>(FOCUS_KEY, {}))?.ids || []);
   return env.db.all(`SELECT t.id, t.type, t.title, t.original_title, t.year,
-      (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id
+      (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id,
+      (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='imdb') AS imdb_id
     FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
     WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id) AND (r.updated_at IS NULL OR r.updated_at < ?)
     ORDER BY COALESCE((SELECT CAST(j.key AS INTEGER) FROM json_each(?) j WHERE j.value = t.id), 1000000),
@@ -295,6 +310,12 @@ export async function csfd(ctx: SyncContext): Promise<void> {
     // revivals of long-running series were "not found" before: search those series again
     await env.db.run("DELETE FROM ratings WHERE source='csfd' AND value IS NULL AND url IS NULL AND title_id IN (SELECT id FROM titles WHERE type='show')");
     await env.db.kvSet("migrate.csfd_series_v1", true);
+  }
+  if (!(await env.db.kvGet("migrate.csfd_imdb_v1", false))) {
+    // ČSFD pages are now checked against the title's IMDb id: rate again the titles where a film of the
+    // same name could have been taken (the library's and titles sharing a name with another title)
+    await env.db.run("DELETE FROM ratings WHERE source='csfd' AND title_id IN (SELECT a.title_id FROM availability a WHERE a.kind='library' UNION SELECT n.title_id FROM title_names n WHERE n.norm IN (SELECT norm FROM title_names GROUP BY norm HAVING COUNT(DISTINCT title_id) > 1))");
+    await env.db.kvSet("migrate.csfd_imdb_v1", true);
   }
   const refresh = now() - Number(cfg.refresh_days) * 86400;
   let rows = await csfdQueue(refresh);
@@ -320,21 +341,44 @@ export async function csfd(ctx: SyncContext): Promise<void> {
     ctx.progress(`ČSFD: ${doneBefore + i}/${total}`, (doneBefore + i) / Math.max(1, total));
     if (!(await env.db.budgetTake("csfd", budget))) { ctx.partial = true; ctx.note(`ČSFD: denní limit ${budget} titulů vyčerpán.`); return; }
     try {
-      let cid: string | null = row.csfd_id, check = false;
-      if (!cid) {
-        for (const name of [...new Set([row.title, row.original_title].filter(Boolean))]) {
-          const found = await csfdFind(name, row.year, row.type);
-          await env.sleep(pauses.CSFD_MS);
-          if (found) { cid = found.cid; check = found.check; break; }
+      // the stored ČSFD id (from the library or an earlier search), else the search results; a page whose IMDb
+      // id is another film's is not this title (two films of one name and year): the next one is tried
+      const haveImdb: string | null = row.imdb_id || null;
+      const cands: { cid: string; check: boolean; stored: boolean }[] = row.csfd_id ? [{ cid: row.csfd_id, check: false, stored: true }] : [];
+      let searched = false, tries = 0, n = 0;
+      let hit: { cid: string; check: boolean; stored: boolean; value: number | null; votes: number | null; url: string; imdb: string | null } | null = null;
+      while (tries < 3) {
+        if (n >= cands.length) {
+          if (searched) break;
+          searched = true;
+          for (const name of [...new Set([row.title, row.original_title].filter(Boolean))]) {
+            const found = await csfdCandidates(name, row.year, row.type);
+            await env.sleep(pauses.CSFD_MS);
+            if (found.length) { for (const f of found) if (!cands.some((x) => x.cid === f.cid)) cands.push({ ...f, stored: false }); break; }
+          }
+          continue;
         }
+        const cand = cands[n++];
+        if (await csfdRejected(cand.cid, haveImdb)) {
+          if (cand.stored) await env.db.run("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", [row.id]);
+          continue;
+        }
+        if (tries) await env.sleep(pauses.CSFD_MS);
+        tries++;
+        const [value, votes, url, imdb, years] = await csfdRating(cand.cid);
+        if (cand.check && !(years && years[0] <= row.year && (years[1] ?? 9999) >= row.year)) continue;   // a series of that name, not running that year
+        if (haveImdb && imdb && imdb !== haveImdb) {
+          const rejected = await env.db.kvGet<string[]>(CSFD_REJECTED_KEY, []);
+          await env.db.kvSet(CSFD_REJECTED_KEY, [...rejected, `${cand.cid}|${haveImdb}`].slice(-2000));
+          if (cand.stored) await env.db.run("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", [row.id]);
+          continue;
+        }
+        hit = { ...cand, value, votes, url, imdb };
+        break;
       }
-      if (!cid) { await store.setRating(row.id, "csfd", null, null); continue; }
-      const [value, votes, url, imdb, years] = await csfdRating(cid);
-      if (check && !(years && years[0] <= row.year && (years[1] ?? 9999) >= row.year)) {
-        await store.setRating(row.id, "csfd", null, null);     // a series of that name, but not running that year
-        continue;
-      }
-      if (!row.csfd_id) await store.addTitleId(row.id, "csfd", cid);
+      if (!hit) { await store.setRating(row.id, "csfd", null, null); continue; }
+      const { cid, check, value, votes, url, imdb } = hit;
+      if (!hit.stored) await store.addTitleId(row.id, "csfd", cid);
       await store.setRating(row.id, "csfd", value, value !== null ? `${value} %` : null, votes, url);
       // the IMDb id of a whole long-running series is not attached to a later revival
       if (imdb && !check && !(await env.db.get("SELECT 1 FROM title_ids WHERE title_id=? AND kind='imdb'", [row.id]))) {
