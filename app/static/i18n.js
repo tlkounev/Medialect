@@ -59,13 +59,27 @@ const langName = (code) => displayName(code, "language");
 const regionName = (code) => displayName(code, "region");
 
 /* Flags next to language and country names (emoji; Windows gets them from the bundled Twemoji font). */
+// ISO 639 language -> the country where it is mainly spoken; constructed languages (eo, ia, io, vo) have none
 const LANG_FLAG = {
-  cs: "CZ", sk: "SK", en: "GB", de: "DE", pl: "PL", hu: "HU", fr: "FR", es: "ES", it: "IT", pt: "PT", nl: "NL",
-  sv: "SE", da: "DK", nb: "NO", no: "NO", nn: "NO", fi: "FI", uk: "UA", ru: "RU", ro: "RO", hr: "HR", sl: "SI",
-  sr: "RS", bs: "BA", mk: "MK", bg: "BG", el: "GR", tr: "TR", et: "EE", lv: "LV", lt: "LT", is: "IS", ga: "IE",
-  ja: "JP", ko: "KR", zh: "CN", ar: "SA", hi: "IN", ta: "IN", te: "IN", bn: "BD", ur: "PK", fa: "IR", he: "IL",
-  id: "ID", ms: "MY", th: "TH", vi: "VN", tl: "PH", fil: "PH", ca: "AD", eu: "ES", gl: "ES", sq: "AL", ka: "GE",
-  hy: "AM", az: "AZ", kk: "KZ", be: "BY", af: "ZA",
+  aa: "ET", ab: "GE", ae: "IR", af: "ZA", ak: "GH", am: "ET", an: "ES", ar: "SA", as: "IN", av: "RU", ay: "BO",
+  az: "AZ", ba: "RU", be: "BY", bg: "BG", bh: "IN", bi: "VU", bm: "ML", bn: "BD", bo: "CN", br: "FR", bs: "BA",
+  ca: "AD", ce: "RU", ch: "GU", co: "FR", cr: "CA", cs: "CZ", cu: "BG", cv: "RU", cy: "GB", da: "DK", de: "DE",
+  dv: "MV", dz: "BT", ee: "GH", el: "GR", en: "GB", es: "ES", et: "EE", eu: "ES", fa: "IR", ff: "SN", fi: "FI",
+  fj: "FJ", fo: "FO", fr: "FR", fy: "NL", ga: "IE", gd: "GB", gl: "ES", gn: "PY", gu: "IN", gv: "IM", ha: "NG",
+  he: "IL", hi: "IN", ho: "PG", hr: "HR", ht: "HT", hu: "HU", hy: "AM", hz: "NA", id: "ID", ig: "NG", ii: "CN",
+  ik: "US", is: "IS", it: "IT", iu: "CA", ja: "JP", jv: "ID", ka: "GE", kg: "CD", ki: "KE", kj: "NA", kk: "KZ",
+  kl: "GL", km: "KH", kn: "IN", ko: "KR", kr: "NG", ks: "IN", ku: "IQ", kv: "RU", kw: "GB", ky: "KG", la: "VA",
+  lb: "LU", lg: "UG", li: "NL", ln: "CD", lo: "LA", lt: "LT", lu: "CD", lv: "LV", mg: "MG", mh: "MH", mi: "NZ",
+  mk: "MK", ml: "IN", mn: "MN", mr: "IN", ms: "MY", mt: "MT", my: "MM", na: "NR", nb: "NO", nd: "ZW", ne: "NP",
+  ng: "NA", nl: "NL", nn: "NO", no: "NO", nr: "ZA", nv: "US", ny: "MW", oc: "FR", oj: "CA", om: "ET", or: "IN",
+  os: "RU", pa: "IN", pi: "IN", pl: "PL", ps: "AF", pt: "PT", qu: "PE", rm: "CH", rn: "BI", ro: "RO", ru: "RU",
+  rw: "RW", sa: "IN", sc: "IT", sd: "PK", se: "NO", sg: "CF", si: "LK", sk: "SK", sl: "SI", sm: "WS", sn: "ZW",
+  so: "SO", sq: "AL", sr: "RS", ss: "SZ", st: "LS", su: "ID", sv: "SE", sw: "TZ", ta: "IN", te: "IN", tg: "TJ",
+  th: "TH", ti: "ER", tk: "TM", tl: "PH", tn: "BW", to: "TO", tr: "TR", ts: "ZA", tt: "RU", tw: "GH", ty: "PF",
+  ug: "CN", uk: "UA", ur: "PK", uz: "UZ", ve: "ZA", vi: "VN", wa: "BE", wo: "SN", xh: "ZA", yo: "NG", za: "CN",
+  zh: "CN", zu: "ZA", fil: "PH", ceb: "PH", haw: "US", chr: "US", sco: "GB", nds: "DE", gsw: "CH", ast: "ES",
+  yue: "HK", cmn: "CN", hmn: "LA", kok: "IN", mai: "IN", mni: "IN", sat: "IN", doi: "IN", brx: "IN", bho: "IN",
+  tet: "TL", mos: "BF",
 };
 function flagEmoji(cc) {
   if (!/^[A-Za-z]{2}$/.test(cc || "")) return "";
