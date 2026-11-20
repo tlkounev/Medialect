@@ -136,9 +136,17 @@ def lang(code: str | None) -> str | None:
         return None
     if t in _LANG_NAMES:
         return _LANG_NAMES[t]
-    c = re.split(r"[-\s]", t)[0]
-    if c in ("und", "zxx", "mis", "mul", "unk", "unknown", "original", "other", ""):
+    parts = re.split(r"[-\s]+", t)
+    c = parts[0]
+    # not a language: undetermined, none, "original" (also as "org" and ČT's/DVB's "qaa"), audio description
+    # ("qad") and the other codes ISO 639-2 leaves for local use (qaa–qtz)
+    if c in ("und", "zxx", "mis", "mul", "unk", "unknown", "original", "orig", "org", "other", "") \
+            or re.fullmatch(r"q[a-t][a-z]", c):
         return None
+    # a code stands alone or with a region ("cs", "cs-CZ", "pt BR"); in a phrase ("to be added", "as original")
+    # a short word is no language code
+    if len(parts) > 2 or (len(parts) == 2 and not re.fullmatch(r"[a-z]{2}|\d{3}|[a-z]{4}", parts[1])):
+        return _LANG_NAMES.get(c)
     if len(c) == 2 and c.isascii() and c.isalpha():
         return _LANG2_ALIAS.get(c, c)
     if len(c) == 3 and c.isascii() and c.isalpha():

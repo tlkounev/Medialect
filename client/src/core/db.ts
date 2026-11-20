@@ -60,14 +60,14 @@ export class Db {
 
   /** One language = one code in the filters: older rows may hold "cze", "Czech", "nb" next to "cs", "no". */
   private async normaliseLangs(): Promise<void> {
-    if ((await this.kvGet<number>("migrate.langs", 0)) >= 2) return;
+    if ((await this.kvGet<number>("migrate.langs", 0)) >= 3) return;
     const rows = await this.all("SELECT rowid AS rid, audio_langs, subtitle_langs FROM availability WHERE audio_langs IS NOT NULL OR subtitle_langs IS NOT NULL");
     const parse = (v: unknown): string[] => { try { return v ? JSON.parse(String(v)) : []; } catch { return []; } };
     for (const r of rows) {
       await this.run("UPDATE availability SET audio_langs=?, subtitle_langs=? WHERE rowid=?",
         [JSON.stringify(langs(parse(r.audio_langs))), JSON.stringify(langs(parse(r.subtitle_langs))), r.rid]);
     }
-    await this.kvSet("migrate.langs", 2);
+    await this.kvSet("migrate.langs", 3);
   }
 
   run(sql: string, params: unknown[] = []) { return this.d.run(sql, clean(params)); }
