@@ -4,7 +4,7 @@
 // split in half. Finished windows are recorded, so an interrupted run continues where it stopped.
 import { env, http, SourceError } from "./env";
 import { DETAILS_QUERY, POPULAR_QUERY, PROVIDERS_QUERY } from "./jw_queries";
-import { justwatchTech, langs, providerKey, qualityFromLabel } from "./quality";
+import { justwatchTech, langs, providerKey, providerName, qualityFromLabel } from "./quality";
 import * as store from "./store";
 import { jwProviders } from "./queries";
 import type { SyncContext } from "./context";
@@ -77,7 +77,7 @@ export async function listProviders(country: string): Promise<ProviderInfo[]> {
   for (const p of data.packages || []) {
     const mt = (p.monetizationTypes || []).map((m: string) => m.toUpperCase());
     if (!mt.some((m: string) => m in KEEP)) continue;
-    out.push({ short_name: p.shortName, name: p.clearName, technical_name: p.technicalName,
+    out.push({ short_name: p.shortName, name: providerName(p.clearName), technical_name: p.technicalName || p.clearName,
       icon: p.icon ? IMAGES + p.icon : "", monetization_types: mt });
   }
   // short name (settings) -> provider key (catalogue), for ordering offers by the user's service order
@@ -149,7 +149,7 @@ async function storeEntry(ctx: SyncContext, node: any, selected: Map<string, str
     const mon = KEEP[(o.monetizationType || "").toUpperCase()];
     if (!mon) continue;
     await store.upsertOffer(tid, {
-      source: SOURCE, provider: providerKey(pkg.technicalName || pkg.clearName), provider_name: pkg.clearName,
+      source: SOURCE, provider: providerKey(pkg.technicalName || pkg.clearName), provider_name: providerName(pkg.clearName),
       kind: "stream", monetization: mon, quality: qualityFromLabel(o.presentationType),
       video: justwatchTech(o.videoTechnology, "video"), audio: justwatchTech(o.audioTechnology, "audio"),
       audio_langs: langs(o.audioLanguages), subtitle_langs: langs(o.subtitleLanguages), url: o.standardWebURL,
