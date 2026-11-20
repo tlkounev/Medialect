@@ -317,6 +317,29 @@ describe("app core", () => {
     expect(await st.repairMixedTitles()).toBe(0);      // nothing left with two values of one id
   });
 
+  it("the refresh button: one title again from JustWatch and its ratings", async () => {
+    await api("PUT", "/api/settings", { country: "cz", language: "cs", justwatch: { enabled: true, providers: ["nfx", "opl"] },
+      ratings: { imdb_dataset: false, tvmaze: false, tmdb_api_key: "tmdbkey", csfd: true } });
+    const st = await import("../src/core/store");
+    // a library title JustWatch does not know yet (no JustWatch id): found by its name, its offers added
+    const id = await st.upsertTitle({ type: "movie", title: "Matrix", year: 1999, ids: { imdb: "tt0133093", csfd: "1" }, library: true });
+    await st.upsertOffer(id, { source: "justwatch", provider: "disneyplus", provider_name: "Disney Plus", kind: "stream", monetization: "flatrate" }, 1);
+    const item = await api("POST", `/api/titles/${id}/refresh`);
+    const provs = item.where.map((w: any) => w.provider).sort();
+    expect(provs).toEqual(["netflix", "oneplay"]);              // Disney+ left (not on JustWatch any more), MUBI not chosen
+    expect(item.ids.jw).toBe("tm1");
+    expect(item.refresh_note).toBeNull();
+    const r = Object.fromEntries(item.ratings.map((x: any) => [x.source, x.display]));
+    expect(r.tmdb).toBe("8.5");                                // TMDB now, not in a later ratings run
+    expect(r.csfd).toBe("91 %");
+    expect(item.ids.csfd).toBe("1");                           // its page links the title's IMDb id: kept
+    // the title left the service: its offer goes; by the JustWatch id now
+    fake.catalog[0].offers = fake.catalog[0].offers.filter((o: any) => o.package.shortName !== "opl");
+    const again = await api("POST", `/api/titles/${id}/refresh`);
+    expect(again.where.map((w: any) => w.provider)).toEqual(["netflix"]);
+    expect(fake.jwBodies.at(-1).operationName).toBe("GetTitleNode");
+  });
+
   it("ČSFD rates the titles on screen first", async () => {
     const st = await import("../src/core/store");
     const r = await import("../src/core/ratings");
@@ -516,5 +539,8 @@ describe("ČSFD series years", () => {
     expect(ratings.csfdYears('<div class="origin">USA, (2019– ), 50 min</div>')).toEqual([2019, null]);
     expect(ratings.csfdYears('<div class="origin">USA, <span>(</span><span>2001</span>–<span>2026</span>)</div>')).toEqual([2001, 2026]);
     expect(ratings.csfdYears('<div class="origin">USA, 1999, 136 min</div>')).toBeNull();
+    // a film's single year tells two films of one name apart (the stored ČSFD id of another year is dropped)
+    expect(ratings.csfdFilmYear('<div class="origin">USA / Velká Británie<span>, </span><span>2026</span><span>, </span>172 min</div>')).toBe(2026);
+    expect(ratings.csfdFilmYear('<div class="film-header"></div>')).toBeNull();
   });
 });

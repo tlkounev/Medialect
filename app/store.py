@@ -248,6 +248,28 @@ async def remove_stale(source: str, before: float, provider: str | None = None, 
         return cur.rowcount
 
 
+async def remove_stale_title(title_id: int, source: str, before: float) -> int:
+    """One title refreshed from one source: its offers that source no longer lists."""
+    async with db.lock:
+        cur = await db.conn.execute("DELETE FROM availability WHERE title_id=? AND source=? AND seen_at<?",
+                                    (title_id, source, before))
+        await db.conn.commit()
+        return cur.rowcount
+
+
+def same_work(title: dict, name: str | None, original: str | None, year: int | None, ids: dict) -> bool:
+    """Is a source's item (name, year, ids) the title being refreshed ({title, original_title, year, ids})?
+    A shared strong id decides; without one, the name and the year (±1) must agree."""
+    mine = title.get("ids") or {}
+    shared = [k for k in STRONG_KINDS if ids.get(k) and mine.get(k)]
+    if shared:
+        return all(str(ids[k]) == str(mine[k]) for k in shared)
+    names = {norm(x) for x in (title.get("title"), title.get("original_title")) if x}
+    if not names & {norm(x) for x in (name, original) if x}:
+        return False
+    return not (year and title.get("year") and abs(int(year) - int(title["year"])) > 1)
+
+
 async def set_rating(title_id: int, source: str, value: float | None, display: str | None,
                      votes: int | None = None, url: str | None = None, only_if_missing: bool = False) -> None:
     conflict = ("DO NOTHING" if only_if_missing else

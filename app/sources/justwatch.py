@@ -38,15 +38,16 @@ RETRY_SCALE = 1.0                # tests make the pauses between retries short  
 # the raw answer by offer id. If JustWatch ever rejects the field, the catalogue is fetched without it.
 _OFFER_DATES: dict[str, str] = {}
 _dates = {"on": True}
-_prepare_popular = jw.prepare_popular_request
 _post = jw._post_to_jw_graphql_api
 
 
-def _prepare_with_dates(*a, **kw):
-    req = _prepare_popular(*a, **kw)
-    if _dates["on"]:
-        req = dict(req, query=req["query"].replace("availableTo\n", "availableTo\n    dateCreated\n", 1))
-    return req
+def _with_dates(prepare):
+    def prepare_with_dates(*a, **kw):
+        req = prepare(*a, **kw)
+        if _dates["on"]:
+            req = dict(req, query=req["query"].replace("availableTo\n", "availableTo\n    dateCreated\n", 1))
+        return req
+    return prepare_with_dates
 
 
 def _collect_dates(node) -> None:
@@ -70,7 +71,9 @@ def _post_with_dates(request_json: dict) -> dict:
     return res
 
 
-jw.prepare_popular_request = _prepare_with_dates
+jw.prepare_popular_request = _with_dates(jw.prepare_popular_request)
+jw.prepare_details_request = _with_dates(jw.prepare_details_request)     # the refresh button
+jw.prepare_search_request = _with_dates(jw.prepare_search_request)
 jw._post_to_jw_graphql_api = _post_with_dates
 
 
@@ -136,7 +139,7 @@ async def _fetch_window(ctx, provider, otype, lo, hi, delay) -> tuple[list, bool
         offset += count
 
 
-async def _store_entry(ctx: SyncContext, entry, selected: dict[str, str]) -> None:
+async def _store_entry(ctx: SyncContext, entry, selected: dict[str, str]) -> int:
     ttype = "movie" if entry.object_type == "MOVIE" else "show"
     ids = {"jw": entry.entry_id, "imdb": entry.imdb_id}
     if entry.tmdb_id:
@@ -180,6 +183,38 @@ async def _store_entry(ctx: SyncContext, entry, selected: dict[str, str]) -> Non
         if sc.tomatometer is not None:
             await store.set_rating(tid, "rottentomatoes", sc.tomatometer, f"{sc.tomatometer} %", only_if_missing=True)
     ctx.items += 1
+    return tid
+
+
+async def refresh_title(title: dict, ctx: SyncContext) -> None:
+    """One title again: its JustWatch entry now (by its JustWatch id, else found by name), offers on the
+    selected services added, changed and removed."""
+    s = ctx.settings
+    selected = {sn: sn for sn in jw_providers(s["justwatch"].get("providers"))}
+    entry = None
+    if title["ids"].get("jw"):
+        try:
+            entry = await asyncio.to_thread(jw.details, title["ids"]["jw"], s["country"], s["language"], True)
+        except Exception:  # noqa: BLE001 - an id JustWatch no longer knows: look the title up by name
+            entry = None
+    if entry is None:
+        otype = "MOVIE" if title["type"] == "movie" else "SHOW"
+        for q in dict.fromkeys(n for n in (title["title"], title["original_title"]) if n):
+            try:
+                found = await asyncio.to_thread(jw.search, q, s["country"], s["language"], 10, True)
+            except Exception as e:  # noqa: BLE001
+                raise SourceError(f"JustWatch: {type(e).__name__}: {e}") from e
+            ids_of = lambda e: {"imdb": e.imdb_id, ("tmdb_movie" if otype == "MOVIE" else "tmdb_tv"): e.tmdb_id}
+            entry = next((e for e in found if e.object_type == otype
+                          and store.same_work(title, e.title, None, e.release_year, ids_of(e))), None)
+            if entry:
+                break
+    if entry is None:               # no longer on JustWatch (the search itself answered)
+        await store.remove_stale_title(title["id"], SOURCE, ctx.started)
+        return
+    tid = await _store_entry(ctx, entry, selected)
+    for t in {tid, title["id"]}:
+        await store.remove_stale_title(t, SOURCE, ctx.started)
 
 
 async def sync(ctx: SyncContext) -> None:

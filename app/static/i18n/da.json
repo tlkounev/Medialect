@@ -62,7 +62,7 @@
 "f.anyQuality": "Kvalitet", "f.anyVideo": "Billede", "f.anyAudio": "Lyd",
 "f.anyAudioLang": "Lydsprog", "f.anySub": "Undertekster", "f.reset": "Ryd filtre", "f.clear": "Ryd valg",
 "sort.added": "Senest tilføjet", "sort.year": "Udgivelsesår", "sort.title": "Titel", "sort.rating": "Bedømmelse {name}",
-"cat.count": "{n} titler", "cat.none": "Intet fundet.", "cat.refresh": "Refresh ratings",
+"cat.count": "{n} titler", "cat.none": "Intet fundet.", "cat.refresh": "Refresh title", "cat.refreshed": "Refreshed",
 "cat.addedNote": "tilføjelsesdato kendes for egne biblioteker og Streaming Availability, øvrige titler står sidst",
 "pager.prev": "‹ Forrige", "pager.next": "Næste ›",
 "offer.free": "gratis", "offer.ads": "med reklamer", "offer.addon": "tilvalg", "offer.audio": "lyd", "offer.subs": "undertekster",

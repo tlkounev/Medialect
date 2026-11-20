@@ -57,6 +57,11 @@ export function fakeFetch(f: Fake) {
           .concat([{ shortName: "itu", clearName: "Apple iTunes", technicalName: "itunes", icon: "", monetizationTypes: ["RENT", "BUY"] }]) } });
       }
       const v = body.variables, flt = v.popularTitlesFilter;
+      if (body.operationName === "GetTitleNode") return json({ data: { node: f.catalog.find((n) => n.id === v.nodeId) || null } });
+      if (flt.searchQuery) {          // the refresh button looks a title up by its name
+        const found = f.catalog.filter((n) => n.content.title.toLowerCase().includes(flt.searchQuery.toLowerCase()));
+        return json({ data: { popularTitles: { edges: found.slice(0, v.first).map((n) => ({ node: n })) } } });
+      }
       const hits = f.catalog.filter((n) => flt.objectTypes.includes(n.objectType)
         && n.offers.some((o: any) => flt.packages.includes(o.package.shortName))
         && n.content.originalReleaseYear >= flt.releaseYear.min && n.content.originalReleaseYear <= flt.releaseYear.max);

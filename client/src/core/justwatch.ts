@@ -3,7 +3,7 @@
 // query, so each catalogue is walked in release-year windows per object type; a window that hits the cap is
 // split in half. Finished windows are recorded, so an interrupted run continues where it stopped.
 import { env, http, SourceError } from "./env";
-import { POPULAR_QUERY, PROVIDERS_QUERY } from "./jw_queries";
+import { DETAILS_QUERY, POPULAR_QUERY, PROVIDERS_QUERY } from "./jw_queries";
 import { justwatchTech, langs, providerKey, qualityFromLabel } from "./quality";
 import * as store from "./store";
 import { jwProviders } from "./queries";
@@ -133,7 +133,7 @@ async function fetchWindow(ctx: SyncContext, provider: string, otype: string, lo
   }
 }
 
-async function storeEntry(ctx: SyncContext, node: any, selected: Map<string, string>): Promise<void> {
+async function storeEntry(ctx: SyncContext, node: any, selected: Map<string, string>): Promise<number> {
   const c = node.content || {};
   const ttype = node.objectType === "MOVIE" ? "movie" : "show";
   const imdb = c.externalIds?.imdbId || null;
@@ -170,6 +170,48 @@ async function storeEntry(ctx: SyncContext, node: any, selected: Map<string, str
     }
   }
   ctx.items++;
+  return tid;
+}
+
+const withDates = (q: string) => (offerDates ? q.replace("availableTo\n", "availableTo\n    dateCreated\n") : q);
+const VARS = { formatPoster: "JPG", formatOfferIcon: "PNG", profile: "S718", backdropProfile: "S1920", filter: { bestOnly: true } };
+
+/** One JustWatch query that asks for the offers' dates when JustWatch knows the field. */
+async function dated(operationName: string, query: string, variables: Record<string, unknown>): Promise<any> {
+  try { return await gql({ operationName, variables, query: withDates(query) }); }
+  catch (e) {
+    if (!(e instanceof SchemaError) || !offerDates) throw e;
+    offerDates = false;
+    return gql({ operationName, variables, query });
+  }
+}
+
+/** One title again: its JustWatch entry now (by its JustWatch id, else found by name), offers on the selected
+ *  services added, changed and removed. */
+export async function refreshTitle(title: store.RefreshTitle, ctx: SyncContext): Promise<void> {
+  const s = ctx.settings;
+  const selected = new Map(jwProviders(s.justwatch.providers).map((sn: string) => [sn, sn] as [string, string]));
+  const locale = { country: s.country.toUpperCase(), language: s.language };
+  let node: any = null;
+  if (title.ids.jw) {
+    try { node = (await dated("GetTitleNode", DETAILS_QUERY, { nodeId: title.ids.jw, ...VARS, ...locale }))?.node || null; }
+    catch { node = null; }                          // an id JustWatch no longer knows: look the title up by name
+  }
+  if (!node) {
+    const otype = title.type === "movie" ? "MOVIE" : "SHOW";
+    for (const q of [...new Set([title.title, title.original_title].filter(Boolean) as string[])]) {
+      const data = await dated("GetPopularTitles", POPULAR_QUERY, { first: 10, ...VARS, ...locale, offset: null,
+        popularTitlesFilter: { searchQuery: q, includeTitlesWithoutUrl: true, objectTypes: [otype] } });
+      const found = (data?.popularTitles?.edges || []).map((e: any) => e.node);
+      node = found.find((n: any) => n.objectType === otype && store.sameWork(title, n.content?.title, null,
+        n.content?.originalReleaseYear, { imdb: n.content?.externalIds?.imdbId,
+          [otype === "MOVIE" ? "tmdb_movie" : "tmdb_tv"]: n.content?.externalIds?.tmdbId != null ? String(n.content.externalIds.tmdbId) : null })) || null;
+      if (node) break;
+    }
+  }
+  if (!node) { await store.removeStaleTitle(title.id, SOURCE, ctx.started); return; }   // no longer on JustWatch
+  const tid = await storeEntry(ctx, node, selected);
+  for (const t of new Set([tid, title.id])) await store.removeStaleTitle(t, SOURCE, ctx.started);
 }
 
 export async function sync(ctx: SyncContext): Promise<void> {

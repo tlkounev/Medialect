@@ -161,18 +161,14 @@ async def api_title(request: Request, title_id: int):
 
 @app.post("/api/titles/{title_id}/refresh", dependencies=viewers)
 async def api_title_refresh(request: Request, title_id: int):
-    """The user asked for this title's ratings again: ČSFD at once, the other sources in a ratings run that
-    takes this title first."""
-    from . import ratings as ratings_mod
-    await db.execute("UPDATE ratings SET updated_at=0 WHERE title_id=?", (title_id,))
-    focus = (await db.kv_get("ratings.focus", {})).get("ids") or []
-    await db.kv_set("ratings.focus", {"ids": [title_id] + [i for i in focus if i != title_id][:199], "v": time.time()})
-    note = await ratings_mod.csfd_refresh_title(title_id)
-    manager.trigger("ratings")
+    """The refresh button on a title: that title again from every source (own servers, JustWatch, iVysílání,
+    Streaming Availability) and all its ratings, now."""
+    from . import refresh as refresh_mod
+    notes = await refresh_mod.refresh_title(title_id)
     items = await queries.hydrate([title_id], await link_ctx(request))
     if not items:
         raise HTTPException(404, "Titul nenalezen.")
-    return {**items[0], "refresh_note": note}
+    return {**items[0], "refresh_note": " · ".join(notes) or None}
 
 
 @app.get("/api/titles/by/{kind}/{value}", dependencies=viewers)

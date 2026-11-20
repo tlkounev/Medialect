@@ -131,47 +131,113 @@ class Plex:
             mc = (await c.get("/identity")).raise_for_status().json().get("MediaContainer", {})
             return {"id": mc.get("machineIdentifier"), "version": mc.get("version")}
 
-    async def sync(self, ctx: SyncContext) -> None:
+    async def _connect(self, c) -> str:
+        """The server's machine id (part of its links)."""
+        name = self.server.get("name") or "Plex"
+        r = await c.get("/identity")
+        if r.status_code in (401, 403):
+            raise SourceError(f"{name}: neplatný token (HTTP {r.status_code}).")
+        return r.raise_for_status().json()["MediaContainer"]["machineIdentifier"]
+
+    def _emitter(self, ctx: SyncContext, machine_id: str):
+        """emit(meta, type, summary, added): stores one library item as a title with its offer. Several library
+        items can be one title (the same film in two sections or two copies): their tracks are added up, the
+        link goes to the best copy."""
         name = self.server.get("name") or "Plex"
         provider = f"plex-{self.server['id']}"
+        emitted: dict[int, tuple[dict, dict, int | None]] = {}
+
+        async def emit(meta: dict, ttype: str, summary: dict, added: int | None = None) -> int:
+            tid = await store.upsert_title(store.TitleInfo(
+                type=ttype, title=meta.get("title") or "?", original_title=meta.get("originalTitle"),
+                year=meta.get("year"), poster=self.poster(meta),
+                ids=_ids_from_guids(meta.get("Guid"), ttype), library=True,
+            ))
+            added_ts = max(filter(None, (meta.get("addedAt"), added)), default=None)
+            main = meta
+            if tid in emitted:
+                prev_summary, prev_meta, prev_added = emitted[tid]
+                if best_quality(prev_summary["quality"], summary["quality"]) == prev_summary["quality"]:
+                    main = prev_meta
+                summary = _merge(prev_summary, summary)
+                added_ts = max(filter(None, (prev_added, added_ts)), default=None)
+            else:
+                ctx.items += 1
+            emitted[tid] = (summary, main, added_ts)
+            await store.upsert_offer(tid, store.Offer(
+                source=self.source, provider=provider, provider_name=name, kind="library",
+                monetization="library", url=self.link(machine_id, main["ratingKey"]),
+                extra={"rating_key": main["ratingKey"], "machine_id": machine_id, "server_type": "plex"},
+                added_at=_iso(added_ts), **summary,
+            ), ctx.started)
+            return tid
+        return emit
+
+    async def refresh_title(self, title: dict, ctx: SyncContext) -> None:
+        """One title again: its library items now (quality, picture, ids), items of that name added since,
+        and its offer gone when the item was deleted."""
+        ttype = title["type"]
+        sem = asyncio.Semaphore(DETAIL_CONCURRENCY)
+        async with http_client(base_url=self.base, headers=self.headers, timeout=30) as c:
+            machine_id = await self._connect(c)
+
+            async def detail(key: str) -> dict | None:
+                r = await c.get(f"/library/metadata/{key}", params={"includeGuids": 1})
+                if r.status_code in (400, 404):
+                    return None
+                r.raise_for_status()
+                found = (r.json().get("MediaContainer") or {}).get("Metadata") or []
+                return found[0] if found else None
+
+            metas: dict[str, dict] = {}
+            for o in title["offers"]:
+                key = o["extra"].get("rating_key") if o["source"] == self.source else None
+                if key and (m := await detail(str(key))):
+                    metas[str(key)] = m
+            want = "movie" if ttype == "movie" else "show"
+            for q in dict.fromkeys(n for n in (title["title"], title["original_title"]) if n):
+                r = await c.get("/hubs/search", params={"query": q, "limit": 20, "includeGuids": 1})
+                r.raise_for_status()
+                for hub in (r.json().get("MediaContainer") or {}).get("Hub") or []:
+                    for m in hub.get("Metadata") or []:
+                        key = str(m.get("ratingKey") or "")
+                        if not key or key in metas or m.get("type") != want:
+                            continue
+                        if store.same_work(title, m.get("title"), m.get("originalTitle"), m.get("year"),
+                                           _ids_from_guids(m.get("Guid"), ttype)) and (d := await detail(key)):
+                            if store.same_work(title, d.get("title"), d.get("originalTitle"), d.get("year"),
+                                               _ids_from_guids(d.get("Guid"), ttype)):
+                                metas[key] = d
+            emit = self._emitter(ctx, machine_id)
+            for key, meta in metas.items():
+                if ttype == "movie":
+                    await emit(meta, "movie", _merge(_media_basic(meta), _media_detail(meta)))
+                    continue
+                r = await c.get(f"/library/metadata/{key}/allLeaves")
+                r.raise_for_status()
+                eps = (r.json().get("MediaContainer") or {}).get("Metadata") or []
+                summary, best, newest = _media_basic({}), None, None
+                for ep in eps:
+                    b = _media_basic(ep)
+                    summary = _merge(summary, b)
+                    newest = max(filter(None, (newest, ep.get("addedAt"))), default=None)
+                    if not best or best_quality(best[1]["quality"], b["quality"]) != best[1]["quality"]:
+                        best = (ep, b)
+                if best and (d := await self._detail(c, sem, best[0]["ratingKey"])):
+                    summary = _merge(summary, _media_detail(d))
+                await emit(meta, "show", summary, newest)
+        await store.remove_stale_title(title["id"], self.source, ctx.started)
+
+    async def sync(self, ctx: SyncContext) -> None:
+        name = self.server.get("name") or "Plex"
         sem = asyncio.Semaphore(DETAIL_CONCURRENCY)
         async with http_client(base_url=self.base, headers=self.headers, timeout=120) as c:
-            r = await c.get("/identity")
-            if r.status_code in (401, 403):
-                raise SourceError(f"{name}: neplatný token (HTTP {r.status_code}).")
-            machine_id = r.raise_for_status().json()["MediaContainer"]["machineIdentifier"]
+            machine_id = await self._connect(c)
             r = await c.get("/library/sections")
             if r.status_code in (401, 403):
                 raise SourceError(f"{name}: neplatný X-Plex-Token (HTTP {r.status_code}).")
             sections = r.raise_for_status().json()["MediaContainer"].get("Directory") or []
-
-            # several library items can be one title (the same film in two sections or two copies):
-            # their tracks are added up, the link goes to the best copy
-            emitted: dict[int, tuple[dict, dict, int | None]] = {}
-
-            async def emit(meta: dict, ttype: str, summary: dict, added: int | None = None) -> None:
-                tid = await store.upsert_title(store.TitleInfo(
-                    type=ttype, title=meta.get("title") or "?", original_title=meta.get("originalTitle"),
-                    year=meta.get("year"), poster=self.poster(meta),
-                    ids=_ids_from_guids(meta.get("Guid"), ttype), library=True,
-                ))
-                added_ts = max(filter(None, (meta.get("addedAt"), added)), default=None)
-                main = meta
-                if tid in emitted:
-                    prev_summary, prev_meta, prev_added = emitted[tid]
-                    if best_quality(prev_summary["quality"], summary["quality"]) == prev_summary["quality"]:
-                        main = prev_meta
-                    summary = _merge(prev_summary, summary)
-                    added_ts = max(filter(None, (prev_added, added_ts)), default=None)
-                else:
-                    ctx.items += 1
-                emitted[tid] = (summary, main, added_ts)
-                await store.upsert_offer(tid, store.Offer(
-                    source=self.source, provider=provider, provider_name=name, kind="library",
-                    monetization="library", url=self.link(machine_id, main["ratingKey"]),
-                    extra={"rating_key": main["ratingKey"], "machine_id": machine_id, "server_type": "plex"},
-                    added_at=_iso(added_ts), **summary,
-                ), ctx.started)
+            emit = self._emitter(ctx, machine_id)
 
             for si, sec in enumerate(sections):
                 label = sec.get("title") or sec["key"]

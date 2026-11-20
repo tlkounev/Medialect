@@ -10,6 +10,8 @@ export class SyncContext {
   partial = false;
   phase = "";
   percent: number | null = null;
+  /** The refresh button: the per-title rating sources rate only this title. */
+  only: number | null = null;
   private span: [number, number] = [0, 1];
   constructor(public source: string, public settings: Settings) {}
   /** The job runs n consecutive steps; fractions reported from now on belong to step i (0-based). */

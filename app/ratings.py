@@ -6,6 +6,7 @@ import asyncio
 import gzip
 import html
 import io
+import contextvars
 import logging
 import json
 import os
@@ -29,6 +30,10 @@ IMDB_DATASET_MAX_AGE_S = 20 * 3600
 CSFD_UA = (f"Medialect/{os.environ.get('APP_VERSION', 'dev')} "
            "(self-hosted catalogue; +https://github.com/tlkounev/Medialect)")
 _ANUBIS_MARKERS = ('id="anubis_challenge"', "/.within.website/x/cmd/anubis/")
+
+
+# set while one title is refreshed: the per-title rating sources then rate only that title
+_ONLY: contextvars.ContextVar[int | None] = contextvars.ContextVar("ratings_only", default=None)
 
 
 class CsfdBlocked(SourceError):
@@ -58,7 +63,9 @@ async def imdb_dataset(ctx: SyncContext) -> None:
 
     The dataset is cached for a day, but it is applied on every run, so titles added by
     a later sync get their rating right away instead of the next day."""
-    rows = await db.fetchall("SELECT value, title_id FROM title_ids WHERE kind='imdb'")
+    only = _ONLY.get()
+    rows = await db.fetchall("SELECT value, title_id FROM title_ids WHERE kind='imdb'"
+                             + (" AND title_id=?" if only else ""), (only,) if only else ())
     wanted: dict[str, list[int]] = {}
     for r in rows:
         wanted.setdefault(r["value"], []).append(r["title_id"])
@@ -185,8 +192,15 @@ def csfd_years(page: str) -> tuple[int, int | None] | None:
     return (int(m.group(1)), int(m.group(2)) if m.group(2) else None) if m else None
 
 
+def csfd_film_year(page: str) -> int | None:
+    """The year of a film on a ČSFD page (header's origin line: "USA, 2026, 172 min")."""
+    o = _ORIGIN.search(page)
+    m = re.search(r"\b(1[89]\d\d|20\d\d)\b", re.sub(r"<[^>]+>", " ", o.group(1))) if o else None
+    return int(m.group(1)) if m else None
+
+
 async def csfd_rating(c, csfd_id: str) -> tuple:
-    """(rating %, votes, url, IMDb id linked from the page, series years)."""
+    """(rating %, votes, url, IMDb id linked from the page, series years, film year)."""
     page, url = await _csfd_get(c, f"{CSFD}/film/{csfd_id}/prehled/")
     if 'class="film-rating-average' not in page and "film-header" not in page:
         raise SourceError(f"ČSFD: neočekávaná stránka filmu {csfd_id}")
@@ -194,7 +208,8 @@ async def csfd_rating(c, csfd_id: str) -> tuple:
     v = _VOTES.search(page)
     votes = int(re.sub(r"\D", "", v.group(1))) if v and re.sub(r"\D", "", v.group(1)) else None
     imdb = _IMDB_LINK.search(page)
-    return (int(m.group(1)) if m else None), votes, url, (imdb.group(1) if imdb else None), csfd_years(page)
+    return ((int(m.group(1)) if m else None), votes, url, (imdb.group(1) if imdb else None), csfd_years(page),
+            csfd_film_year(page))
 
 
 CSFD_FOCUS_KEY = "ratings.focus"     # titles the user has on screen right now: rated before the rest
@@ -209,6 +224,16 @@ async def csfd_rate_row(c, row) -> None:
     candidate's page has the title's own IMDb id. At most 3 film pages per title."""
     have_imdb = row["imdb_id"]
     cands = [(row["csfd_id"], False, True)] if row["csfd_id"] else []
+    no_link: list[tuple[str, bool]] = []
+
+    async def reject(cid: str, stored: bool) -> None:
+        """That ČSFD page is not this title: never again (the library's ČSFD id included)."""
+        if have_imdb:
+            rejected = await db.kv_get(CSFD_REJECTED_KEY, [])
+            if f"{cid}|{have_imdb}" not in rejected:
+                await db.kv_set(CSFD_REJECTED_KEY, (rejected + [f"{cid}|{have_imdb}"])[-2000:])
+        if stored:
+            await db.execute("DELETE FROM title_ids WHERE title_id=? AND kind='csfd' AND value=?", (row["id"], cid))
     searched, tries, hit, fallback = False, 0, None, None
     i = 0
     while tries < 3:
@@ -233,21 +258,26 @@ async def csfd_rate_row(c, row) -> None:
         if tries:
             await asyncio.sleep(CSFD_DELAY_S)
         tries += 1
-        value, votes, url, imdb, years = await csfd_rating(c, cid)
+        value, votes, url, imdb, years, film_year = await csfd_rating(c, cid)
         if check and not (years and years[0] <= row["year"] <= (years[1] or 9999)):
             continue                         # a series of that name, not running that year
+        if (row["type"] == "movie" and not years and film_year and row["year"]
+                and abs(film_year - row["year"]) > 1):
+            await reject(cid, stored)        # another film of that name (another year)
+            continue
         found_hit = (cid, check, stored, value, votes, url, imdb)
         if have_imdb and imdb and imdb != have_imdb:
-            rejected = await db.kv_get(CSFD_REJECTED_KEY, [])
-            await db.kv_set(CSFD_REJECTED_KEY, (rejected + [f"{cid}|{have_imdb}"])[-2000:])
-            if stored:
-                await db.execute("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", (row["id"],))
+            await reject(cid, stored)
             continue
         if have_imdb and not imdb:
+            no_link.append((cid, stored))
             fallback = fallback or found_hit     # cannot tell: a page with the title's own IMDb id wins
             continue
         hit = found_hit
         break
+    if hit and hit[6]:
+        for cid, stored in no_link:         # the page with the title's IMDb id won: these are other films
+            await reject(cid, stored)
     hit = hit or fallback
     if not hit:
         await store.set_rating(row["id"], "csfd", None, None)  # really not on ČSFD (valid search page)
@@ -284,6 +314,34 @@ async def csfd_refresh_title(title_id: int) -> str | None:
         logging.getLogger("medialect").warning("csfd refresh %s: %s", title_id, e)
         return f"ČSFD: {type(e).__name__}"
     return None
+
+
+async def refresh_title(title_id: int, settings: dict) -> list[str]:
+    """The refresh button: every rating source for this one title now (what failed, for the user)."""
+    cfg = settings["ratings"]
+    notes: list[str] = []
+    await db.execute("UPDATE ratings SET updated_at=0 WHERE title_id=?", (title_id,))
+    ctx = SyncContext(source="refresh", settings=settings)
+    token = _ONLY.set(title_id)
+    try:
+        for name, fn, on in (("IMDb", imdb_dataset, cfg.get("imdb_dataset", True)),
+                             ("MDBList", mdblist, cfg.get("mdblist_api_key")),
+                             ("TMDB", tmdb, cfg.get("tmdb_api_key")), ("TVmaze", tvmaze, cfg.get("tvmaze", True)),
+                             ("OMDb", omdb, cfg.get("omdb_api_key"))):
+            if not on:
+                continue
+            try:
+                await fn(ctx)
+            except SourceError as e:
+                notes.append(str(e))
+            except Exception as e:  # noqa: BLE001 - one broken source must not stop the others
+                notes.append(f"{name}: {type(e).__name__}")
+    finally:
+        _ONLY.reset(token)
+    note = await csfd_refresh_title(title_id)
+    if note:
+        notes.append(note)
+    return notes
 
 
 async def _csfd_queue(refresh: float) -> list:
@@ -394,8 +452,9 @@ async def mdblist(ctx: SyncContext) -> None:
            JOIN title_ids i ON i.title_id=t.id AND i.kind='imdb'
            LEFT JOIN ratings r ON r.title_id=t.id AND r.source='mdblist'
            WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)
-             AND (r.updated_at IS NULL OR r.updated_at < ?)
-           ORDER BY r.updated_at IS NOT NULL, {rank}, r.updated_at""".format(rank=rank), (refresh, *rank_params))
+             AND (r.updated_at IS NULL OR r.updated_at < ?) AND (? IS NULL OR t.id=?)
+           ORDER BY r.updated_at IS NOT NULL, {rank}, r.updated_at""".format(rank=rank),
+        (refresh, _ONLY.get(), _ONLY.get(), *rank_params))
     budget = int(cfg.get("mdblist_daily_budget", 900))
     async with http_client() as c:
         for i, row in enumerate(rows, 1):
@@ -446,6 +505,9 @@ async def _due(source: str, refresh_days: float, kinds: tuple[str, ...], ttype: 
     if ttype:
         sql += " AND t.type=?"
         params.append(ttype)
+    if _ONLY.get():
+        sql += " AND t.id=?"
+        params.append(_ONLY.get())
     rank, rank_params = await queries.rank_sql()      # in the user's service order
     sql += f" ORDER BY r.updated_at IS NOT NULL, {rank}, r.updated_at, t.id"
     return await db.fetchall(sql, [*params, *rank_params])

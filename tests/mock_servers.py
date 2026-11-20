@@ -87,15 +87,27 @@ EPISODES = [
 ]
 
 
+EMBY_GONE: set[str] = set()       # items deleted from the library (tests of the refresh button)
+
+
 @app.get("/emby/Users/{uid}/Items/{item_id}")
 async def emby_item(uid: str, item_id: str):
-    return {"m4": VERSIONS_FULL}.get(item_id, {})
+    found = {"m1": MOVIE, "m2": NOIDS, "m3": MOVIE_COPY, "m4": VERSIONS_FULL, "s1": {**SERIES, "Type": "Series"}}.get(item_id)
+    if not found or item_id in EMBY_GONE:
+        return Response(status_code=404)
+    return found
 
 
 @app.get("/emby/Users/{uid}/Items")
-async def emby_items(uid: str, IncludeItemTypes: str, StartIndex: int = 0, Limit: int = 100):
+async def emby_items(uid: str, IncludeItemTypes: str, StartIndex: int = 0, Limit: int = 100,
+                     SearchTerm: str | None = None, ParentId: str | None = None):
     assert uid == "u2", "must use admin user"
     data = {"Movie": [MOVIE, NOIDS, MOVIE_COPY, VERSIONS], "Series": [SERIES], "Episode": EPISODES}[IncludeItemTypes]
+    data = [d for d in data if d["Id"] not in EMBY_GONE]
+    if SearchTerm:
+        data = [d for d in data if SearchTerm.lower() in (d["Name"] + " " + d.get("OriginalTitle", "")).lower()]
+    if ParentId:
+        data = [d for d in data if d.get("SeriesId") == ParentId]
     return {"Items": data[StartIndex:StartIndex + Limit], "TotalRecordCount": len(data)}
 
 
@@ -160,7 +172,21 @@ async def plex_meta(rk: str):
     if rk == "301":
         return {"MediaContainer": {"Metadata": [{**PLEX_EPS[0], "Media": [{"videoResolution": "1080", "Part": [{"Stream": [
             {"streamType": 2, "codec": "eac3", "channels": 6, "languageCode": "ces"}]}]}]}]}}
-    return {"MediaContainer": {"Metadata": [{"ratingKey": rk, "Media": [{"videoResolution": "1080"}]}]}}
+    base = {"102": PLEX_MATRIX, "201": PLEX_SHOW}.get(rk, {"ratingKey": rk, "Media": [{"videoResolution": "1080"}]})
+    return {"MediaContainer": {"Metadata": [base]}}
+
+
+@app.get("/plex/library/metadata/{rk}/allLeaves")
+async def plex_leaves(rk: str):
+    return {"MediaContainer": {"Metadata": [e for e in PLEX_EPS if e["grandparentRatingKey"] == rk]}}
+
+
+@app.get("/plex/hubs/search")
+async def plex_search(query: str):
+    found = [m for m in (PLEX_MOVIE, PLEX_MATRIX, PLEX_SHOW)
+             if query.lower() in (m["title"] + " " + m.get("originalTitle", "")).lower()]
+    return {"MediaContainer": {"Hub": [{"type": "mixed", "Metadata": [
+        {**m, "type": "show" if m is PLEX_SHOW else "movie"} for m in found]}]}}
 
 
 # ---------------- Streaming Availability ----------------
@@ -235,6 +261,9 @@ async def csfd_search(q: str, request: Request):
         return Response(CSFD_SEARCH_SCRUBS, media_type="text/html")
     if q.startswith("Dvojn"):
         return Response(CSFD_SEARCH_TWINS, media_type="text/html")
+    if q == "Rok":
+        return Response(CSFD_SEARCH_TWINS.split("<article")[0] + "<article" + CSFD_SEARCH_TWINS.split("<article")[2]
+                        .replace("8002", "9202").replace("Dvojník", "Rok"), media_type="text/html")
     if q.startswith("Trojice"):
         return Response(CSFD_SEARCH_TWINS.replace("8001", "9101").replace("8002", "9102").replace("Dvojník", "Trojice"), media_type="text/html")
     return Response(CSFD_SEARCH, media_type="text/html")
@@ -249,6 +278,9 @@ async def csfd_film(fid: str, request: Request):
     if fid in ("9101", "9102"):       # a page without any IMDb link loses to the one with the title's IMDb id
         link = '<a href="https://www.imdb.com/title/tt9100002/" class="button-imdb">IMDb</a>' if fid == "9102" else ""
         return Response(CSFD_FILM.replace("IMDBLINK", link).replace("89%", "12%" if fid == "9101" else "64%"), media_type="text/html")
+    if fid in ("9201", "9202"):       # one name, other years: the year on the page tells them apart
+        page = CSFD_FILM.replace("IMDBLINK", f'<div class="origin">USA<span>, </span>{"1999" if fid == "9201" else "2026"}, 120 min</div>')
+        return Response(page.replace("89%", "21%" if fid == "9201" else "86%"), media_type="text/html")
     if fid in ("8001", "8002"):       # two films of one name and year: the IMDb link tells them apart
         imdb = "tt8000001" if fid == "8001" else "tt8000002"
         page = CSFD_FILM.replace("IMDBLINK", f'<a href="https://www.imdb.com/title/{imdb}/" class="button-imdb">IMDb</a>')
@@ -288,3 +320,13 @@ async def omdb(apikey: str, i: str):
         {"Source": "Internet Movie Database", "Value": "8.7/10"},
         {"Source": "Rotten Tomatoes", "Value": "88%"},
         {"Source": "Metacritic", "Value": "73/100"}]}
+
+
+# registered last: /sa/shows/search/filters must match first
+@app.get("/sa/shows/{kind}/{value}")
+@app.get("/sa/shows/{value}")
+async def sa_show(value: str, request: Request, kind: str | None = None):
+    assert request.headers.get("x-api-key") == "sakey"
+    show = next((s for page in SA_PAGES for s in page["shows"]
+                 if value in (s["imdbId"], s["tmdbId"].split("/")[-1])), None)
+    return show if show else Response(status_code=404)

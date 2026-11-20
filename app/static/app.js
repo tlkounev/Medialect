@@ -438,7 +438,7 @@ let clampTimer = null;
 addEventListener("resize", () => { clearTimeout(clampTimer); clampTimer = setTimeout(() => clampTags($("#catalog")), 200); });
 document.fonts?.ready?.then(() => clampTags($("#catalog")));
 $("#catalog").addEventListener("click", async (e) => {
-  // the title's ratings again (ČSFD at once, the other sources right after)
+  // the title again from every source (own servers, JustWatch, iVysílání) and all its ratings
   const ref = e.target.closest("[data-refresh]");
   if (ref) {
     e.preventDefault();
@@ -455,7 +455,9 @@ $("#catalog").addEventListener("click", async (e) => {
       fillLogos(fresh); clampTags(fresh);
       const btn = fresh.querySelector("[data-refresh]");
       if (hadFocus) btn.focus({ preventScroll: true });
-      if (item.refresh_note) btn.insertAdjacentHTML("afterend", `<span class="refresh-note">${esc(item.refresh_note)}</span>`);
+      btn.insertAdjacentHTML("afterend", `<span class="refresh-note">${esc(item.refresh_note || t("cat.refreshed"))}</span>`);
+      // "refreshed" goes away; what could not be refreshed stays until the next render
+      if (!item.refresh_note) setTimeout(() => btn.nextElementSibling?.classList.contains("refresh-note") && btn.nextElementSibling.remove(), 3000);
     } catch (err) {
       ref.classList.remove("busy");
       ref.insertAdjacentHTML("afterend", `<span class="refresh-note">${esc(err.message)}</span>`);

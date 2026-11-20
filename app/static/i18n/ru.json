@@ -62,7 +62,7 @@
 "f.anyQuality": "Качество", "f.anyVideo": "Изображение", "f.anyAudio": "Звук",
 "f.anyAudioLang": "Язык звука", "f.anySub": "Субтитры", "f.reset": "Сбросить фильтры", "f.clear": "Снять выбор",
 "sort.added": "Недавно добавленные", "sort.year": "Год выпуска", "sort.title": "Название", "sort.rating": "Рейтинг {name}",
-"cat.count": "Найдено: {n}", "cat.none": "Ничего не найдено.", "cat.refresh": "Refresh ratings",
+"cat.count": "Найдено: {n}", "cat.none": "Ничего не найдено.", "cat.refresh": "Refresh title", "cat.refreshed": "Refreshed",
 "cat.addedNote": "дату добавления знают собственные библиотеки и Streaming Availability, остальные названия в конце",
 "pager.prev": "‹ Назад", "pager.next": "Далее ›",
 "offer.free": "бесплатно", "offer.ads": "с рекламой", "offer.addon": "дополнение", "offer.audio": "звук", "offer.subs": "субтитры",
