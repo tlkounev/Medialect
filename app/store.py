@@ -39,6 +39,18 @@ def _years_clash(a: int | None, b: int | None) -> bool:
     return bool(a and b and abs(a - b) > YEAR_TOLERANCE)
 
 
+async def _csfd_rejected(conn, tid: int, csfd_id: str) -> bool:
+    """Has the ČSFD rating found this ČSFD page to be another film than the title (other IMDb id)?"""
+    async with conn.execute("SELECT value FROM title_ids WHERE title_id=? AND kind='imdb'", (tid,)) as cur:
+        imdbs = [r[0] for r in await cur.fetchall()]
+    if not imdbs:
+        return False
+    async with conn.execute("SELECT value FROM kv WHERE key='csfd.rejected'") as cur:
+        row = await cur.fetchone()
+    rejected = json.loads(row[0]) if row else []
+    return any(f"{csfd_id}|{i}" in rejected for i in imdbs)
+
+
 async def _conflict_kinds(conn, tid: int, ids: dict[str, str]) -> list[str]:
     """The strong kinds in which merging these ids into the title would give it two different values."""
     async with conn.execute("SELECT kind, value FROM title_ids WHERE title_id=?", (tid,)) as cur:
@@ -165,6 +177,8 @@ async def upsert_title(info: TitleInfo) -> int:
             if kind in info.authoritative:
                 async with conn.execute("SELECT value FROM title_ids WHERE title_id=? AND kind=?", (tid, kind)) as cur:
                     old = [r[0] for r in await cur.fetchall()]
+                if kind == "csfd" and old != [value] and await _csfd_rejected(conn, tid, value):
+                    continue        # the ratings found that ČSFD page is another film (other IMDb id)
                 if old != [value]:
                     await conn.execute("DELETE FROM title_ids WHERE title_id=? AND kind=? AND value!=?", (tid, kind, value))
                     await conn.execute("INSERT OR REPLACE INTO title_ids(kind, value, title_id) VALUES(?,?,?)", (kind, value, tid))

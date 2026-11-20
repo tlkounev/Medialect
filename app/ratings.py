@@ -126,33 +126,49 @@ async def _csfd_get(c, url: str, **kw) -> tuple[str, str]:
     return r.text, str(r.url)
 
 
-async def csfd_find(c, title: str, year: int | None, ttype: str = "movie") -> tuple[str, bool] | None:
-    """(ČSFD id, check) or None. check = a long-running series found by its start year: it is the title
-    only if the years on its page reach the title's year (the 2026 "Scrubs" is series 10 of
-    "Scrubs: Doktůrci (2001–2026)" on ČSFD)."""
+async def csfd_candidates(c, title: str, year: int | None, ttype: str = "movie") -> list[tuple[str, bool]]:
+    """ČSFD ids that may be the title, best first: [(id, check)]. check = a long-running series found by its
+    start year: it is the title only if the years on its page reach the title's year (the 2026 "Scrubs" is
+    series 10 of "Scrubs: Doktůrci (2001–2026)" on ČSFD). Which one it is, the IMDb id on its page decides."""
     page, _ = await _csfd_get(c, f"{CSFD}/hledat/", params={"q": title})
     results = _csfd_search_results(page)
-    if not results:
-        return None
     wanted = norm(title)
+    out: list[tuple[str, bool]] = []
+    add = lambda cid, check: out.append((cid, check)) if cid not in [x[0] for x in out] else None
     if year:
-        # exact year wins; a ±1 year difference is accepted only with the same name
+        # the year must agree: exact (same name first), or ±1 with the same name
+        for cid, y, name in results:
+            if y == year and norm(name) == wanted:
+                add(cid, False)
         for cid, y, _name in results:
             if y == year:
-                return cid, False
+                add(cid, False)
         for cid, y, name in results:
             if y and abs(y - year) == 1 and norm(name) == wanted:
-                return cid, False
+                add(cid, False)
         if ttype == "show":
             for cid, y, name in results:
                 n = norm(name)
                 if y and y < year and (n == wanted or n.startswith(wanted + " ")):
-                    return cid, True
-        return None
+                    add(cid, True)
+        return out
     for cid, _y, name in results:
         if norm(name) == wanted:
-            return cid, False
-    return None
+            add(cid, False)
+    return out
+
+
+async def csfd_find(c, title: str, year: int | None, ttype: str = "movie") -> tuple[str, bool] | None:
+    """The best candidate (see csfd_candidates) or None."""
+    found = await csfd_candidates(c, title, year, ttype)
+    return found[0] if found else None
+
+
+CSFD_REJECTED_KEY = "csfd.rejected"     # ["<ČSFD id>|<IMDb id>"]: that ČSFD page is not the film with that IMDb id
+
+
+async def csfd_rejected(csfd_id: str, imdb: str | None) -> bool:
+    return bool(imdb) and f"{csfd_id}|{imdb}" in (await db.kv_get(CSFD_REJECTED_KEY, []))
 
 
 _TAG = r"(?:<[^>]+>\s*)*"
@@ -188,7 +204,8 @@ async def _csfd_queue(refresh: float) -> list:
     focus = json.dumps((await db.kv_get(CSFD_FOCUS_KEY, {})).get("ids") or [])
     return await db.fetchall(
         """SELECT t.id, t.type, t.title, t.original_title, t.year,
-                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id
+                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id,
+                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='imdb') AS imdb_id
            FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
            WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)
              AND (r.updated_at IS NULL OR r.updated_at < ?)
@@ -204,6 +221,11 @@ async def csfd(ctx: SyncContext) -> None:
         await db.execute("DELETE FROM ratings WHERE source='csfd' AND value IS NULL AND url IS NULL "
                          "AND title_id IN (SELECT id FROM titles WHERE type='show')")
         await db.kv_set("migrate.csfd_series_v1", True)
+    if not await db.kv_get("migrate.csfd_imdb_v1", False):
+        # ČSFD pages are now checked against the title's IMDb id: rate again the titles where a film of the
+        # same name could have been taken (the library's and titles sharing a name with another title)
+        await db.execute("DELETE FROM ratings WHERE source='csfd' AND title_id IN (SELECT a.title_id FROM availability a WHERE a.kind='library' UNION SELECT n.title_id FROM title_names n WHERE n.norm IN (SELECT norm FROM title_names GROUP BY norm HAVING COUNT(DISTINCT title_id) > 1))")
+        await db.kv_set("migrate.csfd_imdb_v1", True)
     refresh = time.time() - float(cfg.get("refresh_days", 14)) * 86400
     rows = await _csfd_queue(refresh)
     if not rows:
@@ -234,22 +256,50 @@ async def csfd(ctx: SyncContext) -> None:
                 ctx.note(f"ČSFD: denní limit {budget} titulů vyčerpán, pokračuje se zítra.")
                 return
             try:
-                cid, check = row["csfd_id"], False
-                if not cid:
-                    for name in dict.fromkeys(n for n in (row["title"], row["original_title"]) if n):
-                        found = await csfd_find(c, name, row["year"], row["type"])
-                        await asyncio.sleep(CSFD_DELAY_S)
-                        if found:
-                            cid, check = found
+                # the stored ČSFD id (from the library or an earlier search), else the search results; a page whose
+                # IMDb id is another film's is not this title (two films of one name and year): the next one is tried
+                have_imdb = row["imdb_id"]
+                cands = [(row["csfd_id"], False, True)] if row["csfd_id"] else []
+                searched, tries, hit = False, 0, None
+                i = 0
+                while tries < 3:
+                    if i >= len(cands):
+                        if searched:
                             break
-                if not cid:
+                        searched = True
+                        for name in dict.fromkeys(n for n in (row["title"], row["original_title"]) if n):
+                            found = await csfd_candidates(c, name, row["year"], row["type"])
+                            await asyncio.sleep(CSFD_DELAY_S)
+                            if found:
+                                known = {x[0] for x in cands}
+                                cands += [(cid, chk, False) for cid, chk in found if cid not in known]
+                                break
+                        continue
+                    cid, check, stored = cands[i]
+                    i += 1
+                    if await csfd_rejected(cid, have_imdb):
+                        if stored:
+                            await db.execute("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", (row["id"],))
+                        continue
+                    if tries:
+                        await asyncio.sleep(CSFD_DELAY_S)
+                    tries += 1
+                    value, votes, url, imdb, years = await csfd_rating(c, cid)
+                    if check and not (years and years[0] <= row["year"] <= (years[1] or 9999)):
+                        continue                         # a series of that name, not running that year
+                    if have_imdb and imdb and imdb != have_imdb:
+                        rejected = await db.kv_get(CSFD_REJECTED_KEY, [])
+                        await db.kv_set(CSFD_REJECTED_KEY, (rejected + [f"{cid}|{have_imdb}"])[-2000:])
+                        if stored:
+                            await db.execute("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", (row["id"],))
+                        continue
+                    hit = (cid, check, stored, value, votes, url, imdb)
+                    break
+                if not hit:
                     await store.set_rating(row["id"], "csfd", None, None)  # really not on ČSFD (valid search page)
                     continue
-                value, votes, url, imdb, years = await csfd_rating(c, cid)
-                if check and not (years and years[0] <= row["year"] <= (years[1] or 9999)):
-                    await store.set_rating(row["id"], "csfd", None, None)  # a series of that name, not running that year
-                    continue
-                if not row["csfd_id"]:
+                cid, check, stored, value, votes, url, imdb = hit
+                if not stored:
                     await store.add_title_id(row["id"], "csfd", cid)
                 await store.set_rating(row["id"], "csfd", value, f"{value} %" if value is not None else None, votes, url)
                 # the IMDb id of a whole long-running series is not attached to a later revival
