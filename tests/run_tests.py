@@ -736,6 +736,8 @@ def main():
         assert [lang(x) for x in ("cs", "cze", "ces", "cs-CZ", "Czech", "Čeština", "Czech (Forced)")] == ["cs"] * 7
         assert langs(["eng", "English", "en-US", "und", "nob", "nb", "Brazilian Portuguese"]) == ["en", "no", "pt"]
         # "original" and audio description are no languages; a short word of a phrase is no language code
+        # every three-letter code that has a two-letter one becomes it (the flags and names know those)
+        assert langs(["arg", "asm", "hat", "ton", "kan", "myn"]) == ["an", "as", "ht", "to", "kn", "myn"]
         assert langs(["qaa", "qad", "org", "Original", "to be added", "as original", "pt BR", "English SDH"]) == ["pt", "en"]
 
         # ---- stale removal: drop a title from the JW catalogue, re-sync ----

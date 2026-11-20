@@ -429,6 +429,7 @@ describe("app core", () => {
     expect(["cs", "cze", "ces", "cs-CZ", "Czech", "Čeština", "Czech (Forced)"].map(lang)).toEqual(Array(7).fill("cs"));
     expect(langs(["eng", "English", "en-US", "und", "Unknown", "nob", "nb", "Brazilian Portuguese", "pt-BR"])).toEqual(["en", "no", "pt"]);
     // "original" and audio description are no languages; a short word of a phrase is no language code
+    expect(langs(["arg", "asm", "hat", "ton", "kan", "myn"])).toEqual(["an", "as", "ht", "to", "kn", "myn"]);
     expect(langs(["qaa", "qad", "org", "Original", "to be added", "as original", "pt BR", "English SDH"])).toEqual(["pt", "en"]);
   });
 
