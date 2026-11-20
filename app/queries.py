@@ -8,7 +8,7 @@ from typing import Any
 from . import settings as settings_mod
 from .db import db
 from .links import server_link
-from .quality import QUALITY_ORDER, best_quality, merge_tags, norm
+from .quality import QUALITY_ORDER, best_quality, merge_tags, norm, provider_name
 
 RATING_ORDER = ["csfd", "imdb", "tmdb", "tvmaze", "rottentomatoes", "rottentomatoes_audience", "metacritic",
                 "metacritic_user", "letterboxd", "trakt", "mdblist"]
@@ -98,7 +98,7 @@ async def hydrate(title_ids: list[int], link_ctx: dict | None = None) -> list[di
         groups = where.setdefault(r["title_id"], {})
         key = (r["provider"], r["monetization"])
         offer = {
-            "provider": r["provider"], "provider_name": r["provider_name"], "kind": r["kind"],
+            "provider": r["provider"], "provider_name": provider_name(r["provider_name"]), "kind": r["kind"],
             "monetization": r["monetization"], "quality": r["quality"], "video": _j(r["video"]),
             "audio": _j(r["audio"]), "audio_langs": _j(r["audio_langs"]), "subtitle_langs": _j(r["subtitle_langs"]),
             "url": r["url"], "expires_on": r["expires_on"], "added_at": r["added_at"],
@@ -258,6 +258,7 @@ async def providers() -> list[dict]:
     out = []
     for r in rows:
         d = {k: r[k] for k in ("provider", "name", "kind", "titles")}
+        d["name"] = provider_name(d["name"])
         d["icon"] = (f"/api/poster/{r['source'].split(':', 1)[1]}?path=%2Fweb%2Ffavicon.ico" if r["kind"] == "library"
                      else icons.get(r["provider"]))
         out.append(d)

@@ -175,7 +175,7 @@ def main():
         assert jwsrc._OFFER_DATES.pop("o1") == "2026-11-02T10:00:00"
         # a service under its own name, not JustWatch's spelling
         from app.quality import provider_name
-        assert provider_name("Prima plus") == "Prima+" and provider_name("Netflix") == "Netflix"
+        assert provider_name("Prima Plus") == provider_name("Prima plus") == "Prima+" and provider_name("Netflix") == "Netflix"
         # the ČSFD id of an Emby plugin, whatever the plugin calls it and however it writes it
         from app.sources.emby import _ids as emby_ids
         for key, val in (("ČSFD", "1580037"), ("Csfd", "1580037-odyssea"), ("csfd.cz", "https://www.csfd.cz/film/1580037-odyssea/")):
@@ -503,6 +503,13 @@ def main():
         mock_servers.MOVIE["ImageTags"] = {"Primary": "abc"}
         client.post(f"/api/titles/{matrix}/refresh")
         assert ("oneplay",) in sql(f"SELECT provider FROM availability WHERE title_id={matrix}")
+        # a service stored under JustWatch's spelling shows under its own name
+        client.portal.call(lambda: st_mod.upsert_offer(matrix, st_mod.Offer(source="justwatch", provider="primaplus",
+            provider_name="Prima Plus", kind="stream", monetization="flatrate"), time.time()))
+        names = {p["name"] for p in client.get("/api/providers").json()["items"]}
+        assert "Prima+" in names and "Prima Plus" not in names, names
+        sql_exec = client.portal.call(lambda: __import__("app.db", fromlist=["db"]).db.execute(
+            "DELETE FROM availability WHERE provider='primaplus'"))
         odyssea = sql("SELECT title_id FROM title_ids WHERE kind='imdb' AND value='tt33764258'")[0][0]
         CATALOG.append(jw_node(7, 2026, title="Odyssea", imdb="tt33764258"))
         mock_servers.EMBY_GONE.add("m4")

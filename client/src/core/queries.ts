@@ -1,6 +1,6 @@
 // Read side: catalogue browsing, facets, title hydration (port of app/queries.py).
 import { env } from "./env";
-import { QUALITY_ORDER, bestQuality, mergeTags, norm } from "./quality";
+import { QUALITY_ORDER, bestQuality, mergeTags, norm, providerName } from "./quality";
 import * as settingsMod from "./settings";
 
 /** Ratings stay stored when their source is switched off, they are only hidden (same rule as the server). */
@@ -79,7 +79,7 @@ export async function hydrate(titleIds: number[]): Promise<any[]> {
     const groups = where.get(r.title_id) || where.set(r.title_id, new Map()).get(r.title_id)!;
     const key = `${r.provider}|${r.monetization}`;
     const offer = {
-      provider: r.provider, provider_name: r.provider_name, kind: r.kind, monetization: r.monetization,
+      provider: r.provider, provider_name: providerName(r.provider_name), kind: r.kind, monetization: r.monetization,
       quality: r.quality, video: j(r.video), audio: j(r.audio), audio_langs: j(r.audio_langs),
       subtitle_langs: j(r.subtitle_langs), url: r.url, expires_on: r.expires_on, added_at: r.added_at,
       sources: [r.source], extra: JSON.parse(r.extra || "{}"),
@@ -186,7 +186,7 @@ export async function providers() {
   const icons = await env.db.kvGet<Record<string, string>>("jw.provider_icons", {});
   const servers = new Map(((await settingsMod.load()).servers || []).map((x: any) => [x.id, x]));
   const pos = (r: any) => rank.get(r.provider) ?? (r.kind === "library" ? -1 : 999);
-  return rows.map((r) => ({ provider: r.provider, name: r.name, kind: r.kind, titles: r.titles,
+  return rows.map((r) => ({ provider: r.provider, name: providerName(r.name), kind: r.kind, titles: r.titles,
     icon: r.kind === "library" ? serverIcon(servers.get(String(r.source).split(":")[1])) : icons[r.provider] || null }))
     .sort((a, b) => pos(a) - pos(b));
 }

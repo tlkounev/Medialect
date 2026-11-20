@@ -55,7 +55,21 @@ function displayName(code, type) {
     return n && n.toLowerCase() !== code.toLowerCase() ? n : code;
   } catch (_) { return code; }
 }
-const langName = (code) => displayName(code, "language");
+// language groups of ISO 639-2 that the browsers do not name (Apocalypto is in a Mayan language: "myn")
+const LANG_GROUPS = {
+  myn: { cs: "mayské jazyky", sk: "mayské jazyky", de: "Maya-Sprachen", en: "Mayan languages" },
+  sgn: { cs: "znakové jazyky", sk: "posunkové jazyky", de: "Gebärdensprachen", en: "Sign languages" },
+  ber: { cs: "berberské jazyky", sk: "berberské jazyky", de: "Berbersprachen", en: "Berber languages" },
+  smi: { cs: "sámské jazyky", sk: "saamské jazyky", de: "Samische Sprachen", en: "Sami languages" },
+  nai: { cs: "jazyky severoamerických indiánů", sk: "jazyky severoamerických Indiánov", de: "Nordamerikanische Indianersprachen", en: "North American Indian languages" },
+  sai: { cs: "jazyky jihoamerických indiánů", sk: "jazyky juhoamerických Indiánov", de: "Südamerikanische Indianersprachen", en: "South American Indian languages" },
+  sla: { cs: "slovanské jazyky", sk: "slovanské jazyky", de: "Slawische Sprachen", en: "Slavic languages" },
+  art: { cs: "umělé jazyky", sk: "umelé jazyky", de: "Kunstsprachen", en: "Constructed languages" },
+};
+const langName = (code) => {
+  const g = LANG_GROUPS[(code || "").toLowerCase()];
+  return g ? (g[uiLang] || g[uiLang.split("-")[0]] || g.en) : displayName(code, "language");
+};
 const regionName = (code) => displayName(code, "region");
 
 /* Flags next to language and country names (emoji; Windows gets them from the bundled Twemoji font). */
@@ -79,7 +93,7 @@ const LANG_FLAG = {
   ug: "CN", uk: "UA", ur: "PK", uz: "UZ", ve: "ZA", vi: "VN", wa: "BE", wo: "SN", xh: "ZA", yo: "NG", za: "CN",
   zh: "CN", zu: "ZA", fil: "PH", ceb: "PH", haw: "US", chr: "US", sco: "GB", nds: "DE", gsw: "CH", ast: "ES",
   yue: "HK", cmn: "CN", hmn: "LA", kok: "IN", mai: "IN", mni: "IN", sat: "IN", doi: "IN", brx: "IN", bho: "IN",
-  tet: "TL", mos: "BF",
+  tet: "TL", mos: "BF", myn: "GT", ber: "MA", smi: "NO",
 };
 function flagEmoji(cc) {
   if (!/^[A-Za-z]{2}$/.test(cc || "")) return "";
