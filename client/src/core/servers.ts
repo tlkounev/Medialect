@@ -98,7 +98,11 @@ function embyIds(providerIds: Record<string, string> | null | undefined, ttype: 
   if (pid.imdb) out.imdb = pid.imdb;
   if (pid.tvdb) out.tvdb = pid.tvdb;
   if (pid.tmdb) out[ttype === "movie" ? "tmdb_movie" : "tmdb_tv"] = pid.tmdb;
-  for (const [k, v] of Object.entries(pid)) if (k.includes("csfd")) out.csfd = v.split("-")[0];   // ČSFD plugin
+  // ČSFD plugin provider id: "Csfd"/"ČSFD", value "1580037", "1580037-odyssea" or a link
+  for (const [k, v] of Object.entries(pid)) {
+    const digits = /\d+/.exec(v)?.[0];
+    if (k.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").includes("csfd") && digits) out.csfd = digits;
+  }
   return out;
 }
 

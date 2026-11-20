@@ -139,6 +139,11 @@ export class SyncManager {
     let first = true;
     const tick = async () => {
       try {
+        if (!(await env.db.kvGet("migrate.csfd_library_v1", false))) {
+          // the library's ČSFD ids are now final: read the libraries once so every title gets its own
+          await env.db.kvSet("migrate.csfd_library_v1", true);
+          for (const [id] of await this.jobs()) if (id.startsWith("server:")) this.trigger(id);
+        }
         const s = await settingsMod.load();
         const last = await env.db.kvGet<number>("sync.last_full", 0);
         if (now() - last >= Math.max(1, Number(s.sync_interval_hours)) * 3600 && !this.fullRunning) { first = false; await this.run(); }
