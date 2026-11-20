@@ -153,7 +153,7 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 .icon-btn:hover, .icon-btn.on { background: var(--panel); border-color: var(--line); }
 .flag-btn { font-size: 22px; line-height: 1; }
 .lang-menu { position: relative; }
-.lang-list { position: absolute; top: calc(100% + 6px); inset-inline-end: 0; z-index: 30; width: 230px; max-height: 70vh; overflow-y: auto;
+.lang-list { overscroll-behavior: contain; position: absolute; top: calc(100% + 6px); inset-inline-end: 0; z-index: 30; width: 230px; max-height: 70vh; overflow-y: auto;
   display: grid; padding: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
 .lang-list button { display: flex; gap: 10px; align-items: center; background: transparent; border-color: transparent; text-align: start; padding: 7px 8px; }
 .lang-list button:hover, .lang-list button.on { background: #1b2740; }
@@ -220,7 +220,7 @@ label { display: inline-flex; gap: 6px; align-items: center; }
 .ms-btn.on { border-color: var(--accent); color: #fff; background: #1b2740; }
 .ms-panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; min-width: 230px; max-width: 320px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
-.ms-list { max-height: 320px; overflow-y: auto; display: grid; }
+.ms-list { max-height: 320px; overflow-y: auto; display: grid; overscroll-behavior: contain; }
 .ms-list label { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
 .ms-list label:hover { background: var(--line); }
 .ms-list label > span { flex: 1; }

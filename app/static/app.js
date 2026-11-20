@@ -543,25 +543,22 @@ let DEFAULT_SORT = "added";
 const ms = {};                                   // id -> { items: [{value,label,count}], sel: Set }
 
 const FILTERS_OPEN_KEY = "medialect.filtersOpen";
-let filtersOpenedAt = 0;
+// the open filters stay pinned with the search field while the list scrolls; only the filter button folds them
 function showFilters(open, remember = true) {
   $("#filters").classList.toggle("hidden", !open);
   $("#fToggle").setAttribute("aria-expanded", String(open));
   $("#fToggle").classList.toggle("on", open);
-  filtersOpenedAt = scrollY;
   if (remember) try { localStorage.setItem(FILTERS_OPEN_KEY, open ? "1" : ""); } catch (_) { /* private mode */ }
 }
-// the open filters stay on top with the search field; scrolling the list folds them away
-// (only a scroll by the user: a list that gets shorter after a filter change scrolls the page too)
-let userScrollAt = 0;
-for (const ev of ["touchmove", "wheel"]) addEventListener(ev, () => { userScrollAt = Date.now(); }, { passive: true });
-addEventListener("keydown", (e) => { if (/^(Arrow(Up|Down)|Page(Up|Down)|Home|End| )$/.test(e.key)) userScrollAt = Date.now(); });
-addEventListener("scroll", () => {
-  if (Date.now() - userScrollAt > 700) { filtersOpenedAt = scrollY; return; }
-  if ($("#filters").classList.contains("hidden") || Math.abs(scrollY - filtersOpenedAt) < 60) return;
-  document.dispatchEvent(new Event("click"));        // closes an open dropdown
-  showFilters(false, false);
-}, { passive: true });
+// the mouse wheel over an open dropdown scrolls only its list: at the list's end nothing happens (the page does
+// not move under it)
+addEventListener("wheel", (e) => {
+  const panel = e.target.closest?.(".ms-panel, .lang-list");
+  if (!panel) return;
+  const list = e.target.closest(".ms-list, .lang-list");
+  const atEnd = !list || (e.deltaY > 0 ? list.scrollTop + list.clientHeight >= list.scrollHeight - 1 : list.scrollTop <= 0);
+  if (atEnd) e.preventDefault();
+}, { passive: false });
 $("#fToggle").addEventListener("click", () => showFilters($("#filters").classList.contains("hidden")));
 try { if (localStorage.getItem(FILTERS_OPEN_KEY)) showFilters(true); } catch (_) { /* private mode */ }
 function filterCount() {
