@@ -100,8 +100,14 @@ export function lang(code: string | null | undefined): string | null {
     .replace(/[([].*?[)\]]/g, " ").replace(/_/g, "-").replace(/^[\s\-.,]+|[\s\-.,]+$/g, "");
   if (!t) return null;
   if (LANG_NAMES[t]) return LANG_NAMES[t];
-  const c = t.split(/[-\s]/)[0];
-  if (["und", "zxx", "mis", "mul", "unk", "unknown", "original", "other", ""].includes(c)) return null;
+  const parts = t.split(/[-\s]+/);
+  const c = parts[0];
+  // not a language: undetermined, none, "original" (also as "org" and ČT's/DVB's "qaa"), audio description
+  // ("qad") and the other codes ISO 639-2 leaves for local use (qaa–qtz)
+  if (["und", "zxx", "mis", "mul", "unk", "unknown", "original", "orig", "org", "other", ""].includes(c) || /^q[a-t][a-z]$/.test(c)) return null;
+  // a code stands alone or with a region ("cs", "cs-CZ", "pt BR"); in a phrase ("to be added", "as original")
+  // a short word is no language code
+  if (parts.length > 2 || (parts.length === 2 && !/^([a-z]{2}|\d{3}|[a-z]{4})$/.test(parts[1]))) return LANG_NAMES[c] || null;
   if (/^[a-z]{2}$/.test(c)) return LANG2_ALIAS[c] || c;
   if (/^[a-z]{3}$/.test(c)) return LANG3[c] || LANG2_ALIAS[c] || c;
   return LANG_NAMES[c] || null;
