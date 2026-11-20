@@ -554,6 +554,15 @@ function showFilters(open, remember = true) {
 // the open filters stay on top with the search field; scrolling the list folds them away
 // (only a scroll by the user: a list that gets shorter after a filter change scrolls the page too)
 let userScrollAt = 0;
+// the mouse wheel over an open dropdown scrolls only its list: at the list's end nothing happens (the page does
+// not move, so the dropdown stays open)
+addEventListener("wheel", (e) => {
+  const panel = e.target.closest?.(".ms-panel, .lang-list");
+  if (!panel) return;
+  const list = e.target.closest(".ms-list, .lang-list");
+  const atEnd = !list || (e.deltaY > 0 ? list.scrollTop + list.clientHeight >= list.scrollHeight - 1 : list.scrollTop <= 0);
+  if (atEnd) e.preventDefault();
+}, { passive: false });
 for (const ev of ["touchmove", "wheel"]) addEventListener(ev, () => { userScrollAt = Date.now(); }, { passive: true });
 addEventListener("keydown", (e) => { if (/^(Arrow(Up|Down)|Page(Up|Down)|Home|End| )$/.test(e.key)) userScrollAt = Date.now(); });
 addEventListener("scroll", () => {
