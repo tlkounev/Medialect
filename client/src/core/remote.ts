@@ -30,6 +30,8 @@ async function saveRemote(r: Remote | null): Promise<void> {
   remote = r;
 }
 export const currentRemote = () => remote;
+/** "public" when the server's public address answered last, else "home". */
+export const lastVia = () => (remote?.public && good === clean(remote.public) && good !== clean(remote.url) ? "public" : "home");
 
 const clean = (u: string) => u.trim().replace(/\/+$/, "");
 
@@ -81,7 +83,9 @@ export async function forward(method: string, pathAndQuery: string, body: unknow
       let data: unknown = null;
       try { data = text ? JSON.parse(text) : null; } catch { data = { detail: text.slice(0, 200) }; }
       if (r.ok) data = absolutize(data, base, r0.session);
-      return new Response(JSON.stringify(data), { status: r.status, headers: { "Content-Type": "application/json" } });
+      // which address answered: the home one the user gave, or the server's public one
+      const via = r0.public && base === clean(r0.public) && base !== clean(r0.url) ? "public" : "home";
+      return new Response(JSON.stringify(data), { status: r.status, headers: { "Content-Type": "application/json", "X-Medialect-Via": via } });
     } catch (e) { lastErr = e; }
   }
   const msg = `Server Medialect nedostupný (${(lastErr as Error)?.message || lastErr}).`;

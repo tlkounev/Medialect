@@ -16,6 +16,8 @@
   <header>
     <!-- the logo leads back to the catalogue; language and settings are icons -->
     <strong class="logo" id="home" role="button" tabindex="0"><img src="/static/icon.svg" alt="" class="logo-img">Medialect <a id="appVersion" class="version" target="_blank" rel="noopener"></a></strong>
+    <!-- the app: on its own (a device) or showing a Medialect server (a server, green = answering, red = not) -->
+    <span id="connIcon" class="conn-icon hidden" role="img"></span>
     <button id="syncBadge" class="sync-badge hidden" data-i18n-title="sync.badgeTitle"></button>
     <div class="lang-menu">
       <button type="button" id="langBtn" class="icon-btn flag-btn" aria-haspopup="true" aria-expanded="false" data-i18n-title="lang.choose" data-i18n-aria="lang.choose"></button>

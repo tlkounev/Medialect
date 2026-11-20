@@ -254,6 +254,13 @@ body:not(.local).viewer #openSettings, .viewer #syncBadge { display: none !impor
 .local.viewer .subnav [data-sub="sync"] { display: none !important; }
 /* ... and of the settings only the connection to the server */
 .local.viewer #sub-settings > :not(.conn-box) { display: none !important; }
+/* right after the name and version: the name stops growing there, the icon takes the free space after itself */
+.logo:has(+ #connIcon:not(.hidden)) { flex: 0 1 auto; }
+#connIcon { position: relative; display: inline-flex; color: var(--muted); cursor: pointer; margin-inline: 10px auto; }
+#connIcon svg { width: 20px; height: 20px; }
+#connIcon .dot { position: absolute; right: -3px; bottom: -1px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--bg); }
+#connIcon.ok .dot { background: #3fb950; }
+#connIcon.off .dot { background: #f85149; }
 .conn-form { display: grid; gap: 10px; max-width: 520px; }
 .wiz-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 8px 0 12px; }
 .wiz-modes button { display: grid; gap: 4px; text-align: start; padding: 14px; height: auto; }
