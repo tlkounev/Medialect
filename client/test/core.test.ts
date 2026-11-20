@@ -486,6 +486,7 @@ describe("app core", () => {
     expect(lib.icon).toBe("https://emby.example/web/favicon.ico");                // the server's own logo
     expect(lib.url).toBe("https://emby.example/web/index.html#!/item?id=m1&serverId=srv1");
     expect(m.ids.csfd).toBe("9499");
+    expect(m.ids.csfd_lib).toBe("9499");                                          // the library's ČSFD id is final
     expect(m.poster).toBe("https://emby.example/Items/m1/Images/Primary?maxHeight=360&tag=t");
     const z = (await api("GET", "/api/catalog?q=zradci")).items[0];
     expect(z.where[0].quality).toBe("FHD");

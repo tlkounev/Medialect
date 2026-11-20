@@ -173,6 +173,10 @@ def main():
         assert "dateCreated" in req["query"]
         jwsrc._collect_dates({"data": {"x": [{"__typename": "Offer", "id": "o1", "dateCreated": "2026-11-02T10:00:00Z"}]}})
         assert jwsrc._OFFER_DATES.pop("o1") == "2026-11-02T10:00:00"
+        # the ČSFD id of an Emby plugin, whatever the plugin calls it and however it writes it
+        from app.sources.emby import _ids as emby_ids
+        for key, val in (("ČSFD", "1580037"), ("Csfd", "1580037-odyssea"), ("csfd.cz", "https://www.csfd.cz/film/1580037-odyssea/")):
+            assert emby_ids({key: val}, "movie")["csfd"] == "1580037", (key, val)
         # two films of the same name and year: a library film and a catalogue film with other IMDb ids stay apart;
         # a catalogue entry that was joined to the library film earlier leaves it (with the ratings it brought)
         from app import store as st_mod
@@ -448,10 +452,14 @@ def main():
         assert sql(f"SELECT value FROM title_ids WHERE title_id={twin} AND kind='csfd'") == [("8002",)]
         assert sql(f"SELECT display FROM ratings WHERE title_id={twin} AND source='csfd'") == [("77 %",)]
         assert "8001|tt8000002" in json.loads(sql("SELECT value FROM kv WHERE key='csfd.rejected'")[0][0])
-        # the library sending the wrong one again does not replace it
+        # the user's library (an Emby ČSFD plugin) names the page: that one is final, even one the search had
+        # rejected; the ratings take exactly it (no search, no IMDb check)
         client.portal.call(lambda: st_mod.upsert_title(st_mod.TitleInfo("movie", "Dvojník", year=2026, library=True,
                                                        ids={"imdb": "tt8000002", "csfd": "8001"}, authoritative=("csfd",))))
-        assert sql(f"SELECT value FROM title_ids WHERE title_id={twin} AND kind='csfd'") == [("8002",)]
+        assert sql(f"SELECT value FROM title_ids WHERE title_id={twin} AND kind='csfd'") == [("8001",)]
+        r = client.post(f"/api/titles/{twin}/refresh")
+        assert {x["source"]: x["display"] for x in r.json()["ratings"]}.get("csfd") == "33 %", r.json()["ratings"]
+        assert sql(f"SELECT value FROM title_ids WHERE title_id={twin} AND kind='csfd'") == [("8001",)]
         # refresh one title (the button on the title): ČSFD at once; a ČSFD page without any IMDb link loses to a
         # candidate whose page has the title's own IMDb id
         async def trio():
@@ -512,6 +520,9 @@ def main():
         assert stored["ratings"]["tmdb_api_key"] == "tmdbkey"
         assert client.get("/api/settings").json()["ratings"]["omdb_api_key"] == S.MASK
 
+        # Matrix: the Emby plugin's ČSFD id is kept as the library's (a second copy without it changes nothing)
+        mx = sql("SELECT title_id FROM title_ids WHERE kind='imdb' AND value='tt0133093'")[0][0]
+        assert sql(f"SELECT value FROM title_ids WHERE title_id={mx} AND kind='csfd_lib'") == [("9499",)]
         # Czech title without ids (Emby) found by search with/without diacritics, ČSFD found by search
         for q in ("pelisky", "Pelíšky"):
             items = client.get("/api/search", params={"q": q}).json()["items"]

@@ -222,6 +222,14 @@ async def csfd_rate_row(c, row) -> None:
     The IMDb id on the ČSFD page decides between films of one name and year: a page with another film's
     IMDb id is never taken (and remembered as wrong); a page without any IMDb link is taken only if no
     candidate's page has the title's own IMDb id. At most 3 film pages per title."""
+    if row["lib_csfd"]:
+        # the user's library (an Emby ČSFD plugin) named the page: exactly that one, no search, no check
+        value, votes, url, *_ = await csfd_rating(c, row["lib_csfd"])
+        if row["csfd_id"] != row["lib_csfd"]:
+            await db.execute("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", (row["id"],))
+            await store.add_title_id(row["id"], "csfd", row["lib_csfd"])
+        await store.set_rating(row["id"], "csfd", value, f"{value} %" if value is not None else None, votes, url)
+        return
     have_imdb = row["imdb_id"]
     cands = [(row["csfd_id"], False, True)] if row["csfd_id"] else []
     no_link: list[tuple[str, bool]] = []
@@ -301,6 +309,7 @@ async def csfd_refresh_title(title_id: int) -> str | None:
     rows = await db.fetchall(
         """SELECT t.id, t.type, t.title, t.original_title, t.year,
                   (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id,
+                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd_lib') AS lib_csfd,
                   (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='imdb') AS imdb_id
            FROM titles t WHERE t.id=?""", (title_id,))
     if not rows:
@@ -351,6 +360,7 @@ async def _csfd_queue(refresh: float) -> list:
     return await db.fetchall(
         """SELECT t.id, t.type, t.title, t.original_title, t.year,
                   (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id,
+                  (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd_lib') AS lib_csfd,
                   (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='imdb') AS imdb_id
            FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
            WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id)

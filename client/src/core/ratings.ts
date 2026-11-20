@@ -308,6 +308,16 @@ async function csfdRating(cid: string): Promise<[number | null, number | null, s
  *  page has the title's own IMDb id. At most 3 film pages per title. */
 export async function csfdRateRow(row: any): Promise<void> {
   type Hit = { cid: string; check: boolean; stored: boolean; value: number | null; votes: number | null; url: string; imdb: string | null };
+  if (row.lib_csfd) {
+    // the user's library (an Emby ČSFD plugin) named the page: exactly that one, no search, no check
+    const [value, votes, url] = await csfdRating(row.lib_csfd);
+    if (row.csfd_id !== row.lib_csfd) {
+      await env.db.run("DELETE FROM title_ids WHERE title_id=? AND kind='csfd'", [row.id]);
+      await store.addTitleId(row.id, "csfd", row.lib_csfd);
+    }
+    await store.setRating(row.id, "csfd", value, value !== null ? `${value} %` : null, votes, url);
+    return;
+  }
   const haveImdb: string | null = row.imdb_id || null;
   const cands: { cid: string; check: boolean; stored: boolean }[] = row.csfd_id ? [{ cid: row.csfd_id, check: false, stored: true }] : [];
   const noLink: { cid: string; stored: boolean }[] = [];
@@ -377,6 +387,7 @@ export async function csfdRefreshTitle(titleId: number): Promise<string | null> 
   if (!s.ratings.csfd) return null;
   const row = await env.db.get(`SELECT t.id, t.type, t.title, t.original_title, t.year,
       (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id,
+      (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd_lib') AS lib_csfd,
       (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='imdb') AS imdb_id
     FROM titles t WHERE t.id=?`, [titleId]);
   if (!row) return null;
@@ -413,6 +424,7 @@ export async function csfdQueue(refresh: number): Promise<any[]> {
   const focus = JSON.stringify((await env.db.kvGet<any>(FOCUS_KEY, {}))?.ids || []);
   return env.db.all(`SELECT t.id, t.type, t.title, t.original_title, t.year,
       (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd') AS csfd_id,
+      (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='csfd_lib') AS lib_csfd,
       (SELECT value FROM title_ids i WHERE i.title_id=t.id AND i.kind='imdb') AS imdb_id
     FROM titles t LEFT JOIN ratings r ON r.title_id=t.id AND r.source='csfd'
     WHERE EXISTS (SELECT 1 FROM availability a WHERE a.title_id=t.id) AND (r.updated_at IS NULL OR r.updated_at < ?)

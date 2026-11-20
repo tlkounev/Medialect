@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from collections import defaultdict
 from urllib.parse import quote
 
@@ -29,9 +31,11 @@ def _ids(provider_ids: dict | None, ttype: str) -> dict[str, str]:
     out = {"imdb": pid.get("imdb"), "tvdb": pid.get("tvdb")}
     if pid.get("tmdb"):
         out["tmdb_movie" if ttype == "movie" else "tmdb_tv"] = pid["tmdb"]
-    for k, v in pid.items():  # e.g. ČSFD plugin provider id
-        if "csfd" in k:
-            out["csfd"] = str(v).split("-")[0]
+    for k, v in pid.items():  # ČSFD plugin provider id: "Csfd"/"ČSFD", value "1580037", "1580037-odyssea" or a link
+        if "csfd" in unicodedata.normalize("NFKD", k).encode("ascii", "ignore").decode():
+            m = re.search(r"\d+", str(v))
+            if m:
+                out["csfd"] = m.group(0)
     return out
 
 

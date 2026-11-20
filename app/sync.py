@@ -151,6 +151,15 @@ class SyncManager:
 
     async def _loop(self) -> None:
         await asyncio.sleep(10)
+        try:
+            if not await db.kv_get("migrate.csfd_library_v1"):
+                # the library's ČSFD ids are now final: read the libraries once so every title gets its own
+                await db.kv_set("migrate.csfd_library_v1", True)
+                for job_id, _label, _fn in await self.jobs():
+                    if job_id.startswith("server:"):
+                        self.trigger(job_id)
+        except Exception:  # noqa: BLE001
+            log.error("scheduler: %s", traceback.format_exc())
         first = True    # right after start, the jobs the previous sync left unfinished continue on their own
         while True:
             try:
